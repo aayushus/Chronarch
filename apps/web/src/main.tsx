@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 
+import "./theme.css";
 import { AuthProvider, useAuth } from "./api/auth";
 import LoginPage from "./pages/LoginPage";
 import CalendarPage from "./pages/CalendarPage";

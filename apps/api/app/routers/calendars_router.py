@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chronarch_core import ai_tools
+from chronarch_core.models.account import Account
 from chronarch_core.models.enums import ActorType, UserRole
 from chronarch_core.models.user import User
 
@@ -24,6 +25,8 @@ class CalendarOut(BaseModel):
     writable: bool
     blocks_availability: bool
     kind: str
+    account_id: str
+    account_label: str
 
     model_config = {"from_attributes": True}
 
@@ -35,11 +38,20 @@ async def list_calendars(
 ):
     ctx = build_auth_context(user, actor_type_for(user))
     calendars = await ai_tools.list_calendars(session, ctx)
+
+    account_ids = {c.account_id for c in calendars}
+    accounts = {}
+    for account_id in account_ids:
+        account = await session.get(Account, account_id)
+        if account is not None:
+            accounts[account_id] = account
+
     return [
         CalendarOut(
             id=c.id, name=c.name, color=c.color, visible=c.visible,
             writable=c.provider_writable, blocks_availability=c.blocks_availability,
-            kind=c.kind.value,
+            kind=c.kind.value, account_id=c.account_id,
+            account_label=accounts[c.account_id].provider_account_email if c.account_id in accounts else "Unknown",
         )
         for c in calendars
     ]

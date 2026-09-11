@@ -24,6 +24,10 @@ class EventOut(BaseModel):
     end: datetime
     all_day: bool
     location: str | None = None
+    description: str | None = None
+    organizer: dict | None = None
+    attendees: list = []
+    busy_status: str = "busy"
 
     model_config = {"from_attributes": True}
 

@@ -22,16 +22,26 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ maxWidth: 360, margin: "10vh auto", fontFamily: "system-ui, sans-serif" }}>
-      <h1 style={{ fontSize: 22, marginBottom: 24 }}>Chronarch</h1>
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        background: "var(--bg-app)",
+      }}
+    >
+      <img src="/logo.svg" alt="Chronarch" width={56} height={56} style={{ borderRadius: 14, marginBottom: 16 }} />
+      <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 28, color: "var(--text-primary)" }}>Chronarch</h1>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 10, width: 300 }}>
         <input
           type="email"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          style={{ padding: 8, fontSize: 14 }}
+          style={inputStyle}
         />
         <input
           type="password"
@@ -39,13 +49,35 @@ export default function LoginPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          style={{ padding: 8, fontSize: 14 }}
+          style={inputStyle}
         />
-        {error && <div style={{ color: "crimson", fontSize: 13 }}>{error}</div>}
-        <button type="submit" style={{ padding: 10, fontSize: 14, cursor: "pointer" }}>
+        {error && <div style={{ color: "var(--danger)", fontSize: 12 }}>{error}</div>}
+        <button type="submit" style={btnStyle}>
           Sign in
         </button>
       </form>
     </div>
   );
 }
+
+const inputStyle: React.CSSProperties = {
+  padding: "10px 12px",
+  fontSize: 14,
+  background: "var(--bg-raised)",
+  border: "1px solid var(--border)",
+  borderRadius: 6,
+  color: "var(--text-primary)",
+  colorScheme: "dark",
+};
+
+const btnStyle: React.CSSProperties = {
+  padding: 10,
+  fontSize: 14,
+  fontWeight: 600,
+  cursor: "pointer",
+  background: "var(--accent)",
+  border: "none",
+  borderRadius: 6,
+  color: "#fff",
+  marginTop: 6,
+};

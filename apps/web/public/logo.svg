@@ -1,0 +1,23 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="chronarch-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5AC8FA"/>
+      <stop offset="100%" stop-color="#0A84FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="#111114"/>
+  <!-- Arch: the "Arch" in Chronarch -->
+  <path
+    d="M 76 190 L 76 128 A 52 52 0 0 1 180 128 L 180 190"
+    fill="none"
+    stroke="url(#chronarch-grad)"
+    stroke-width="16"
+    stroke-linecap="round"
+  />
+  <!-- Base line -->
+  <line x1="64" y1="190" x2="192" y2="190" stroke="url(#chronarch-grad)" stroke-width="16" stroke-linecap="round"/>
+  <!-- Clock hand: the "Chron" in Chronarch, pivoting from the arch's center -->
+  <circle cx="128" cy="140" r="7" fill="#F5F5F7"/>
+  <line x1="128" y1="140" x2="128" y2="110" stroke="#F5F5F7" stroke-width="8" stroke-linecap="round"/>
+  <line x1="128" y1="140" x2="148" y2="140" stroke="#F5F5F7" stroke-width="8" stroke-linecap="round"/>
+</svg>

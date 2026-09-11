@@ -8,6 +8,14 @@ export interface CalendarSummary {
   writable: boolean;
   blocks_availability: boolean;
   kind: string;
+  account_id: string;
+  account_label: string;
+}
+
+export interface Attendee {
+  email: string;
+  name?: string;
+  response_status?: "accepted" | "declined" | "tentative" | "needs_action" | "organizer";
 }
 
 export interface EventSummary {
@@ -18,6 +26,10 @@ export interface EventSummary {
   end: string;
   all_day: boolean;
   location: string | null;
+  description?: string | null;
+  organizer?: { name?: string; email?: string } | null;
+  attendees: Attendee[];
+  busy_status: string;
 }
 
 export function listCalendars(): Promise<CalendarSummary[]> {
