@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chronarch_core import ai_tools
@@ -10,7 +10,12 @@ from chronarch_core.models.user import User
 
 from ..auth import build_auth_context, get_current_user
 from ..deps import get_db_session
-from ..permission_helpers import get_delegation_grant, is_calendar_owner
+from ..permission_helpers import (
+    get_delegation_grant,
+    get_delegation_grants,
+    get_owned_calendar_ids,
+    is_calendar_owner,
+)
 from .calendars_router import actor_type_for
 
 router = APIRouter(prefix="/api/v1/events", tags=["events"])
@@ -40,11 +45,38 @@ class EventCreate(BaseModel):
     timezone: str = "UTC"
     description: str | None = None
     location: str | None = None
+    all_day: bool = False
+
+    @model_validator(mode="after")
+    def _end_after_start(self):
+        if self.end <= self.start:
+            raise ValueError("event end must be after start")
+        return self
 
 
 class EventMove(BaseModel):
     start: datetime
     end: datetime
+    # Lane conversions (timed <-> all-day) ride along with the move so a
+    # drag into/out of the all-day lane is one atomic operation.
+    all_day: bool | None = None
+
+    @model_validator(mode="after")
+    def _end_after_start(self):
+        if self.end <= self.start:
+            raise ValueError("event end must be after start")
+        return self
+
+
+class ConflictOut(BaseModel):
+    event_id: str
+    calendar_id: str
+    calendar_name: str
+    title: str
+    start: datetime
+    end: datetime
+    all_day: bool = False
+    redacted: bool = False
 
 
 async def _resolve_owner_and_grant(session: AsyncSession, user: User, calendar_id: str):
@@ -75,6 +107,38 @@ async def list_events(
     return events
 
 
+@router.get("/conflicts", response_model=list[ConflictOut])
+async def check_conflicts(
+    window_start: datetime,
+    window_end: datetime,
+    exclude_event_id: str | None = None,
+    calendar_ids: list[str] | None = None,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Pre-commit conflict check for the UI warning flow (BRD §25): which
+    blocking events overlap the proposed window. Entries the viewer may not
+    title-see come back redacted (title "Busy") but still warn. Pass the
+    moved event's id as exclude_event_id so a drag doesn't conflict with
+    itself."""
+    ctx = build_auth_context(user, actor_type_for(user))
+    owner_ids = await get_owned_calendar_ids(session, user)
+    grants = (
+        await get_delegation_grants(session, user.id)
+        if user.role == UserRole.ASSISTANT
+        else None
+    )
+    try:
+        return await ai_tools.get_conflicts(
+            session, ctx,
+            window_start=window_start, window_end=window_end,
+            exclude_event_id=exclude_event_id, calendar_ids=calendar_ids,
+            owner_calendar_ids=owner_ids, grants_by_calendar=grants,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+
+
 @router.post("", response_model=EventOut, status_code=status.HTTP_201_CREATED)
 async def create_event(
     body: EventCreate,
@@ -87,10 +151,13 @@ async def create_event(
         event = await ai_tools.create_event(
             session, ctx, calendar_id=body.calendar_id, title=body.title, start=body.start, end=body.end,
             timezone=body.timezone, description=body.description, location=body.location,
+            all_day=body.all_day,
             is_owner=is_owner, delegation_grant=grant,
         )
     except ai_tools.PermissionDenied as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc))
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
     return event
 
 
@@ -111,10 +178,13 @@ async def move_event(
     try:
         event = await ai_tools.move_event(
             session, ctx, event_id=event_id, new_start=body.start, new_end=body.end,
+            new_all_day=body.all_day,
             is_owner=is_owner, delegation_grant=grant,
         )
     except ai_tools.PermissionDenied as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc))
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
     return event
 
 

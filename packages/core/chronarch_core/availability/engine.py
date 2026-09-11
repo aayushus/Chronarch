@@ -136,16 +136,54 @@ def _slice_by_working_hours(
         return [FreeSlot(gap_start, gap_start + duration)]
 
     start_hour, end_hour = working_hours
-    results: list[FreeSlot] = []
-    day_cursor = gap_start
+    if not (0 <= start_hour < end_hour <= 24):
+        raise ValueError(
+            f"working_hours must satisfy 0 <= start < end <= 24, got {(start_hour, end_hour)}"
+        )
 
-    while day_cursor < gap_end:
-        day_start = day_cursor.replace(hour=start_hour, minute=0, second=0, microsecond=0)
-        day_end = day_cursor.replace(hour=end_hour, minute=0, second=0, microsecond=0)
-        slot_start = max(day_cursor, day_start)
+    tz = gap_start.tzinfo
+    # Naive datetimes carry no zone, so there is no DST to be unsafe about —
+    # keep the old wall-clock arithmetic for them.
+    if tz is None:
+        results: list[FreeSlot] = []
+        day_cursor = gap_start
+        while day_cursor < gap_end:
+            day_start = day_cursor.replace(hour=start_hour, minute=0, second=0, microsecond=0)
+            day_end = (
+                (day_cursor + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                if end_hour == 24
+                else day_cursor.replace(hour=end_hour, minute=0, second=0, microsecond=0)
+            )
+            slot_start = max(day_cursor, day_start)
+            slot_end = min(gap_end, day_end)
+            if slot_end - slot_start >= duration:
+                results.append(FreeSlot(slot_start, slot_start + duration))
+            day_cursor = (day_cursor + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        return results
+
+    # Timezone-aware path: iterate calendar dates (not 24h steps, which drift
+    # across 23/25-hour DST days) and build each day's window from wall-clock
+    # hours in the gap's own zone. Ambiguous wall times (fall-back overlap)
+    # resolve to the first occurrence (fold=0); nonexistent wall times
+    # (spring-forward gap) resolve to the pre-transition offset — either way
+    # the result stays within the real [gap_start, gap_end) bounds via the
+    # max()/min() clamp below.
+    from datetime import time as _time
+
+    results = []
+    day = gap_start.date()
+    last_day = gap_end.date()
+    one_day = timedelta(days=1)
+    while day <= last_day:
+        day_start = datetime.combine(day, _time(start_hour, 0), tzinfo=tz)
+        if end_hour == 24:
+            day_end = datetime.combine(day + one_day, _time(0, 0), tzinfo=tz)
+        else:
+            day_end = datetime.combine(day, _time(end_hour, 0), tzinfo=tz)
+        slot_start = max(gap_start, day_start)
         slot_end = min(gap_end, day_end)
         if slot_end - slot_start >= duration:
             results.append(FreeSlot(slot_start, slot_start + duration))
-        day_cursor = (day_cursor + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        day += one_day
 
     return results

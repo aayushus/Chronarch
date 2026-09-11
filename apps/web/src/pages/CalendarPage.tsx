@@ -1,9 +1,19 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
 
-import { CalendarSummary, EventSummary, createEvent, deleteEvent, listCalendars, moveEvent } from "../api/calendar";
+import {
+  CalendarSummary,
+  ConflictInfo,
+  EventSummary,
+  createEvent,
+  deleteEvent,
+  getConflicts,
+  listCalendars,
+  moveEvent,
+} from "../api/calendar";
 import { useAuth } from "../api/auth";
+import ConflictConfirmModal from "../components/ConflictConfirmModal";
 import EventDetailPanel from "../components/EventDetailPanel";
-import QuickCreateModal from "../components/QuickCreateModal";
+import QuickCreateModal, { CreateDraft } from "../components/QuickCreateModal";
 import Sidebar from "../components/Sidebar";
 import TopBar, { CalendarViewMode } from "../components/TopBar";
 import { addDays, startOfDay, startOfMonth, startOfWeek } from "../lib/dates";
@@ -23,7 +33,14 @@ export default function CalendarPage() {
   const [viewedDate, setViewedDate] = useState(new Date());
   const [hiddenCalendarIds, setHiddenCalendarIds] = useState<Set<string>>(new Set());
   const [selectedEvent, setSelectedEvent] = useState<EventSummary | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
+  const [createDraft, setCreateDraft] = useState<
+    { start: Date; end: Date; allDay: boolean; title?: string; calendarId?: string } | null
+  >(null);
+  const [pendingConflict, setPendingConflict] = useState<
+    | { kind: "create"; body: CreateDraft; conflicts: ConflictInfo[] }
+    | { kind: "move"; eventId: string; start: Date; end: Date; allDay?: boolean; conflicts: ConflictInfo[] }
+    | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [eventsLoading, setEventsLoading] = useState(false);
 
@@ -79,12 +96,28 @@ export default function CalendarPage() {
     else setViewedDate((d) => new Date(d.getFullYear() + delta, d.getMonth(), 1));
   }
 
-  async function handleCreate(body: { calendar_id: string; title: string; start: string; end: string }) {
+  // Grid click/drag (BRD §9.6-9.7): open the quick-create modal prefilled
+  // with the selected range instead of a blank form.
+  function handleCreateRange(start: Date, end: Date, allDay: boolean) {
+    setCreateDraft({ start, end, allDay });
+  }
+
+  async function commitCreate(body: CreateDraft) {
+    await createEvent(body);
+    setCreateDraft(null);
+    invalidateEventsCache();
+    setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
+  }
+
+  async function handleCreate(body: CreateDraft) {
+    // Conflict warning (BRD §25): check first, ask before committing.
     try {
-      await createEvent(body);
-      setShowCreate(false);
-      invalidateEventsCache();
-      setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
+      const conflicts = await getConflicts(new Date(body.start), new Date(body.end));
+      if (conflicts.length > 0) {
+        setPendingConflict({ kind: "create", body, conflicts });
+        return;
+      }
+      await commitCreate(body);
     } catch (e) {
       setError(String(e));
     }
@@ -101,22 +134,82 @@ export default function CalendarPage() {
     }
   }
 
-  async function handleMoveEvent(eventId: string, newStart: Date, newEnd: Date) {
-    // Optimistic: reflect the drag immediately, roll back if the server rejects it
-    // (permission denied, conflict) — the drag should feel instant either way.
+  async function commitMove(eventId: string, newStart: Date, newEnd: Date, allDay?: boolean) {
+    // Optimistic: reflect the drag immediately, roll back if the server
+    // rejects it (permission denied) — the drag should feel instant.
     const previous = events;
+    const prevSelected = selectedEvent;
     setEvents((prev) =>
-      prev.map((e) => (e.id === eventId ? { ...e, start: newStart.toISOString(), end: newEnd.toISOString() } : e))
+      prev.map((e) =>
+        e.id === eventId
+          ? {
+              ...e,
+              start: newStart.toISOString(),
+              end: newEnd.toISOString(),
+              all_day: allDay ?? e.all_day,
+            }
+          : e
+      )
     );
     if (selectedEvent?.id === eventId) {
-      setSelectedEvent((prev) => (prev ? { ...prev, start: newStart.toISOString(), end: newEnd.toISOString() } : prev));
+      setSelectedEvent((prev) =>
+        prev
+          ? { ...prev, start: newStart.toISOString(), end: newEnd.toISOString(), all_day: allDay ?? prev.all_day }
+          : prev
+      );
     }
     try {
-      await moveEvent(eventId, newStart.toISOString(), newEnd.toISOString());
+      await moveEvent(eventId, newStart.toISOString(), newEnd.toISOString(), allDay);
       invalidateEventsCache();
     } catch (e) {
       setEvents(previous);
+      setSelectedEvent(prevSelected);
       setError(String(e));
+    }
+  }
+
+  async function handleMoveEvent(eventId: string, newStart: Date, newEnd: Date, allDay?: boolean) {
+    // Conflict warning (BRD §25): check first (excluding the moved event so
+    // a drag doesn't conflict with itself), ask before committing.
+    try {
+      const conflicts = await getConflicts(newStart, newEnd, eventId);
+      if (conflicts.length > 0) {
+        setPendingConflict({ kind: "move", eventId, start: newStart, end: newEnd, allDay, conflicts });
+        return;
+      }
+      await commitMove(eventId, newStart, newEnd, allDay);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function confirmPending() {
+    const pending = pendingConflict;
+    setPendingConflict(null);
+    if (!pending) return;
+    try {
+      if (pending.kind === "create") {
+        await commitCreate(pending.body);
+      } else {
+        await commitMove(pending.eventId, pending.start, pending.end, pending.allDay);
+      }
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  function backFromPending() {
+    // Return to editing: for creates, reopen the modal with the draft kept.
+    const pending = pendingConflict;
+    setPendingConflict(null);
+    if (pending?.kind === "create") {
+      setCreateDraft({
+        start: new Date(pending.body.start),
+        end: new Date(pending.body.end),
+        allDay: pending.body.all_day,
+        title: pending.body.title,
+        calendarId: pending.body.calendar_id,
+      });
     }
   }
 
@@ -148,12 +241,17 @@ export default function CalendarPage() {
         case "m":
           setViewMode("month");
           break;
-        case "n":
+        case "n": {
           e.preventDefault();
-          setShowCreate(true);
+          // Blank quick-create at the viewed date, 9:00–9:30 like before.
+          const s = new Date(viewedDate);
+          s.setHours(9, 0, 0, 0);
+          setCreateDraft({ start: s, end: new Date(s.getTime() + 30 * 60000), allDay: false });
           break;
+        }
         case "escape":
-          setShowCreate(false);
+          setCreateDraft(null);
+          setPendingConflict(null);
           setSelectedEvent(null);
           break;
         case "arrowleft":
@@ -199,7 +297,11 @@ export default function CalendarPage() {
           onViewModeChange={setViewMode}
           onToday={() => setViewedDate(new Date())}
           onShift={shift}
-          onCreateEvent={() => setShowCreate(true)}
+          onCreateEvent={() => {
+            const s = new Date(viewedDate);
+            s.setHours(9, 0, 0, 0);
+            setCreateDraft({ start: s, end: new Date(s.getTime() + 30 * 60000), allDay: false });
+          }}
         />
 
         <div style={{ height: 2, background: eventsLoading ? "var(--accent)" : "transparent", transition: "background 0.15s" }} />
@@ -218,6 +320,7 @@ export default function CalendarPage() {
                 onSelectEvent={setSelectedEvent}
                 selectedEventId={selectedEvent?.id}
                 onMoveEvent={handleMoveEvent}
+                onCreateRange={handleCreateRange}
               />
             )}
             {viewMode === "week" && (
@@ -231,6 +334,7 @@ export default function CalendarPage() {
                   setViewMode("day");
                 }}
                 onMoveEvent={handleMoveEvent}
+                onCreateRange={handleCreateRange}
               />
             )}
             {(viewMode === "month" || viewMode === "year") && (
@@ -254,15 +358,36 @@ export default function CalendarPage() {
         calendar={selectedCalendar}
         onClose={() => setSelectedEvent(null)}
         onDelete={handleDelete}
-        canDelete={!!selectedCalendar?.writable}
+        canDelete={!!(selectedCalendar?.can_delete ?? selectedCalendar?.writable)}
       />
 
-      {showCreate && (
+      {createDraft && (
         <QuickCreateModal
+          key={`${createDraft.start.toISOString()}-${createDraft.end.toISOString()}-${createDraft.allDay}`}
           calendars={calendars}
-          defaultDate={viewedDate}
-          onClose={() => setShowCreate(false)}
+          initialStart={createDraft.start}
+          initialEnd={createDraft.end}
+          initialAllDay={createDraft.allDay}
+          initialTitle={createDraft.title}
+          initialCalendarId={createDraft.calendarId}
+          onClose={() => setCreateDraft(null)}
           onCreate={handleCreate}
+        />
+      )}
+
+      {pendingConflict && (
+        <ConflictConfirmModal
+          title={pendingConflict.kind === "create" ? "Overlaps existing events" : "Move overlaps existing events"}
+          summary={
+            pendingConflict.kind === "create"
+              ? `“${pendingConflict.body.title}” overlaps ${pendingConflict.conflicts.length} blocking event${pendingConflict.conflicts.length === 1 ? "" : "s"}.`
+              : `This move overlaps ${pendingConflict.conflicts.length} blocking event${pendingConflict.conflicts.length === 1 ? "" : "s"}.`
+          }
+          conflicts={pendingConflict.conflicts}
+          confirmLabel={pendingConflict.kind === "create" ? "Create anyway" : "Move anyway"}
+          onConfirm={confirmPending}
+          onBack={backFromPending}
+          onDiscard={() => setPendingConflict(null)}
         />
       )}
     </div>

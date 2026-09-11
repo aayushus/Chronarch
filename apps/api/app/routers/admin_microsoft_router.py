@@ -1,11 +1,4 @@
-"""Google account connect flow (BR-CAL-001, BRD §30 "Accounts").
-
-Flow: the Settings > Accounts page calls GET .../connect-url (authenticated
-like any other admin endpoint) to get a consent URL, then does a full-page
-redirect to it. Google eventually redirects the browser back to
-GET .../callback — a plain navigation with no Authorization header, so that
-endpoint authenticates via the signed `state` param instead (see
-app/oauth_state.py) rather than the usual get_current_user dependency.
+"""Microsoft 365 / Outlook account connect flow (BR-CAL-002, BRD §30 "Accounts").
 """
 
 import logging
@@ -16,23 +9,27 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from chronarch_core.connectors.google import build_consent_url, exchange_code, fetch_userinfo
+from chronarch_core.connectors.microsoft import (
+    build_consent_url,
+    exchange_code,
+    fetch_userinfo,
+)
 from chronarch_core.crypto import get_cipher
 from chronarch_core.models.account import Account
 from chronarch_core.models.enums import ProviderType
 from chronarch_core.models.user import User
-from chronarch_core.oauth import resolve_google_credentials
-from chronarch_core.sync import sync_google_account
+from chronarch_core.oauth import resolve_microsoft_credentials
+from chronarch_core.sync.microsoft_sync import sync_microsoft_account
 
 from ..admin_guard import require_admin
 from ..config import APP_BASE_URL
 from ..deps import get_db_session
 from ..oauth_state import sign_oauth_state, verify_oauth_state
 
-router = APIRouter(prefix="/api/v1/admin/accounts/google", tags=["admin"])
+router = APIRouter(prefix="/api/v1/admin/accounts/microsoft", tags=["admin"])
 logger = logging.getLogger(__name__)
 
-REDIRECT_URI = f"{APP_BASE_URL}/api/v1/admin/accounts/google/callback"
+REDIRECT_URI = f"{APP_BASE_URL}/api/v1/admin/accounts/microsoft/callback"
 
 
 class ConnectUrlOut(BaseModel):
@@ -45,8 +42,13 @@ async def get_connect_url(
     session: AsyncSession = Depends(get_db_session),
 ):
     try:
-        client_id, _client_secret = await resolve_google_credentials(session)
-        url = build_consent_url(REDIRECT_URI, state=sign_oauth_state(admin.id), client_id=client_id)
+        client_id, _client_secret, tenant_id = await resolve_microsoft_credentials(session)
+        url = build_consent_url(
+            REDIRECT_URI,
+            state=sign_oauth_state(admin.id),
+            client_id=client_id,
+            tenant_id=tenant_id,
+        )
     except RuntimeError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
     return ConnectUrlOut(url=url)
@@ -76,16 +78,25 @@ async def callback(
         return RedirectResponse(f"{settings_url}?accounts_error=unauthorized")
 
     try:
-        client_id, client_secret = await resolve_google_credentials(session)
-        tokens = await exchange_code(code, REDIRECT_URI, client_id=client_id, client_secret=client_secret)
+        client_id, client_secret, tenant_id = await resolve_microsoft_credentials(session)
+        tokens = await exchange_code(
+            code,
+            REDIRECT_URI,
+            client_id=client_id,
+            client_secret=client_secret,
+            tenant_id=tenant_id,
+        )
         userinfo = await fetch_userinfo(tokens["access_token"])
-        email = userinfo["email"]
+        email = userinfo.get("mail") or userinfo.get("userPrincipalName")
+        if not email:
+            raise ValueError("Microsoft account profile did not return an email or userPrincipalName")
 
         cipher = get_cipher()
         existing = (
             await session.execute(
                 select(Account).where(
-                    Account.provider == ProviderType.GOOGLE, Account.provider_account_email == email
+                    Account.provider == ProviderType.MICROSOFT,
+                    Account.provider_account_email == email,
                 )
             )
         ).scalar_one_or_none()
@@ -93,7 +104,7 @@ async def callback(
         if existing is None:
             account = Account(
                 owner_user_id=admin.id,
-                provider=ProviderType.GOOGLE,
+                provider=ProviderType.MICROSOFT,
                 provider_account_email=email,
                 provider_account_id=userinfo.get("id", email),
             )
@@ -103,18 +114,15 @@ async def callback(
 
         account.encrypted_access_token = cipher.encrypt(tokens["access_token"])
         if tokens.get("refresh_token"):
-            # Google only returns a refresh_token on the first consent (or
-            # with prompt=consent, which we always pass) — don't overwrite
-            # a previously stored one with nothing on a re-auth that omits it.
             account.encrypted_refresh_token = cipher.encrypt(tokens["refresh_token"])
         await session.flush()
 
-        stats = await sync_google_account(session, account)
+        stats = await sync_microsoft_account(session, account)
         await session.commit()
-        logger.info("Connected Google account %s: %s", email, stats)
-        return RedirectResponse(f"{settings_url}?accounts_connected=google")
+        logger.info("Connected Microsoft account %s: %s", email, stats)
+        return RedirectResponse(f"{settings_url}?accounts_connected=microsoft")
 
     except Exception:
-        logger.exception("Google OAuth callback failed")
+        logger.exception("Microsoft OAuth callback failed")
         await session.rollback()
         return RedirectResponse(f"{settings_url}?accounts_error=connect_failed")

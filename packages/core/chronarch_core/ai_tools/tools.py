@@ -12,7 +12,7 @@ other way to reach the database from here.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +32,41 @@ class PermissionDenied(Exception):
         self.reason = reason
 
 
+class _Probe:
+    """Lightweight engine input mirroring the UnifiedEvent fields
+    find_conflicts reads — lets us tz-align instants without mutating
+    (and dirtying) ORM rows."""
+
+    __slots__ = ("id", "calendar_id", "start", "end", "busy_status")
+
+    def __init__(self, id, calendar_id, start, end, busy_status):
+        self.id = id
+        self.calendar_id = calendar_id
+        self.start = start
+        self.end = end
+        self.busy_status = busy_status
+
+
+def _align_tz(dt: datetime, ref: datetime) -> datetime:
+    if (dt.tzinfo is None) == (ref.tzinfo is None):
+        return dt
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def _validate_window(start: datetime, end: datetime) -> None:
+    """Reject zero-length and inverted event windows.
+
+    Lives here (not just in REST pydantic models) so every caller — REST,
+    MCP, copilot, ICS import — gets the same guarantee. Raises ValueError,
+    which the REST layer maps to 422 and the MCP layer maps to an error
+    dict.
+    """
+    if end <= start:
+        raise ValueError(f"event end ({end.isoformat()}) must be after start ({start.isoformat()})")
+
+
 async def _get_calendar(session: AsyncSession, calendar_id: str) -> Calendar:
     calendar = await session.get(Calendar, calendar_id)
     if calendar is None:
@@ -40,8 +75,19 @@ async def _get_calendar(session: AsyncSession, calendar_id: str) -> Calendar:
 
 
 async def _readable_calendars(
-    session: AsyncSession, ctx: AuthContext, calendar_ids: list[str] | None
+    session: AsyncSession,
+    ctx: AuthContext,
+    calendar_ids: list[str] | None,
+    *,
+    owner_calendar_ids: set[str] | None = None,
+    grants_by_calendar: dict | None = None,
 ) -> list[Calendar]:
+    """Calendars the viewer may at least see availability for.
+
+    Ownership and EA delegation grants vary per calendar, so callers that
+    know them pass `owner_calendar_ids` / `grants_by_calendar`; both default
+    to "none", preserving the deny-by-default posture of older callers.
+    """
     stmt = select(Calendar)
     if calendar_ids:
         stmt = stmt.where(Calendar.id.in_(calendar_ids))
@@ -49,7 +95,11 @@ async def _readable_calendars(
 
     readable = []
     for cal in calendars:
-        decision = resolve_permission(ctx, cal, CalendarAction.VIEW_AVAILABILITY)
+        is_owner = bool(owner_calendar_ids and cal.id in owner_calendar_ids)
+        grant = grants_by_calendar.get(cal.id) if grants_by_calendar else None
+        decision = resolve_permission(
+            ctx, cal, CalendarAction.VIEW_AVAILABILITY, is_owner=is_owner, delegation_grant=grant
+        )
         if decision.allowed:
             readable.append(cal)
     return readable
@@ -151,6 +201,134 @@ async def find_free_slots(
     return [{"start": s.start, "end": s.end} for s in slots]
 
 
+async def get_conflicts(
+    session: AsyncSession,
+    ctx: AuthContext,
+    *,
+    window_start: datetime,
+    window_end: datetime,
+    exclude_event_id: str | None = None,
+    calendar_ids: list[str] | None = None,
+    owner_calendar_ids: set[str] | None = None,
+    grants_by_calendar: dict | None = None,
+) -> list[dict]:
+    """Conflict check for the UI warning flow (BRD §25): which blocking
+    events overlap [window_start, window_end).
+
+    Unlike get_availability (busy intervals only), this returns event
+    identity so the UI can list what you'd overlap. Privacy (BRD §15):
+    entries the viewer may not title-see come back redacted
+    (title "Busy", no description) but still warn — a hidden meeting still
+    blocks your time. `exclude_event_id` skips the event being moved so a
+    drag doesn't conflict with itself.
+
+    Ownership and EA grants are per-calendar: pass `owner_calendar_ids`
+    (calendars under accounts the user owns) and/or `grants_by_calendar`
+    (assistant's DelegationCalendarGrant per calendar id). Admins bypass via
+    ctx.is_admin inside the engine.
+    """
+    _validate_window(window_start, window_end)
+    calendars = await _readable_calendars(
+        session, ctx, calendar_ids,
+        owner_calendar_ids=owner_calendar_ids, grants_by_calendar=grants_by_calendar,
+    )
+    cal_by_id = {c.id: c for c in calendars}
+    blocking_ids = {c.id for c in calendars if c.blocks_availability}
+    if not blocking_ids:
+        return []
+
+    stmt = select(UnifiedEvent).where(
+        UnifiedEvent.calendar_id.in_(blocking_ids),
+        UnifiedEvent.start < window_end,
+        UnifiedEvent.end > window_start,
+    )
+    events = list((await session.execute(stmt)).scalars())
+    # SQLite drops tzinfo on read (prod Postgres timestamptz does not), so
+    # align event instants to the window's awareness before comparing.
+    # Stored instants are UTC; a naive side is assumed UTC.
+    probed = [
+        _Probe(e.id, e.calendar_id, _align_tz(e.start, window_start), _align_tz(e.end, window_start), e.busy_status)
+        for e in events
+    ]
+    hits = _find_conflicts(window_start, window_end, probed, blocking_ids, exclude_event_id=exclude_event_id)
+
+    out = []
+    for hit in hits:
+        event = next((e for e in events if e.id == hit.event_id), None)
+        if event is None:
+            continue
+        cal = cal_by_id[event.calendar_id]
+        is_owner = bool(owner_calendar_ids and cal.id in owner_calendar_ids)
+        grant = grants_by_calendar.get(cal.id) if grants_by_calendar else None
+        title_ok = resolve_permission(
+            ctx, cal, CalendarAction.VIEW_TITLE, event=event, is_owner=is_owner, delegation_grant=grant
+        ).allowed
+        out.append(
+            {
+                "event_id": event.id,
+                "calendar_id": event.calendar_id,
+                "calendar_name": cal.name,
+                "title": event.title if title_ok else "Busy",
+                "start": event.start,
+                "end": event.end,
+                "all_day": event.all_day,
+                "redacted": not title_ok,
+            }
+        )
+    return out
+
+
+async def _get_connector_for_calendar(session: AsyncSession, calendar: Calendar):
+    if not calendar.account_id:
+        return None, None
+    from ..crypto import get_cipher
+    from ..models.account import Account
+    from ..models.enums import ProviderType
+
+    account = await session.get(Account, calendar.account_id)
+    if not account:
+        return None, None
+
+    cipher = get_cipher()
+    access_token = cipher.decrypt(account.encrypted_access_token) if account.encrypted_access_token else None
+    refresh_token = cipher.decrypt(account.encrypted_refresh_token) if account.encrypted_refresh_token else None
+
+    if account.provider == ProviderType.GOOGLE:
+        from ..connectors.google import GoogleConnector
+        from ..oauth import resolve_google_credentials
+
+        client_id, client_secret = await resolve_google_credentials(session)
+        connector = GoogleConnector(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+        return connector, account
+    elif account.provider == ProviderType.MICROSOFT:
+        from ..connectors.microsoft import MicrosoftConnector
+        from ..oauth import resolve_microsoft_credentials
+
+        client_id, client_secret, tenant_id = await resolve_microsoft_credentials(session)
+        connector = MicrosoftConnector(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            client_id=client_id,
+            client_secret=client_secret,
+            tenant_id=tenant_id,
+        )
+        return connector, account
+
+    return None, None
+
+
+def _persist_refreshed_token(account, new_access_token: str) -> None:
+    from ..crypto import get_cipher
+
+    cipher = get_cipher()
+    account.encrypted_access_token = cipher.encrypt(new_access_token)
+
+
 async def create_event(
     session: AsyncSession,
     ctx: AuthContext,
@@ -163,9 +341,11 @@ async def create_event(
     description: str | None = None,
     location: str | None = None,
     attendees: list[dict] | None = None,
+    all_day: bool = False,
     is_owner: bool = False,
     delegation_grant=None,
 ) -> UnifiedEvent:
+    _validate_window(start, end)
     calendar = await _get_calendar(session, calendar_id)
     decision = resolve_permission(
         ctx, calendar, CalendarAction.CREATE, is_owner=is_owner, delegation_grant=delegation_grant
@@ -173,15 +353,44 @@ async def create_event(
     if not decision.allowed:
         raise PermissionDenied(CalendarAction.CREATE, decision.reason)
 
+    provider_event_id = ""
+    connector, account = await _get_connector_for_calendar(session, calendar)
+    if connector and calendar.provider_writable:
+        from ..connectors.base import RemoteEvent
+
+        remote_req = RemoteEvent(
+            provider_event_id="",
+            title=title,
+            description=description,
+            start=start,
+            end=end,
+            timezone=timezone,
+            all_day=all_day,
+            organizer=None,
+            attendees=attendees or [],
+            location=location,
+            conference=None,
+            recurrence=None,
+            visibility="standard",
+            busy_status="busy",
+            writable=True,
+            provider_updated_at=None,
+        )
+        created_remote = await connector.create_event(calendar.provider_calendar_id, remote_req)
+        provider_event_id = created_remote.provider_event_id
+        if account and connector.access_token:
+            _persist_refreshed_token(account, connector.access_token)
+
     event = UnifiedEvent(
         provider_account_id=calendar.account_id,
         calendar_id=calendar.id,
-        provider_event_id="",  # filled in once the connector confirms creation upstream
+        provider_event_id=provider_event_id,
         title=title,
         description=description,
         start=start,
         end=end,
         timezone=timezone,
+        all_day=all_day,
         location=location,
         attendees=attendees or [],
     )
@@ -206,9 +415,11 @@ async def move_event(
     event_id: str,
     new_start: datetime,
     new_end: datetime,
+    new_all_day: bool | None = None,
     is_owner: bool = False,
     delegation_grant=None,
 ) -> UnifiedEvent:
+    _validate_window(new_start, new_end)
     event = await session.get(UnifiedEvent, event_id)
     if event is None:
         raise ValueError(f"event {event_id} not found")
@@ -225,8 +436,27 @@ async def move_event(
     if not decision.allowed:
         raise PermissionDenied(CalendarAction.RESCHEDULE, decision.reason)
 
+    connector, account = await _get_connector_for_calendar(session, calendar)
+    if connector and event.provider_event_id and calendar.provider_writable:
+        target_all_day = new_all_day if new_all_day is not None else event.all_day
+        if target_all_day:
+            patch = {
+                "start": {"date": new_start.date().isoformat()},
+                "end": {"date": new_end.date().isoformat()},
+            }
+        else:
+            patch = {
+                "start": {"dateTime": new_start.isoformat(), "timeZone": event.timezone},
+                "end": {"dateTime": new_end.isoformat(), "timeZone": event.timezone},
+            }
+        await connector.update_event(calendar.provider_calendar_id, event.provider_event_id, patch)
+        if account and connector.access_token:
+            _persist_refreshed_token(account, connector.access_token)
+
     old_start, old_end = event.start, event.end
     event.start, event.end = new_start, new_end
+    if new_all_day is not None:
+        event.all_day = new_all_day
     await session.flush()
 
     await write_audit_entry(
@@ -240,6 +470,7 @@ async def move_event(
             "from_end": old_end.isoformat(),
             "to_start": new_start.isoformat(),
             "to_end": new_end.isoformat(),
+            **({"all_day": new_all_day} if new_all_day is not None else {}),
         },
     )
     return event
@@ -264,6 +495,12 @@ async def delete_event(
     if not decision.allowed:
         raise PermissionDenied(CalendarAction.DELETE, decision.reason)
 
+    connector, account = await _get_connector_for_calendar(session, calendar)
+    if connector and event.provider_event_id and calendar.provider_writable:
+        await connector.delete_event(calendar.provider_calendar_id, event.provider_event_id)
+        if account and connector.access_token:
+            _persist_refreshed_token(account, connector.access_token)
+
     await write_audit_entry(
         session,
         ctx=ctx,
@@ -274,3 +511,147 @@ async def delete_event(
     )
     await session.delete(event)
     await session.flush()
+
+
+async def add_attendee(
+    session: AsyncSession,
+    ctx: AuthContext,
+    *,
+    event_id: str,
+    email: str,
+    name: str | None = None,
+    is_owner: bool = False,
+    delegation_grant=None,
+) -> UnifiedEvent:
+    event = await session.get(UnifiedEvent, event_id)
+    if event is None:
+        raise ValueError(f"event {event_id} not found")
+    calendar = await _get_calendar(session, event.calendar_id)
+
+    decision = resolve_permission(
+        ctx,
+        calendar,
+        CalendarAction.MANAGE_ATTENDEES,
+        event=event,
+        is_owner=is_owner,
+        delegation_grant=delegation_grant,
+    )
+    if not decision.allowed:
+        raise PermissionDenied(CalendarAction.MANAGE_ATTENDEES, decision.reason)
+
+    current_attendees = list(event.attendees or [])
+    normalized = email.lower().strip()
+    if not any(a.get("email", "").lower() == normalized for a in current_attendees):
+        new_att: dict[str, str] = {"email": email}
+        if name:
+            new_att["name"] = name
+        current_attendees.append(new_att)
+        event.attendees = current_attendees
+
+    connector, account = await _get_connector_for_calendar(session, calendar)
+    if connector and event.provider_event_id and calendar.provider_writable:
+        await connector.add_attendee(calendar.provider_calendar_id, event.provider_event_id, email, name)
+        if account and connector.access_token:
+            _persist_refreshed_token(account, connector.access_token)
+
+    await session.flush()
+    await write_audit_entry(
+        session,
+        ctx=ctx,
+        action=AuditAction.ADD_ATTENDEE,
+        calendar_id=calendar.id,
+        event_id=event.id,
+        detail={"email": email, "name": name},
+    )
+    return event
+
+
+async def remove_attendee(
+    session: AsyncSession,
+    ctx: AuthContext,
+    *,
+    event_id: str,
+    email: str,
+    is_owner: bool = False,
+    delegation_grant=None,
+) -> UnifiedEvent:
+    event = await session.get(UnifiedEvent, event_id)
+    if event is None:
+        raise ValueError(f"event {event_id} not found")
+    calendar = await _get_calendar(session, event.calendar_id)
+
+    decision = resolve_permission(
+        ctx,
+        calendar,
+        CalendarAction.MANAGE_ATTENDEES,
+        event=event,
+        is_owner=is_owner,
+        delegation_grant=delegation_grant,
+    )
+    if not decision.allowed:
+        raise PermissionDenied(CalendarAction.MANAGE_ATTENDEES, decision.reason)
+
+    normalized = email.lower().strip()
+    current_attendees = [a for a in (event.attendees or []) if a.get("email", "").lower() != normalized]
+    event.attendees = current_attendees
+
+    connector, account = await _get_connector_for_calendar(session, calendar)
+    if connector and event.provider_event_id and calendar.provider_writable:
+        await connector.remove_attendee(calendar.provider_calendar_id, event.provider_event_id, email)
+        if account and connector.access_token:
+            _persist_refreshed_token(account, connector.access_token)
+
+    await session.flush()
+    await write_audit_entry(
+        session,
+        ctx=ctx,
+        action=AuditAction.REMOVE_ATTENDEE,
+        calendar_id=calendar.id,
+        event_id=event.id,
+        detail={"email": email},
+    )
+    return event
+
+
+async def respond_to_event(
+    session: AsyncSession,
+    ctx: AuthContext,
+    *,
+    event_id: str,
+    response_status: str,
+    is_owner: bool = False,
+    delegation_grant=None,
+) -> UnifiedEvent:
+    event = await session.get(UnifiedEvent, event_id)
+    if event is None:
+        raise ValueError(f"event {event_id} not found")
+    calendar = await _get_calendar(session, event.calendar_id)
+
+    decision = resolve_permission(
+        ctx,
+        calendar,
+        CalendarAction.RESPOND_TO_INVITATION,
+        event=event,
+        is_owner=is_owner,
+        delegation_grant=delegation_grant,
+    )
+    if not decision.allowed:
+        raise PermissionDenied(CalendarAction.RESPOND_TO_INVITATION, decision.reason)
+
+    connector, account = await _get_connector_for_calendar(session, calendar)
+    if connector and event.provider_event_id and calendar.provider_writable:
+        await connector.respond_to_event(calendar.provider_calendar_id, event.provider_event_id, response_status)
+        if account and connector.access_token:
+            _persist_refreshed_token(account, connector.access_token)
+
+    await session.flush()
+    await write_audit_entry(
+        session,
+        ctx=ctx,
+        action=AuditAction.RESPOND_TO_EVENT,
+        calendar_id=calendar.id,
+        event_id=event.id,
+        detail={"response_status": response_status},
+    )
+    return event
+

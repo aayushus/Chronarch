@@ -1,10 +1,5 @@
 """Backfill + calendar discovery for a newly connected (or reconciling)
-Google account.
-
-Called synchronously from the OAuth callback for the initial connect, and
-is what apps/worker's reconcile_account task will call for periodic
-reconciliation once that's wired up (BR-CAL sync, BRD §24) — kept here in
-chronarch_core so both call sites share one implementation.
+Microsoft 365 / Outlook account (BR-CAL-002).
 """
 
 from __future__ import annotations
@@ -14,14 +9,13 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..connectors.google import GoogleConnector
+from ..connectors.microsoft import MicrosoftConnector
 from ..crypto import get_cipher
 from ..models.account import Account
 from ..models.calendar import Calendar
 from ..models.enums import BusyStatus, CalendarKind, EventVisibility
 from ..models.event import UnifiedEvent
 
-# Matches the calendar-color palette in BRAND.md.
 DEFAULT_PALETTE = [
     "#0a84ff", "#bf5af2", "#ff375f", "#ff9f0a", "#30d158",
     "#64d2ff", "#ff453a", "#98989d", "#ffd60a", "#5e5ce6",
@@ -31,24 +25,23 @@ BACKFILL_PAST = timedelta(days=90)
 BACKFILL_FUTURE = timedelta(days=365)
 
 
-async def sync_google_account(session: AsyncSession, account: Account) -> dict:
-    """Discovers calendars and backfills events for `account`. Returns a
-    small stats dict. Persists any refreshed access token back onto the
-    account and updates its sync_status."""
+async def sync_microsoft_account(session: AsyncSession, account: Account) -> dict:
+    """Discovers calendars and backfills events for a Microsoft account."""
     cipher = get_cipher()
     access_token = cipher.decrypt(account.encrypted_access_token) if account.encrypted_access_token else None
     refresh_token = cipher.decrypt(account.encrypted_refresh_token) if account.encrypted_refresh_token else None
     if not access_token:
         raise ValueError("Account has no stored access token")
 
-    # OAuth client credentials come from the admin-configured DB row first
-    # (Settings > Accounts), env fallback second — so token refresh keeps
-    # working for UI-configured deployments.
-    from ..oauth import resolve_google_credentials
+    from ..oauth import resolve_microsoft_credentials
 
-    client_id, client_secret = await resolve_google_credentials(session)
-    connector = GoogleConnector(
-        access_token, refresh_token, client_id=client_id, client_secret=client_secret
+    client_id, client_secret, tenant_id = await resolve_microsoft_credentials(session)
+    connector = MicrosoftConnector(
+        access_token,
+        refresh_token,
+        client_id=client_id,
+        client_secret=client_secret,
+        tenant_id=tenant_id,
     )
 
     try:
@@ -77,9 +70,6 @@ async def sync_google_account(session: AsyncSession, account: Account) -> dict:
                     name=remote_cal.name,
                     color=remote_cal.color or DEFAULT_PALETTE[i % len(DEFAULT_PALETTE)],
                     provider_writable=remote_cal.writable,
-                    # Deny-by-default for EA/AI access — an admin grants these
-                    # explicitly afterward (BRD §12), a freshly connected
-                    # calendar should never be silently exposed.
                     visible=True,
                     blocks_availability=True,
                     ea_can_view=False,
@@ -101,9 +91,7 @@ async def sync_google_account(session: AsyncSession, account: Account) -> dict:
                 window_end=window_end,
                 calendar_writable=remote_cal.writable,
             )
-            # Only compare against cached rows overlapping the fetched
-            # window — the backfill is windowed, so rows outside it are
-            # expected to be absent upstream and must not be pruned.
+
             existing_events = {
                 e.provider_event_id: e
                 for e in (
@@ -123,10 +111,7 @@ async def sync_google_account(session: AsyncSession, account: Account) -> dict:
                 if stale is not None:
                     await session.delete(stale)
                     events_deleted += 1
-            # Full-window backfill (no sync_token): any cached row in the
-            # window missing from the upstream listing was deleted upstream
-            # without a tombstone in this page — prune it so deletions
-            # propagate instead of living forever locally.
+
             for provider_event_id in list(existing_events.keys()):
                 if provider_event_id not in remote_ids:
                     await session.delete(existing_events.pop(provider_event_id))
@@ -165,14 +150,11 @@ async def sync_google_account(session: AsyncSession, account: Account) -> dict:
         account.sync_status = "ok"
         account.last_synced_at = datetime.now(timezone.utc).isoformat()
         account.last_sync_error = None
-    except Exception as exc:  # noqa: BLE001 — persist the failure for the admin UI, then re-raise
+    except Exception as exc:
         account.sync_status = "error"
         account.last_sync_error = str(exc)[:500]
         raise
     finally:
-        # The connector may have refreshed the access token mid-sync (401
-        # handling) — persist that even on failure so we don't refresh
-        # again unnecessarily next time.
         if connector.access_token != access_token:
             account.encrypted_access_token = cipher.encrypt(connector.access_token)
         await session.flush()

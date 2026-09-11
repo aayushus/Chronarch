@@ -91,7 +91,7 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
       <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ width: 10, height: 10, borderRadius: "50%", background: calendar?.color ?? "var(--accent)" }} />
         <span style={{ fontSize: 13 }}>{calendar?.name ?? "Calendar"}</span>
-        {!calendar?.writable && (
+        {!(calendar?.can_reschedule ?? calendar?.writable) && (
           <span style={{ fontSize: 11, color: "var(--text-tertiary)", marginLeft: "auto" }}>Read only</span>
         )}
       </div>

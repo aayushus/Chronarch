@@ -16,6 +16,8 @@ from .event import UnifiedEvent
 from .delegation import Delegation, DelegationCalendarGrant
 from .audit import AuditEntry
 from .mcp_credential import MCPCredential
+from .oauth_config import OAuthProviderConfig
+from .ai_settings import AILiteLLMSettings
 
 __all__ = [
     "Base",
@@ -35,4 +37,6 @@ __all__ = [
     "DelegationCalendarGrant",
     "AuditEntry",
     "MCPCredential",
+    "OAuthProviderConfig",
+    "AILiteLLMSettings",
 ]

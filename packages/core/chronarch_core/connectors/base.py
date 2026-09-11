@@ -61,9 +61,18 @@ class BaseConnector(ABC):
         window_start: datetime,
         window_end: datetime,
         sync_token: Optional[str] = None,
-    ) -> tuple[list[RemoteEvent], Optional[str]]:
-        """Returns (events, next_sync_token). Implementations should use
-        provider incremental-sync tokens when `sync_token` is provided."""
+        calendar_writable: bool = True,
+    ) -> tuple[list[RemoteEvent], list[str], Optional[str]]:
+        """Returns (events, deleted_provider_event_ids, next_sync_token).
+
+        `deleted_provider_event_ids` are provider IDs the upstream reports as
+        cancelled/deleted in this window — callers must delete the matching
+        cached rows so deletions propagate instead of living forever.
+        `calendar_writable` is the calendar-level ACL from `list_calendars`;
+        implementations AND it into each event's `writable` since providers
+        (Google included) express write access at the calendar level.
+        Implementations should use provider incremental-sync tokens when
+        `sync_token` is provided."""
         ...
 
     @abstractmethod
@@ -79,8 +88,26 @@ class BaseConnector(ABC):
         ...
 
     @abstractmethod
+    async def respond_to_event(self, calendar_id: str, provider_event_id: str, response_status: str) -> None:
+        """Update RSVP status ('accepted', 'declined', 'tentative')."""
+        ...
+
+    @abstractmethod
+    async def add_attendee(
+        self, calendar_id: str, provider_event_id: str, email: str, name: Optional[str] = None
+    ) -> list[dict]:
+        """Add an attendee and return updated attendee list."""
+        ...
+
+    @abstractmethod
+    async def remove_attendee(self, calendar_id: str, provider_event_id: str, email: str) -> list[dict]:
+        """Remove an attendee and return updated attendee list."""
+        ...
+
+    @abstractmethod
     async def register_webhook(self, calendar_id: str, callback_url: str) -> dict[str, Any]:
         """Register a push subscription. Must return enough info (e.g.
         channel id + expiration) for the scheduler to renew it before it
         expires — see infra note on webhook renewal."""
         ...
+

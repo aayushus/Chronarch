@@ -6,10 +6,15 @@ chronarch_core/ai_tools/tools.py). This file must never contain scheduling
 logic of its own; it only: (1) authenticates the caller's scoped API key
 into an AuthContext, (2) marshals MCP tool arguments into ai_tools calls,
 (3) marshals results back to JSON-serializable dicts.
+
+Auth semantics (see apps/mcp/app/auth.py): MCP callers are never
+owner-bypassed — even the calendar owner's own credential must pass the
+calendar's AI gates plus credential scopes. Deny-by-default is intentional.
 """
 
 from contextvars import ContextVar
 from datetime import datetime, timedelta
+import os
 
 from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
@@ -55,14 +60,24 @@ async def _authed_context():
 @mcp.tool()
 async def list_calendars() -> list[dict]:
     """List calendars visible to this credential, with their permission flags."""
+    from chronarch_core.permissions import CalendarAction, resolve_permission
+
     ctx, session = await _authed_context()
     async with session:
         calendars = await ai_tools.list_calendars(session, ctx)
-        return [
-            {"id": c.id, "name": c.name, "kind": c.kind.value, "writable": c.provider_writable,
-             "blocks_availability": c.blocks_availability}
-            for c in calendars
-        ]
+        out = []
+        for c in calendars:
+            # MCP callers are never owners — gate on scopes + ai_can_* flags.
+            can_create = resolve_permission(ctx, c, CalendarAction.CREATE).allowed
+            can_delete = resolve_permission(ctx, c, CalendarAction.DELETE).allowed
+            out.append(
+                {"id": c.id, "name": c.name, "kind": c.kind.value,
+                 "writable": can_create,
+                 "provider_writable": c.provider_writable,
+                 "can_create": can_create, "can_delete": can_delete,
+                 "blocks_availability": c.blocks_availability}
+            )
+        return out
 
 
 @mcp.tool()
@@ -149,6 +164,8 @@ async def create_event(
             )
         except ai_tools.PermissionDenied as exc:
             return {"error": str(exc)}
+        except ValueError as exc:
+            return {"error": f"invalid window: {exc}"}
         await session.commit()
         return {"id": event.id, "title": event.title, "start": event.start.isoformat(), "end": event.end.isoformat()}
 
@@ -165,6 +182,8 @@ async def move_event(event_id: str, start: str, end: str) -> dict:
             )
         except ai_tools.PermissionDenied as exc:
             return {"error": str(exc)}
+        except ValueError as exc:
+            return {"error": f"invalid window: {exc}"}
         await session.commit()
         return {"id": event.id, "start": event.start.isoformat(), "end": event.end.isoformat()}
 
@@ -183,37 +202,76 @@ async def delete_event(event_id: str) -> dict:
 
 
 @mcp.tool()
-async def add_attendee(event_id: str, email: str) -> dict:
-    """Not yet implemented — attendee management lands with BR-EVT-005."""
-    return {"error": "add_attendee is not yet implemented"}
+async def add_attendee(event_id: str, email: str, name: str | None = None) -> dict:
+    """Add an attendee to an event (BR-EVT-005)."""
+    ctx, session = await _authed_context()
+    async with session:
+        try:
+            event = await ai_tools.add_attendee(session, ctx, event_id=event_id, email=email, name=name)
+        except ai_tools.PermissionDenied as exc:
+            return {"error": str(exc)}
+        except ValueError as exc:
+            return {"error": str(exc)}
+        await session.commit()
+        return {"status": "ok", "id": event_id, "attendees": event.attendees}
 
 
 @mcp.tool()
 async def remove_attendee(event_id: str, email: str) -> dict:
-    """Not yet implemented — attendee management lands with BR-EVT-005."""
-    return {"error": "remove_attendee is not yet implemented"}
+    """Remove an attendee from an event (BR-EVT-005)."""
+    ctx, session = await _authed_context()
+    async with session:
+        try:
+            event = await ai_tools.remove_attendee(session, ctx, event_id=event_id, email=email)
+        except ai_tools.PermissionDenied as exc:
+            return {"error": str(exc)}
+        except ValueError as exc:
+            return {"error": str(exc)}
+        await session.commit()
+        return {"status": "ok", "id": event_id, "attendees": event.attendees}
 
 
 @mcp.tool()
 async def respond_to_event(event_id: str, response: str) -> dict:
-    """Not yet implemented — RSVP handling lands with BR-EVT-005."""
-    return {"error": "respond_to_event is not yet implemented"}
+    """Respond / RSVP to an event (accepted, declined, tentative) (BR-EVT-005)."""
+    ctx, session = await _authed_context()
+    async with session:
+        try:
+            await ai_tools.respond_to_event(session, ctx, event_id=event_id, response_status=response)
+        except ai_tools.PermissionDenied as exc:
+            return {"error": str(exc)}
+        except ValueError as exc:
+            return {"error": str(exc)}
+        await session.commit()
+        return {"status": "ok", "id": event_id}
+
 
 
 async def _healthz(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
+def _get_cors_origins() -> list[str]:
+    raw = os.environ.get("CORS_ORIGINS", "").strip()
+    if raw:
+        if raw.strip() == "*":
+            return ["*"]
+        return [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
+    return [os.environ.get("APP_BASE_URL", "http://localhost:3000").rstrip("/")]
+
+
 def build_app() -> Starlette:
     app = mcp.streamable_http_app()
     app.add_middleware(APIKeyMiddleware)
-    # Allows the admin Settings > System page (and any browser-based MCP
-    # client) to reach this service cross-origin — tighten allow_origins
-    # for production deployments, same as apps/api/app/main.py.
+    # Browser-based MCP clients (e.g. the admin Settings > System page)
+    # need cross-origin access. Default is same-origin-only via APP_BASE_URL;
+    # set CORS_ORIGINS explicitly in production. Wildcard never sends
+    # credentials — browsers reject `*` with Allow-Credentials.
+    cors_origins = _get_cors_origins()
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=cors_origins,
+        allow_credentials=cors_origins != ["*"],
         allow_methods=["*"],
         allow_headers=["*"],
     )

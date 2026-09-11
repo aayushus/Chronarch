@@ -47,6 +47,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   function logout() {
+    apiFetch("/auth/logout", { method: "POST" }).catch(() => {
+      // Ignore network errors on logout so local session always clears
+    });
     setToken(null);
     setTokenState(null);
     setUser(null);

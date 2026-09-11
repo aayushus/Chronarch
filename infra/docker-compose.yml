@@ -1,30 +1,50 @@
 name: chronarch
 
 x-python-env: &python-env
-  DATABASE_URL: postgresql+asyncpg://chronarch:chronarch@postgres:5432/chronarch
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chronarch}:${POSTGRES_PASSWORD:-chronarch}@postgres:5432/${POSTGRES_DB:-chronarch}
   REDIS_URL: redis://redis:6379/0
-  JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+  JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env — see .env.example}
+  ALLOW_INSECURE_DEV_SECRET: ${ALLOW_INSECURE_DEV_SECRET:-}
   TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
   APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+  CORS_ORIGINS: ${CORS_ORIGINS:-${APP_BASE_URL:-http://localhost:3000}}
   GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
   GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+  MICROSOFT_OAUTH_CLIENT_ID: ${MICROSOFT_OAUTH_CLIENT_ID:-}
+  MICROSOFT_OAUTH_CLIENT_SECRET: ${MICROSOFT_OAUTH_CLIENT_SECRET:-}
+  MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-}
+  LITELLM_DYNAMIC_DIR: /srv/litellm-dynamic
+
+
+volumes:
+  # API-written, litellm-consumed: UI-managed proxy config (Settings > AI /
+  # LiteLLM). Holds the OpenRouter key when set via UI — same secrecy level
+  # as .env. Empty until an admin first saves AI settings.
+  litellm-dynamic:
 
 services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: chronarch
-      POSTGRES_PASSWORD: chronarch
-      POSTGRES_DB: chronarch
+      POSTGRES_USER: ${POSTGRES_USER:-chronarch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env — see .env.example}
+      POSTGRES_DB: ${POSTGRES_DB:-chronarch}
     volumes:
       - ./volumes/postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U chronarch"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-chronarch}"]
       interval: 5s
       timeout: 5s
       retries: 10
     ports:
-      - "5432:5432"
+      # Local dev convenience — remove/comment out in production and reach
+      # postgres only via the compose network (behind your reverse proxy +
+      # firewall). BRD §28 expects a reverse proxy in front of web/api/mcp
+      # for TLS termination; compose does not ship one — terminate TLS
+      # upstream (Caddy/nginx/Traefik) and set APP_BASE_URL/CORS_ORIGINS to
+      # the public origin. Host port is configurable when 5432 is taken
+      # (e.g. by another project's DB): POSTGRES_HOST_PORT=5433.
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
 
   redis:
     image: redis:7-alpine
@@ -51,6 +71,8 @@ services:
       context: ..
       dockerfile: apps/api/Dockerfile
     environment: *python-env
+    volumes:
+      - litellm-dynamic:/srv/litellm-dynamic
     depends_on:
       postgres:
         condition: service_healthy
@@ -105,6 +127,12 @@ services:
     environment:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-litellm-dev}
+    volumes:
+      # UI-managed config from the API (Settings > AI / LiteLLM). Read-only
+      # here; the entrypoint prefers /app/dynamic/config.yaml + litellm.env
+      # when present, else the baked default. Restart litellm after saving
+      # settings: docker compose restart litellm
+      - litellm-dynamic:/app/dynamic:ro
     ports:
       - "4000:4000"
 
@@ -116,4 +144,6 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "3000:80"
+      # Host port configurable when 3000 is taken: WEB_HOST_PORT=3100.
+      # Keep APP_BASE_URL in sync — it builds the OAuth redirect URI.
+      - "${WEB_HOST_PORT:-3000}:80"

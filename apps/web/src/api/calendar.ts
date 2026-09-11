@@ -6,6 +6,11 @@ export interface CalendarSummary {
   color: string;
   visible: boolean;
   writable: boolean;
+  provider_writable?: boolean;
+  can_create?: boolean;
+  can_edit?: boolean;
+  can_reschedule?: boolean;
+  can_delete?: boolean;
   blocks_availability: boolean;
   kind: string;
   account_id: string;
@@ -49,15 +54,45 @@ export function createEvent(body: {
   title: string;
   start: string;
   end: string;
+  all_day?: boolean;
 }): Promise<EventSummary> {
   return apiFetch<EventSummary>("/events", { method: "POST", body: JSON.stringify(body) });
 }
 
-export function moveEvent(eventId: string, start: string, end: string): Promise<EventSummary> {
+export function moveEvent(
+  eventId: string,
+  start: string,
+  end: string,
+  allDay?: boolean,
+): Promise<EventSummary> {
   return apiFetch<EventSummary>(`/events/${eventId}/move`, {
     method: "PATCH",
-    body: JSON.stringify({ start, end }),
+    body: JSON.stringify(allDay === undefined ? { start, end } : { start, end, all_day: allDay }),
   });
+}
+
+export interface ConflictInfo {
+  event_id: string;
+  calendar_id: string;
+  calendar_name: string;
+  title: string;
+  start: string;
+  end: string;
+  all_day: boolean;
+  redacted: boolean;
+}
+
+export function getConflicts(
+  windowStart: Date,
+  windowEnd: Date,
+  excludeEventId?: string,
+): Promise<ConflictInfo[]> {
+  const params = new URLSearchParams({
+    window_start: windowStart.toISOString(),
+    window_end: windowEnd.toISOString(),
+  });
+  if (excludeEventId) params.set("exclude_event_id", excludeEventId);
+  return apiFetch<ConflictInfo[]>(`/events/conflicts?${params.toString()}`);
 }
 
 export function deleteEvent(eventId: string): Promise<void> {

@@ -2,30 +2,65 @@ import React, { useState } from "react";
 
 import { CalendarSummary } from "../api/calendar";
 
-interface Props {
-  calendars: CalendarSummary[];
-  defaultDate: Date;
-  onClose: () => void;
-  onCreate: (body: { calendar_id: string; title: string; start: string; end: string }) => void;
+export interface CreateDraft {
+  calendar_id: string;
+  title: string;
+  start: string;
+  end: string;
+  all_day: boolean;
 }
 
-export default function QuickCreateModal({ calendars, defaultDate, onClose, onCreate }: Props) {
-  const writable = calendars.filter((c) => c.writable);
-  const [title, setTitle] = useState("");
-  const [calendarId, setCalendarId] = useState(writable[0]?.id ?? "");
-  const [date, setDate] = useState(defaultDate.toISOString().slice(0, 10));
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("09:30");
+interface Props {
+  calendars: CalendarSummary[];
+  /** Prefilled range from a click/drag on the grid (BRD §9.6-9.7). */
+  initialStart: Date;
+  initialEnd: Date;
+  initialAllDay: boolean;
+  /** Kept when returning from the conflict warning (Back). */
+  initialTitle?: string;
+  initialCalendarId?: string;
+  onClose: () => void;
+  onCreate: (body: CreateDraft) => void;
+}
+
+function toDateInput(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function toTimeInput(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export default function QuickCreateModal({ calendars, initialStart, initialEnd, initialAllDay, initialTitle, initialCalendarId, onClose, onCreate }: Props) {
+  const writable = calendars.filter((c) => c.can_create ?? c.writable);
+  const [title, setTitle] = useState(initialTitle ?? "");
+  const [calendarId, setCalendarId] = useState(
+    initialCalendarId && writable.some((c) => c.id === initialCalendarId) ? initialCalendarId : (writable[0]?.id ?? "")
+  );
+  const [date, setDate] = useState(toDateInput(initialStart));
+  const [startTime, setStartTime] = useState(toTimeInput(initialStart));
+  const [endTime, setEndTime] = useState(toTimeInput(initialEnd));
+  const [allDay, setAllDay] = useState(initialAllDay);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!calendarId || !title) return;
-    onCreate({
-      calendar_id: calendarId,
-      title,
-      start: new Date(`${date}T${startTime}`).toISOString(),
-      end: new Date(`${date}T${endTime}`).toISOString(),
-    });
+    if (allDay) {
+      const dayStart = new Date(`${date}T00:00`);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+      onCreate({ calendar_id: calendarId, title, start: dayStart.toISOString(), end: dayEnd.toISOString(), all_day: true });
+    } else {
+      onCreate({
+        calendar_id: calendarId,
+        title,
+        start: new Date(`${date}T${startTime}`).toISOString(),
+        end: new Date(`${date}T${endTime}`).toISOString(),
+        all_day: false,
+      });
+    }
   }
 
   return (
@@ -76,10 +111,16 @@ export default function QuickCreateModal({ calendars, defaultDate, onClose, onCr
           </select>
         )}
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
-        <div style={{ display: "flex", gap: 8 }}>
-          <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} style={inputStyle} />
-          <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={inputStyle} />
-        </div>
+        {!allDay && (
+          <div style={{ display: "flex", gap: 8 }}>
+            <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} style={inputStyle} />
+            <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={inputStyle} />
+          </div>
+        )}
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-secondary)" }}>
+          <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
+          All-day event
+        </label>
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
           <button type="button" onClick={onClose} style={{ ...btnStyle, background: "var(--bg-raised)" }}>
             Cancel

@@ -16,7 +16,20 @@ async def resolve_auth_context(session: AsyncSession, raw_api_key: str) -> AuthC
     """Scoped-credential auth for external MCP clients (BRD §19). Provider
     OAuth tokens are never reachable through this path — only the
     credential's declared scopes gate what the caller can do, enforced by
-    the same permission engine every other client goes through."""
+    the same permission engine every other client goes through.
+
+    Intentional: the returned context is NEVER owner-bypassed, even when the
+    credential belongs to the calendar's owning executive. An MCP caller must
+    independently satisfy the calendar's AI gates (`ai_can_read` /
+    `ai_can_write` / `privacy_mask` in `_calendar_level`) plus its credential
+    scopes (`calendar.read` / `calendar.write` / `calendar.delete` /
+    `availability.read` in `_user_level`). This is deny-by-default on purpose:
+    connecting ChatGPT/Claude must never silently expose every calendar the
+    executive owns — an admin grants each calendar's AI access explicitly
+    (BRD §12), and a freshly connected calendar exposes nothing to AI until
+    then. Callers needing owner semantics must go through the human UI
+    session path (apps/api), not MCP.
+    """
     key_hash = hash_mcp_key(raw_api_key)
     cred = (
         await session.execute(

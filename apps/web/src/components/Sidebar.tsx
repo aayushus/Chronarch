@@ -114,7 +114,7 @@ export default function Sidebar({
                 >
                   {cal.name}
                 </span>
-                {!cal.writable && (
+                {!(cal.can_reschedule ?? cal.writable) && !(cal.can_create ?? cal.writable) && (
                   <span style={{ fontSize: 9, color: "var(--text-tertiary)" }} title="Read only">
                     🔒
                   </span>

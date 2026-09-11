@@ -1,14 +1,24 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { CalendarSummary, EventSummary } from "../api/calendar";
 import { tint } from "../lib/color";
-import { WEEKDAY_SHORT, formatHour, sameDay, startOfWeek } from "../lib/dates";
+import { WEEKDAY_SHORT, formatHour, sameDay, startOfDay, startOfWeek } from "../lib/dates";
+import {
+  SNAP_MINUTES,
+  addDaysPreserveTime,
+  atMinutes,
+  dayOffsetFromX,
+  minutesFromY,
+  snap,
+  snapDown,
+  yFromMinutes,
+} from "../lib/gridMath";
 import { packOverlaps } from "../lib/layout";
 
 const HOUR_HEIGHT = 44;
 const START_HOUR = 6;
 const END_HOUR = 22;
-const SNAP_MINUTES = 15;
+const GUTTER_WIDTH = 56;
 
 interface Props {
   weekAnchor: Date;
@@ -16,23 +26,45 @@ interface Props {
   calendarById: Record<string, CalendarSummary>;
   onSelectEvent: (e: EventSummary) => void;
   onSelectDay: (d: Date) => void;
-  onMoveEvent?: (eventId: string, newStart: Date, newEnd: Date) => void;
+  onMoveEvent?: (eventId: string, newStart: Date, newEnd: Date, allDay?: boolean) => void;
+  onCreateRange?: (start: Date, end: Date, allDay: boolean) => void;
 }
+
+type DragMode = "move" | "resize" | "lane-out";
 
 interface DragState {
   eventId: string;
+  mode: DragMode;
+  startX: number;
   startY: number;
+  originDayIndex: number;
   originStart: Date;
   originEnd: Date;
+  deltaDays: number;
   deltaMinutes: number;
+  // lane-out only: resolved drop target, refreshed on mousemove
+  targetDayIndex: number | null;
+  targetMinutes: number | null;
 }
 
-function snap(minutes: number): number {
-  return Math.round(minutes / SNAP_MINUTES) * SNAP_MINUTES;
+interface CreateState {
+  dayIndex: number;
+  startMin: number;
+  curMin: number;
 }
 
-export default function WeekView({ weekAnchor, events, calendarById, onSelectEvent, onSelectDay, onMoveEvent }: Props) {
+function canWrite(cal: CalendarSummary | undefined): boolean {
+  return !!(cal?.can_reschedule ?? cal?.writable);
+}
+
+function canCreate(cal: CalendarSummary[] | undefined): boolean {
+  return (cal ?? []).some((c) => c.can_create ?? c.writable);
+}
+
+export default function WeekView({ weekAnchor, events, calendarById, onSelectEvent, onSelectDay, onMoveEvent, onCreateRange }: Props) {
   const [drag, setDrag] = useState<DragState | null>(null);
+  const [creating, setCreating] = useState<CreateState | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
   const weekStart = startOfWeek(weekAnchor);
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
@@ -41,40 +73,149 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
   });
   const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
   const today = new Date();
+  const weekAllDay = events.filter((e) => e.all_day && days.some((d) => sameDay(new Date(e.start), d)));
+
+  function dayIndexOf(date: Date): number {
+    const i = days.findIndex((d) => sameDay(d, date));
+    return i === -1 ? 0 : i;
+  }
+
+  function resolveDrop(clientX: number, clientY: number): { dayIndex: number; minutes: number } | null {
+    const grid = gridRef.current;
+    if (!grid) return null;
+    const rect = grid.getBoundingClientRect();
+    const dayWidth = (rect.width - GUTTER_WIDTH) / 7;
+    const dayIndex = Math.min(6, Math.max(0, Math.floor((clientX - rect.left - GUTTER_WIDTH) / dayWidth)));
+    // Column tops all align with the grid top (equal-height columns).
+    const colTop = rect.top;
+    const minutes = snap(
+      minutesFromY(clientY, colTop, HOUR_HEIGHT, START_HOUR, END_HOUR)
+    );
+    return { dayIndex, minutes };
+  }
 
   useEffect(() => {
-    if (!drag) return;
+    if (!drag && !creating) return;
 
     function handleMouseMove(e: MouseEvent) {
+      if (creating) {
+        const grid = gridRef.current;
+        if (!grid) return;
+        const rect = grid.getBoundingClientRect();
+        // Column tops align with grid top; creating stays in its origin column.
+        const mins = snap(minutesFromY(e.clientY, rect.top, HOUR_HEIGHT, START_HOUR, END_HOUR));
+        setCreating((prev) => (prev ? { ...prev, curMin: mins } : prev));
+        return;
+      }
       setDrag((prev) => {
         if (!prev) return prev;
-        const deltaPx = e.clientY - prev.startY;
-        return { ...prev, deltaMinutes: snap((deltaPx / HOUR_HEIGHT) * 60) };
+        if (prev.mode === "resize") {
+          return { ...prev, deltaMinutes: snap(((e.clientY - prev.startY) / HOUR_HEIGHT) * 60) };
+        }
+        if (prev.mode === "lane-out") {
+          const grid = gridRef.current;
+          if (!grid) return { ...prev, targetDayIndex: null, targetMinutes: null };
+          const rect = grid.getBoundingClientRect();
+          const inside =
+            e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+          if (!inside) return { ...prev, targetDayIndex: null, targetMinutes: null };
+          const drop = resolveDrop(e.clientX, e.clientY);
+          if (!drop) return { ...prev, targetDayIndex: null, targetMinutes: null };
+          return { ...prev, targetDayIndex: drop.dayIndex, targetMinutes: drop.minutes };
+        }
+        const grid = gridRef.current;
+        let deltaDays = 0;
+        if (grid) {
+          const rect = grid.getBoundingClientRect();
+          deltaDays = dayOffsetFromX(e.clientX, rect.left, GUTTER_WIDTH, rect.width, 7, prev.originDayIndex);
+        }
+        return {
+          ...prev,
+          deltaDays,
+          deltaMinutes: snap(((e.clientY - prev.startY) / HOUR_HEIGHT) * 60),
+        };
       });
     }
 
-    function handleMouseUp() {
+    function handleMouseUp(e: MouseEvent) {
+      if (creating) {
+        setCreating((prev) => {
+          if (prev && onCreateRange) {
+            const a = Math.min(prev.startMin, prev.curMin);
+            const b = Math.max(prev.startMin, prev.curMin);
+            if (b - a >= SNAP_MINUTES) {
+              onCreateRange(atMinutes(days[prev.dayIndex], a), atMinutes(days[prev.dayIndex], b), false);
+            } else {
+              // Plain click: 1h event at the clicked slot.
+              const s = snapDown(a);
+              onCreateRange(atMinutes(days[prev.dayIndex], s), atMinutes(days[prev.dayIndex], s + 60), false);
+            }
+          }
+          return null;
+        });
+        return;
+      }
       setDrag((prev) => {
-        if (prev && prev.deltaMinutes !== 0 && onMoveEvent) {
-          const newStart = new Date(prev.originStart.getTime() + prev.deltaMinutes * 60000);
-          const newEnd = new Date(prev.originEnd.getTime() + prev.deltaMinutes * 60000);
-          onMoveEvent(prev.eventId, newStart, newEnd);
+        if (prev && onMoveEvent) {
+          if (prev.mode === "lane-out") {
+            // Lane -> grid: drop time becomes a 1h timed event.
+            if (prev.targetDayIndex !== null && prev.targetMinutes !== null) {
+              const start = atMinutes(days[prev.targetDayIndex], prev.targetMinutes);
+              const end = new Date(start.getTime() + 60 * 60000);
+              onMoveEvent(prev.eventId, start, end, false);
+            } else {
+              const maybe = events.find((x) => x.id === prev.eventId);
+              if (maybe) onSelectEvent(maybe);
+            }
+          } else if (prev.mode === "resize") {
+            if (prev.deltaMinutes !== 0) {
+              const newEnd = new Date(prev.originEnd.getTime() + prev.deltaMinutes * 60000);
+              const minEnd = new Date(prev.originStart.getTime() + SNAP_MINUTES * 60000);
+              onMoveEvent(prev.eventId, prev.originStart, newEnd < minEnd ? minEnd : newEnd);
+            }
+          } else if (prev.deltaDays !== 0 || prev.deltaMinutes !== 0) {
+            const duration = prev.originEnd.getTime() - prev.originStart.getTime();
+            const shiftedDay = addDaysPreserveTime(prev.originStart, prev.deltaDays);
+            const newStart = new Date(shiftedDay.getTime() + prev.deltaMinutes * 60000);
+            onMoveEvent(prev.eventId, newStart, new Date(newStart.getTime() + duration));
+          }
         }
         return null;
       });
     }
 
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setDrag(null);
+        setCreating(null);
+      }
+    }
+
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [drag !== null, onMoveEvent]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drag !== null, creating !== null, onMoveEvent, onCreateRange]);
+
+  function beginCreate(dayIndex: number, e: React.MouseEvent) {
+    if (e.button !== 0 || !onCreateRange) return;
+    if ((e.target as HTMLElement).closest(".event-block")) return;
+    if (!canCreate(Object.values(calendarById))) return;
+    const grid = gridRef.current;
+    if (!grid) return;
+    const rect = grid.getBoundingClientRect();
+    const mins = snap(minutesFromY(e.clientY, rect.top, HOUR_HEIGHT, START_HOUR, END_HOUR));
+    setCreating({ dayIndex, startMin: mins, curMin: mins });
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "56px repeat(7, 1fr)", borderBottom: "1px solid var(--border-subtle)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: `${GUTTER_WIDTH}px repeat(7, 1fr)`, borderBottom: "1px solid var(--border-subtle)" }}>
         <div />
         {days.map((d) => (
           <button
@@ -96,8 +237,86 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
         ))}
       </div>
 
+      {weekAllDay.length > 0 && (
+        <div
+          className="all-day-lane"
+          style={{
+            display: "grid",
+            gridTemplateColumns: `${GUTTER_WIDTH}px repeat(7, 1fr)`,
+            borderBottom: "1px solid var(--border-subtle)",
+            padding: "4px 0",
+            maxHeight: 88,
+            overflowY: "auto",
+          }}
+          onMouseDown={(e) => {
+            // Lane background click: new all-day event on that day.
+            if ((e.target as HTMLElement).closest(".event-block") || !onCreateRange) return;
+            const cell = (e.target as HTMLElement).closest("[data-lane-day]");
+            const idx = cell ? Number((cell as HTMLElement).dataset.laneDay) : 0;
+            const s = startOfDay(days[idx] ?? days[0]);
+            const t = new Date(s);
+            t.setDate(t.getDate() + 1);
+            onCreateRange(s, t, true);
+          }}
+        >
+          <div style={{ fontSize: 10, color: "var(--text-tertiary)", padding: "4px 0 0 8px" }}>all-day</div>
+          {days.map((day, di) => (
+            <div key={day.toISOString()} data-lane-day={di} style={{ padding: "0 2px", minHeight: 20 }}>
+              {weekAllDay
+                .filter((e) => sameDay(new Date(e.start), day))
+                .map((e) => {
+                  const cal = calendarById[e.calendar_id];
+                  const color = cal?.color ?? "var(--accent)";
+                  const dragging = drag?.eventId === e.id;
+                  return (
+                    <div
+                      key={e.id}
+                      onClick={() => !dragging && onSelectEvent(e)}
+                      onMouseDown={(ev) => {
+                        if (ev.button !== 0 || !canWrite(cal) || !onMoveEvent) return;
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        setDrag({
+                          eventId: e.id,
+                          mode: "lane-out",
+                          startX: ev.clientX,
+                          startY: ev.clientY,
+                          originDayIndex: di,
+                          originStart: new Date(e.start),
+                          originEnd: new Date(e.end),
+                          deltaDays: 0,
+                          deltaMinutes: 0,
+                          targetDayIndex: null,
+                          targetMinutes: null,
+                        });
+                      }}
+                      className="event-block hoverable"
+                      style={{
+                        background: color,
+                        borderRadius: 3,
+                        padding: "1px 5px",
+                        fontSize: 10.5,
+                        fontWeight: 600,
+                        marginBottom: 2,
+                        cursor: canWrite(cal) ? "grab" : "pointer",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        opacity: dragging ? 0.4 : 1,
+                        userSelect: "none",
+                      }}
+                    >
+                      {e.title}
+                    </div>
+                  );
+                })}
+            </div>
+          ))}
+        </div>
+      )}
+
       <div style={{ flex: 1, overflowY: "auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "56px repeat(7, 1fr)", position: "relative" }}>
+        <div ref={gridRef} style={{ display: "grid", gridTemplateColumns: `${GUTTER_WIDTH}px repeat(7, 1fr)`, position: "relative" }}>
           <div style={{ position: "relative", height: hours.length * HOUR_HEIGHT }}>
             {hours.map((h, i) => (
               <span
@@ -116,7 +335,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
             ))}
           </div>
 
-          {days.map((day) => {
+          {days.map((day, dayIndex) => {
             const dayEvents = events.filter((e) => !e.all_day && sameDay(new Date(e.start), day));
             const laidOut = packOverlaps(
               dayEvents,
@@ -124,26 +343,82 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
               (e) => new Date(e.end)
             );
             return (
-              <div key={day.toISOString()} style={{ position: "relative", height: hours.length * HOUR_HEIGHT, borderLeft: "1px solid var(--border-subtle)" }}>
+              <div
+                key={day.toISOString()}
+                onMouseDown={(e) => beginCreate(dayIndex, e)}
+                style={{ position: "relative", height: hours.length * HOUR_HEIGHT, borderLeft: "1px solid var(--border-subtle)" }}
+              >
                 {hours.map((h, i) => (
                   <div key={h} style={{ position: "absolute", top: i * HOUR_HEIGHT, left: 0, right: 0, borderTop: "1px solid var(--border-subtle)" }} />
                 ))}
+                {creating && creating.dayIndex === dayIndex && creating.curMin !== creating.startMin && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: yFromMinutes(Math.min(creating.startMin, creating.curMin), HOUR_HEIGHT, START_HOUR),
+                      height: Math.max(10, (Math.abs(creating.curMin - creating.startMin) / 60) * HOUR_HEIGHT),
+                      left: 1,
+                      right: 1,
+                      background: "var(--accent)",
+                      opacity: 0.35,
+                      borderRadius: 4,
+                      pointerEvents: "none",
+                    }}
+                  />
+                )}
+                {drag?.mode === "lane-out" &&
+                  drag.targetDayIndex === dayIndex &&
+                  drag.targetMinutes !== null &&
+                  (() => {
+                    const ghostStart = atMinutes(day, drag.targetMinutes!);
+                    const ghostTop = ((ghostStart.getHours() * 60 + ghostStart.getMinutes() - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+                    const laneEvent = weekAllDay.find((x) => x.id === drag.eventId);
+                    return (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: ghostTop,
+                          height: HOUR_HEIGHT - 2,
+                          left: 1,
+                          right: 1,
+                          background: "var(--accent)",
+                          opacity: 0.35,
+                          borderRadius: 4,
+                          padding: "2px 5px",
+                          fontSize: 10.5,
+                          fontWeight: 600,
+                          overflow: "hidden",
+                          whiteSpace: "nowrap",
+                          pointerEvents: "none",
+                        }}
+                      >
+                        {laneEvent?.title ?? ""}
+                      </div>
+                    );
+                  })()}
                 {laidOut.map(({ event, column, columnCount }) => {
                   const isDragging = drag?.eventId === event.id;
                   const start = new Date(event.start);
                   const end = new Date(event.end);
                   let displayStart = start;
                   let displayEnd = end;
+                  let dayShift = 0;
                   if (isDragging && drag) {
-                    displayStart = new Date(drag.originStart.getTime() + drag.deltaMinutes * 60000);
-                    displayEnd = new Date(drag.originEnd.getTime() + drag.deltaMinutes * 60000);
+                    if (drag.mode === "move") {
+                      const shifted = addDaysPreserveTime(drag.originStart, drag.deltaDays);
+                      displayStart = new Date(shifted.getTime() + drag.deltaMinutes * 60000);
+                      displayEnd = new Date(displayStart.getTime() + (drag.originEnd.getTime() - drag.originStart.getTime()));
+                      dayShift = drag.deltaDays;
+                    } else if (drag.mode === "resize") {
+                      displayEnd = new Date(drag.originEnd.getTime() + drag.deltaMinutes * 60000);
+                    }
                   }
                   const top = ((displayStart.getHours() * 60 + displayStart.getMinutes() - START_HOUR * 60) / 60) * HOUR_HEIGHT;
                   const height = Math.max(16, ((displayEnd.getTime() - displayStart.getTime()) / 60000 / 60) * HOUR_HEIGHT - 2);
                   const cal = calendarById[event.calendar_id];
                   const color = cal?.color ?? "var(--accent)";
                   const widthPct = 100 / columnCount;
-                  const canDrag = !!cal?.writable && !!onMoveEvent;
+                  const canDrag = canWrite(cal) && !!onMoveEvent;
                   return (
                     <div
                       key={event.id}
@@ -151,14 +426,27 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                       onMouseDown={(ev) => {
                         if (!canDrag || ev.button !== 0) return;
                         ev.preventDefault();
-                        setDrag({ eventId: event.id, startY: ev.clientY, originStart: start, originEnd: end, deltaMinutes: 0 });
+                        ev.stopPropagation();
+                        setDrag({
+                          eventId: event.id,
+                          mode: "move",
+                          startX: ev.clientX,
+                          startY: ev.clientY,
+                          originDayIndex: dayIndexOf(start),
+                          originStart: start,
+                          originEnd: end,
+                          deltaDays: 0,
+                          deltaMinutes: 0,
+                          targetDayIndex: null,
+                          targetMinutes: null,
+                        });
                       }}
                       className={`event-block hoverable${isDragging ? " dragging" : ""}`}
                       style={{
                         position: "absolute",
                         top,
                         height,
-                        left: `${column * widthPct}%`,
+                        left: `calc(${column * widthPct}% + ${dayShift * 100}%)`,
                         width: `calc(${widthPct}% - 3px)`,
                         background: tint(color.startsWith("#") ? color : "#0a84ff", 0.22),
                         borderLeft: `3px solid ${color}`,
@@ -169,9 +457,33 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                         fontSize: 10.5,
                         fontWeight: 600,
                         userSelect: "none",
+                        zIndex: isDragging ? 5 : undefined,
                       }}
                     >
                       {event.title}
+                      {canDrag && (
+                        <div
+                          className="resize-handle"
+                          onMouseDown={(ev) => {
+                            ev.preventDefault();
+                            ev.stopPropagation();
+                            setDrag({
+                              eventId: event.id,
+                              mode: "resize",
+                              startX: ev.clientX,
+                              startY: ev.clientY,
+                              originDayIndex: dayIndex,
+                              originStart: start,
+                              originEnd: end,
+                              deltaDays: 0,
+                              deltaMinutes: 0,
+                              targetDayIndex: null,
+                              targetMinutes: null,
+                            });
+                          }}
+                          style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 6, cursor: "ns-resize" }}
+                        />
+                      )}
                     </div>
                   );
                 })}

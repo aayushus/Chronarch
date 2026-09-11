@@ -31,6 +31,9 @@ SCOPES = [
 
 
 def get_client_id() -> str:
+    """Env-only fallback. Prefer `chronarch_core.oauth.resolve_google_credentials`,
+    which checks the admin-configured DB row first — these helpers exist for
+    scripts and contexts without a DB session."""
     client_id = os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
     if not client_id:
         raise RuntimeError("GOOGLE_OAUTH_CLIENT_ID is not set")
@@ -38,15 +41,18 @@ def get_client_id() -> str:
 
 
 def get_client_secret() -> str:
+    """Env-only fallback — see `get_client_id`."""
     client_secret = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET")
     if not client_secret:
         raise RuntimeError("GOOGLE_OAUTH_CLIENT_SECRET is not set")
     return client_secret
 
 
-def build_consent_url(redirect_uri: str, state: str) -> str:
+def build_consent_url(
+    redirect_uri: str, state: str, *, client_id: Optional[str] = None
+) -> str:
     params = {
-        "client_id": get_client_id(),
+        "client_id": client_id or get_client_id(),
         "redirect_uri": redirect_uri,
         "response_type": "code",
         "scope": " ".join(SCOPES),
@@ -57,15 +63,21 @@ def build_consent_url(redirect_uri: str, state: str) -> str:
     return f"{AUTH_URL}?{urlencode(params)}"
 
 
-async def exchange_code(code: str, redirect_uri: str) -> dict[str, Any]:
+async def exchange_code(
+    code: str,
+    redirect_uri: str,
+    *,
+    client_id: Optional[str] = None,
+    client_secret: Optional[str] = None,
+) -> dict[str, Any]:
     """Returns {access_token, refresh_token, expires_in, ...}."""
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             TOKEN_URL,
             data={
                 "code": code,
-                "client_id": get_client_id(),
-                "client_secret": get_client_secret(),
+                "client_id": client_id or get_client_id(),
+                "client_secret": client_secret or get_client_secret(),
                 "redirect_uri": redirect_uri,
                 "grant_type": "authorization_code",
             },
@@ -81,14 +93,19 @@ async def fetch_userinfo(access_token: str) -> dict[str, Any]:
         return resp.json()
 
 
-async def refresh_access_token(refresh_token: str) -> dict[str, Any]:
+async def refresh_access_token(
+    refresh_token: str,
+    *,
+    client_id: Optional[str] = None,
+    client_secret: Optional[str] = None,
+) -> dict[str, Any]:
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             TOKEN_URL,
             data={
                 "refresh_token": refresh_token,
-                "client_id": get_client_id(),
-                "client_secret": get_client_secret(),
+                "client_id": client_id or get_client_id(),
+                "client_secret": client_secret or get_client_secret(),
                 "grant_type": "refresh_token",
             },
         )
@@ -160,9 +177,23 @@ def _from_remote_event(event: RemoteEvent) -> dict[str, Any]:
 
 
 class GoogleConnector(BaseConnector):
-    def __init__(self, access_token: str, refresh_token: Optional[str] = None):
+    def __init__(
+        self,
+        access_token: str,
+        refresh_token: Optional[str] = None,
+        *,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
+    ):
         self._access_token = access_token
         self._refresh_token = refresh_token
+        # OAuth client credentials for mid-flight token refresh. Callers with
+        # a DB session should resolve these via
+        # `chronarch_core.oauth.resolve_google_credentials` (DB config first,
+        # env fallback) and pass them in — otherwise the env-only fallback
+        # applies, which breaks refresh for UI-configured deployments.
+        self._client_id = client_id
+        self._client_secret = client_secret
 
     @property
     def access_token(self) -> str:
@@ -177,7 +208,11 @@ class GoogleConnector(BaseConnector):
                 method, url, headers={"Authorization": f"Bearer {self._access_token}"}, **kwargs
             )
             if resp.status_code == 401 and self._refresh_token:
-                tokens = await refresh_access_token(self._refresh_token)
+                tokens = await refresh_access_token(
+                    self._refresh_token,
+                    client_id=self._client_id,
+                    client_secret=self._client_secret,
+                )
                 self._access_token = tokens["access_token"]
                 resp = await client.request(
                     method, url, headers={"Authorization": f"Bearer {self._access_token}"}, **kwargs
@@ -211,8 +246,18 @@ class GoogleConnector(BaseConnector):
         window_start: datetime,
         window_end: datetime,
         sync_token: Optional[str] = None,
-    ) -> tuple[list[RemoteEvent], Optional[str]]:
-        params: dict[str, Any] = {"singleEvents": "true", "maxResults": 2500}
+        calendar_writable: bool = True,
+    ) -> tuple[list[RemoteEvent], list[str], Optional[str]]:
+        params: dict[str, Any] = {
+            "singleEvents": "true",
+            "maxResults": 2500,
+            # showDeleted surfaces cancelled instances as stub items
+            # (status=cancelled, usually start/end omitted) so the sync
+            # layer can delete the matching cached rows. showHidden includes
+            # hidden invitations, which still block availability.
+            "showDeleted": "true",
+            "showHidden": "true",
+        }
         if sync_token:
             params["syncToken"] = sync_token
         else:
@@ -220,6 +265,7 @@ class GoogleConnector(BaseConnector):
             params["timeMax"] = window_end.isoformat()
 
         events: list[RemoteEvent] = []
+        deleted_ids: list[str] = []
         next_sync_token: Optional[str] = None
         page_token: Optional[str] = None
         while True:
@@ -231,14 +277,18 @@ class GoogleConnector(BaseConnector):
             data = resp.json()
             for item in data.get("items", []):
                 if item.get("status") == "cancelled":
+                    # Cancelled stubs carry only the id — record the
+                    # deletion and skip conversion (no start/end to parse).
+                    if item.get("id"):
+                        deleted_ids.append(item["id"])
                     continue
-                events.append(_to_remote_event(item, writable=True))
+                events.append(_to_remote_event(item, writable=calendar_writable))
             next_sync_token = data.get("nextSyncToken", next_sync_token)
             page_token = data.get("nextPageToken")
             if not page_token:
                 break
 
-        return events, next_sync_token
+        return events, deleted_ids, next_sync_token
 
     async def create_event(self, calendar_id: str, event: RemoteEvent) -> RemoteEvent:
         resp = await self._request(
@@ -264,6 +314,71 @@ class GoogleConnector(BaseConnector):
             f"{quote(provider_event_id, safe='')}",
         )
 
+    async def get_raw_event(self, calendar_id: str, provider_event_id: str) -> dict[str, Any]:
+        resp = await self._request(
+            "GET",
+            f"{API_BASE}/calendars/{quote(calendar_id, safe='')}/events/{quote(provider_event_id, safe='')}",
+        )
+        return resp.json()
+
+    async def add_attendee(
+        self, calendar_id: str, provider_event_id: str, email: str, name: Optional[str] = None
+    ) -> list[dict]:
+        event = await self.get_raw_event(calendar_id, provider_event_id)
+        attendees = list(event.get("attendees", []))
+        normalized = email.lower().strip()
+        for a in attendees:
+            if a.get("email", "").lower() == normalized:
+                return attendees
+        new_att: dict[str, Any] = {"email": email}
+        if name:
+            new_att["displayName"] = name
+        attendees.append(new_att)
+        resp = await self._request(
+            "PATCH",
+            f"{API_BASE}/calendars/{quote(calendar_id, safe='')}/events/{quote(provider_event_id, safe='')}",
+            json={"attendees": attendees},
+        )
+        return resp.json().get("attendees", [])
+
+    async def remove_attendee(self, calendar_id: str, provider_event_id: str, email: str) -> list[dict]:
+        event = await self.get_raw_event(calendar_id, provider_event_id)
+        attendees = event.get("attendees", [])
+        normalized = email.lower().strip()
+        updated = [a for a in attendees if a.get("email", "").lower() != normalized]
+        resp = await self._request(
+            "PATCH",
+            f"{API_BASE}/calendars/{quote(calendar_id, safe='')}/events/{quote(provider_event_id, safe='')}",
+            json={"attendees": updated},
+        )
+        return resp.json().get("attendees", [])
+
+    async def respond_to_event(self, calendar_id: str, provider_event_id: str, response_status: str) -> None:
+        """Update RSVP status in Google Calendar. Valid values: 'accepted', 'declined', 'tentative'."""
+        status_map = {
+            "accepted": "accepted",
+            "accept": "accepted",
+            "declined": "declined",
+            "decline": "declined",
+            "tentative": "tentative",
+        }
+        target = status_map.get(response_status.lower(), response_status.lower())
+        event = await self.get_raw_event(calendar_id, provider_event_id)
+        attendees = list(event.get("attendees", []))
+        matched = False
+        for a in attendees:
+            if a.get("self"):
+                a["responseStatus"] = target
+                matched = True
+                break
+        if not matched and attendees:
+            attendees[0]["responseStatus"] = target
+        await self._request(
+            "PATCH",
+            f"{API_BASE}/calendars/{quote(calendar_id, safe='')}/events/{quote(provider_event_id, safe='')}",
+            json={"attendees": attendees} if attendees else {},
+        )
+
     async def register_webhook(self, calendar_id: str, callback_url: str) -> dict[str, Any]:
         """Google's push channels require a publicly reachable HTTPS URL —
         not available for a local/dev deployment, so this is a no-op there.
@@ -274,3 +389,4 @@ class GoogleConnector(BaseConnector):
             "Webhook registration requires a public HTTPS callback URL. "
             "Falling back to periodic reconciliation until this deployment has one."
         )
+

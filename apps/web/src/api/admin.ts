@@ -191,6 +191,71 @@ export async function adminGetGoogleConnectUrl(): Promise<string> {
   return res.url;
 }
 
+export async function adminGetMicrosoftConnectUrl(): Promise<string> {
+  const res = await apiFetch<{ url: string }>("/admin/accounts/microsoft/connect-url");
+  return res.url;
+}
+
+
+// --- OAuth provider credentials ---
+
+export interface OAuthProviderConfig {
+  provider: string;
+  client_id_configured: boolean;
+  client_secret_configured: boolean;
+  tenant_id: string | null;
+}
+
+export function adminListOAuthConfigs(): Promise<OAuthProviderConfig[]> {
+  return apiFetch<OAuthProviderConfig[]>("/admin/oauth");
+}
+
+export function adminSaveOAuthConfig(
+  provider: string,
+  body: { client_id?: string; client_secret?: string; tenant_id?: string | null }
+): Promise<OAuthProviderConfig> {
+  return apiFetch<OAuthProviderConfig>(`/admin/oauth/${provider}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminClearOAuthConfig(provider: string): Promise<OAuthProviderConfig> {
+  return apiFetch<OAuthProviderConfig>(`/admin/oauth/${provider}`, { method: "DELETE" });
+}
+
+// --- AI / LiteLLM settings ---
+
+export interface AISettings {
+  openrouter_key_configured: boolean;
+  primary_model: string;
+  fallback_model: string;
+  emergency_model: string;
+  routing_strategy: string;
+  timeout_seconds: number;
+  sources: Record<string, string>;
+  litellm_endpoint: string;
+}
+
+export function adminGetAISettings(): Promise<AISettings> {
+  return apiFetch<AISettings>("/admin/ai/settings");
+}
+
+export function adminSaveAISettings(body: {
+  openrouter_api_key?: string;
+  primary_model?: string | null;
+  fallback_model?: string | null;
+  emergency_model?: string | null;
+  routing_strategy?: string | null;
+  timeout_seconds?: number;
+}): Promise<AISettings> {
+  return apiFetch<AISettings>("/admin/ai/settings", { method: "PUT", body: JSON.stringify(body) });
+}
+
+export function adminClearAISettings(): Promise<AISettings> {
+  return apiFetch<AISettings>("/admin/ai/settings", { method: "DELETE" });
+}
+
 // --- Audit log ---
 
 export interface AuditEntry {

@@ -109,6 +109,17 @@ def _user_level(
         field = _GRANT_FIELD_FOR_ACTION[action]
         return ACTION_REQUIRED_LEVEL[action] if getattr(grant, field) else PermissionLevel.NONE
 
+    if ctx.role == UserRole.EXECUTIVE:
+        # Non-owner, non-admin executive (e.g. executive B touching executive
+        # A's calendar). Deny-by-default today: Delegation rows only cover
+        # executive -> assistant, so there is no grant table to consult for
+        # executive -> executive yet. Phase 2 (BRD §32: multiple executives
+        # per EA / multiple EAs per executive) needs an executive-grant lookup
+        # here before denying; until then this explicit deny (rather than a
+        # fall-through) keeps the failure reason auditable as
+        # user_authority_denies.
+        return PermissionLevel.NONE
+
     return PermissionLevel.NONE
 
 

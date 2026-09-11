@@ -82,6 +82,95 @@ async def test_ea_with_grant_can_move_writable_event_brd_section38(session):
     assert moved.start == wed_4pm
 
 
+async def test_get_conflicts_finds_overlap_and_excludes_moved_event(session):
+    exec_user, _ea_user, calendar = await _seed(session)
+    ctx = AuthContext(user_id=exec_user.id, role=UserRole.EXECUTIVE, actor_type=ActorType.EXECUTIVE_UI)
+    tue_2pm = datetime(2026, 9, 15, 14, 0, tzinfo=timezone.utc)
+    blocker = await ai_tools.create_event(
+        session, ctx, calendar_id=calendar.id, title="Corporate sync",
+        start=tue_2pm + timedelta(minutes=30), end=tue_2pm + timedelta(hours=1, minutes=30),
+        is_owner=True,
+    )
+    draggable = await ai_tools.create_event(
+        session, ctx, calendar_id=calendar.id, title="Drag me",
+        start=tue_2pm - timedelta(hours=2), end=tue_2pm - timedelta(hours=1),
+        is_owner=True,
+    )
+
+    hits = await ai_tools.get_conflicts(
+        session, ctx, window_start=tue_2pm, window_end=tue_2pm + timedelta(hours=1),
+        exclude_event_id=draggable.id, owner_calendar_ids={calendar.id},
+    )
+
+    assert [h["event_id"] for h in hits] == [blocker.id]
+    assert hits[0]["title"] == "Corporate sync"
+    assert hits[0]["redacted"] is False
+
+    # Without the exclusion the dragged event would conflict with itself.
+    self_hits = await ai_tools.get_conflicts(
+        session, ctx,
+        window_start=tue_2pm - timedelta(hours=2), window_end=tue_2pm - timedelta(hours=1),
+        owner_calendar_ids={calendar.id},
+    )
+    assert [h["event_id"] for h in self_hits] == [draggable.id]
+
+
+async def test_get_conflicts_redacts_title_without_view_permission(session):
+    exec_user, _ea_user, calendar = await _seed(session)
+    owner_ctx = AuthContext(user_id=exec_user.id, role=UserRole.EXECUTIVE, actor_type=ActorType.EXECUTIVE_UI)
+    start = datetime(2026, 9, 15, 14, 0, tzinfo=timezone.utc)
+    await ai_tools.create_event(
+        session, owner_ctx, calendar_id=calendar.id, title="Secret merger talk",
+        start=start, end=start + timedelta(hours=1), is_owner=True,
+    )
+
+    # EA whose grant covers availability/reschedule but not titles still warns.
+    grant = DelegationCalendarGrant(
+        id="grant-1", delegation_id="del-1", calendar_id=calendar.id,
+        can_view_availability=True, can_reschedule=True,
+    )
+    ea_ctx = AuthContext(user_id="ea-1", role=UserRole.ASSISTANT, actor_type=ActorType.EA_UI)
+    hits = await ai_tools.get_conflicts(
+        session, ea_ctx, window_start=start, window_end=start + timedelta(hours=1),
+        grants_by_calendar={calendar.id: grant},
+    )
+    # The overlap must still surface, redacted (BRD §15: hidden meetings
+    # still block). (sqlite drops tzinfo on read, so compare instants.)
+    assert len(hits) == 1
+    assert hits[0]["title"] == "Busy"
+    assert hits[0]["redacted"] is True
+    assert hits[0]["start"].replace(tzinfo=timezone.utc) == start
+
+
+async def test_create_and_move_support_all_day_lane_conversions(session):
+    exec_user, _ea_user, calendar = await _seed(session)
+    ctx = AuthContext(user_id=exec_user.id, role=UserRole.EXECUTIVE, actor_type=ActorType.EXECUTIVE_UI)
+    day = datetime(2026, 9, 15, 0, 0, tzinfo=timezone.utc)
+
+    alldayer = await ai_tools.create_event(
+        session, ctx, calendar_id=calendar.id, title="Offsite",
+        start=day, end=day + timedelta(days=1), all_day=True, is_owner=True,
+    )
+    assert alldayer.all_day is True
+
+    # Lane -> grid: drop at 10:00 as a 1h timed event.
+    moved = await ai_tools.move_event(
+        session, ctx, event_id=alldayer.id,
+        new_start=day + timedelta(hours=10), new_end=day + timedelta(hours=11),
+        new_all_day=False, is_owner=True,
+    )
+    assert moved.all_day is False
+    assert moved.start == day + timedelta(hours=10)
+
+    # Grid -> lane: back to all-day.
+    back = await ai_tools.move_event(
+        session, ctx, event_id=alldayer.id,
+        new_start=day, new_end=day + timedelta(days=1),
+        new_all_day=True, is_owner=True,
+    )
+    assert back.all_day is True
+
+
 async def test_mcp_actor_respects_ai_can_write_flag(session):
     exec_user, _ea_user, calendar = await _seed(session)
     calendar.ai_can_read = True

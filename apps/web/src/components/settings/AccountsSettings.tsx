@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from "react";
 
-import { AdminAccount, adminDisconnectAccount, adminGetGoogleConnectUrl, adminListAccounts } from "../../api/admin";
+import {
+  AdminAccount,
+  OAuthProviderConfig,
+  adminClearOAuthConfig,
+  adminDisconnectAccount,
+  adminGetGoogleConnectUrl,
+  adminGetMicrosoftConnectUrl,
+  adminListAccounts,
+  adminListOAuthConfigs,
+  adminSaveOAuthConfig,
+} from "../../api/admin";
 
 const ERROR_MESSAGES: Record<string, string> = {
   access_denied: "Google sign-in was cancelled.",
@@ -16,12 +26,18 @@ export default function AccountsSettings() {
   const [error, setError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [banner, setBanner] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [oauth, setOauth] = useState<Record<string, OAuthProviderConfig>>({});
+  const [oauthError, setOauthError] = useState<string | null>(null);
+  const [oauthSaving, setOauthSaving] = useState<string | null>(null);
 
   function load() {
     adminListAccounts()
       .then(setAccounts)
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
+    adminListOAuthConfigs()
+      .then((list) => setOauth(Object.fromEntries(list.map((c) => [c.provider, c]))))
+      .catch((e) => setOauthError(String(e)));
   }
 
   useEffect(load, []);
@@ -49,6 +65,49 @@ export default function AccountsSettings() {
     } catch (e) {
       setError(String(e));
       setConnecting(false);
+    }
+  }
+
+  async function handleConnectMicrosoft() {
+    setConnecting(true);
+    setError(null);
+    try {
+      const url = await adminGetMicrosoftConnectUrl();
+      window.location.href = url;
+    } catch (e) {
+      setError(String(e));
+      setConnecting(false);
+    }
+  }
+
+
+  async function handleSaveOAuth(
+    provider: string,
+    body: { client_id?: string; client_secret?: string; tenant_id?: string | null }
+  ) {
+    setOauthSaving(provider);
+    setOauthError(null);
+    try {
+      const updated = await adminSaveOAuthConfig(provider, body);
+      setOauth((prev) => ({ ...prev, [provider]: updated }));
+      setBanner({ kind: "success", text: `Saved ${provider} provider credentials.` });
+    } catch (e) {
+      setOauthError(String(e));
+    } finally {
+      setOauthSaving(null);
+    }
+  }
+
+  async function handleClearOAuth(provider: string) {
+    if (!confirm(`Clear stored ${provider} OAuth credentials? Existing connected accounts keep working until their tokens expire, but new connects will fail.`)) return;
+    setOauthSaving(provider);
+    try {
+      const updated = await adminClearOAuthConfig(provider);
+      setOauth((prev) => ({ ...prev, [provider]: updated }));
+    } catch (e) {
+      setOauthError(String(e));
+    } finally {
+      setOauthSaving(null);
     }
   }
 
@@ -87,12 +146,41 @@ export default function AccountsSettings() {
         </div>
       )}
 
+      <div style={{ background: "var(--bg-raised)", borderRadius: 10, padding: 14, marginBottom: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Provider credentials</div>
+        <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 12px" }}>
+          OAuth client credentials for connecting accounts — stored encrypted, never displayed back.
+          Leave a field blank to keep its stored value. Server env vars remain as fallback.
+        </p>
+        {oauthError && <div style={{ color: "var(--danger)", fontSize: 12, marginBottom: 12 }}>{oauthError}</div>}
+        <ProviderCredentialCard
+          provider="google"
+          title="Google"
+          hint="Google Cloud Console → APIs & Services → Credentials → Web application OAuth client (enable the Google Calendar API). Redirect URI: this origin + /api/v1/admin/accounts/google/callback"
+          config={oauth.google}
+          showTenant={false}
+          saving={oauthSaving === "google"}
+          onSave={(body) => handleSaveOAuth("google", body)}
+          onClear={() => handleClearOAuth("google")}
+        />
+        <ProviderCredentialCard
+          provider="microsoft"
+          title="Microsoft"
+          hint="Azure portal → App registrations → Web client (enable Calendars.ReadWrite and User.Read permissions)."
+          config={oauth.microsoft}
+          showTenant
+          saving={oauthSaving === "microsoft"}
+          onSave={(body) => handleSaveOAuth("microsoft", body)}
+          onClear={() => handleClearOAuth("microsoft")}
+        />
+      </div>
+
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
         <button onClick={handleConnectGoogle} disabled={connecting} className="hoverable" style={{ ...btnStyle, opacity: connecting ? 0.6 : 1 }}>
-          {connecting ? "Redirecting to Google…" : "+ Connect Google Account"}
+          {connecting ? "Redirecting…" : "+ Connect Google Account"}
         </button>
-        <button disabled className="hoverable" style={{ ...btnStyle, background: "var(--bg-raised)", color: "var(--text-tertiary)", cursor: "not-allowed" }} title="Microsoft Graph connector not implemented yet">
-          + Connect Microsoft Account (coming soon)
+        <button onClick={handleConnectMicrosoft} disabled={connecting} className="hoverable" style={{ ...btnStyle, opacity: connecting ? 0.6 : 1 }}>
+          {connecting ? "Redirecting…" : "+ Connect Microsoft Account"}
         </button>
       </div>
 
@@ -123,6 +211,122 @@ export default function AccountsSettings() {
     </div>
   );
 }
+
+function ProviderCredentialCard({
+  provider,
+  title,
+  hint,
+  config,
+  showTenant,
+  saving,
+  onSave,
+  onClear,
+}: {
+  provider: string;
+  title: string;
+  hint: string;
+  config: OAuthProviderConfig | undefined;
+  showTenant: boolean;
+  saving: boolean;
+  onSave: (body: { client_id?: string; client_secret?: string; tenant_id?: string | null }) => void;
+  onClear: () => void;
+}) {
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [tenantId, setTenantId] = useState("");
+
+  const configured = !!config && (config.client_id_configured || config.client_secret_configured);
+
+  return (
+    <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 12, marginTop: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>{title}</span>
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            borderRadius: 4,
+            padding: "2px 6px",
+            background: configured ? "var(--success)" : "var(--bg-app)",
+            color: configured ? "#062611" : "var(--text-tertiary)",
+          }}
+        >
+          {configured ? "CONFIGURED" : "NOT CONFIGURED"}
+        </span>
+        {config && (
+          <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
+            ID {config.client_id_configured ? "✓" : "—"} · secret {config.client_secret_configured ? "✓" : "—"}
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 8 }}>{hint}</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <input
+          placeholder={config?.client_id_configured ? "Client ID (stored — blank keeps it)" : "Client ID"}
+          value={clientId}
+          onChange={(e) => setClientId(e.target.value)}
+          autoComplete="off"
+          style={{ ...inputStyle, minWidth: 220, flex: 1 }}
+        />
+        <input
+          placeholder={config?.client_secret_configured ? "Client secret (stored — blank keeps it)" : "Client secret"}
+          value={clientSecret}
+          onChange={(e) => setClientSecret(e.target.value)}
+          type="password"
+          autoComplete="new-password"
+          style={{ ...inputStyle, minWidth: 220, flex: 1 }}
+        />
+        {showTenant && (
+          <input
+            placeholder="Tenant ID (optional)"
+            value={tenantId}
+            onChange={(e) => setTenantId(e.target.value)}
+            autoComplete="off"
+            style={{ ...inputStyle, minWidth: 160 }}
+          />
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        <button
+          onClick={() => {
+            onSave({
+              ...(clientId ? { client_id: clientId } : {}),
+              ...(clientSecret ? { client_secret: clientSecret } : {}),
+              ...(showTenant ? { tenant_id: tenantId || null } : {}),
+            });
+            setClientId("");
+            setClientSecret("");
+          }}
+          disabled={saving}
+          className="hoverable"
+          style={{ ...btnStyle, background: "var(--accent)", opacity: saving ? 0.6 : 1 }}
+        >
+          {saving ? "Saving…" : `Save ${title} credentials`}
+        </button>
+        {configured && (
+          <button
+            onClick={onClear}
+            disabled={saving}
+            className="hoverable"
+            style={{ ...btnStyle, background: "none", border: "1px solid var(--danger)", color: "var(--danger)" }}
+          >
+            Clear
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const inputStyle: React.CSSProperties = {
+  background: "var(--bg-app)",
+  border: "1px solid var(--border)",
+  borderRadius: 6,
+  color: "var(--text-primary)",
+  padding: "7px 10px",
+  fontSize: 12,
+  colorScheme: "dark",
+};
 
 const btnStyle: React.CSSProperties = {
   border: "none",

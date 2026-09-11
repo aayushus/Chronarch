@@ -23,3 +23,22 @@ class AuditEntry(Base):
     event_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class AuditLogImmutableError(RuntimeError):
+    """Raised when an update or delete operation is attempted on an AuditEntry."""
+    pass
+
+
+from sqlalchemy import event
+
+
+@event.listens_for(AuditEntry, "before_update")
+def _prevent_audit_update(mapper, connection, target):
+    raise AuditLogImmutableError(f"AuditEntry {target.id} cannot be modified: audit logs are append-only.")
+
+
+@event.listens_for(AuditEntry, "before_delete")
+def _prevent_audit_delete(mapper, connection, target):
+    raise AuditLogImmutableError(f"AuditEntry {target.id} cannot be deleted: audit logs are append-only.")
+

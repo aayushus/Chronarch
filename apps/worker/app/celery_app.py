@@ -1,15 +1,16 @@
-"""Celery worker: sync jobs, webhook processing, ICS parsing (BRD §23-25).
-
-Real provider sync (Google push channels / Graph subscriptions + backfill,
-BR-CAL-001/002) is not implemented yet — that is the next build phase after
-this foundation. This module wires up the task queue and a placeholder
-reconciliation task so `docker compose up` brings up a working worker
-process today, ready for connector tasks to be added.
-"""
-
+import asyncio
+import logging
 import os
 
 from celery import Celery
+from sqlalchemy import select
+
+from chronarch_core.db import SessionLocal
+from chronarch_core.models.account import Account
+from chronarch_core.models.enums import ProviderType
+from chronarch_core.sync.google_sync import sync_google_account
+
+logger = logging.getLogger(__name__)
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
@@ -17,10 +18,49 @@ celery_app = Celery("chronarch_worker", broker=REDIS_URL, backend=REDIS_URL)
 celery_app.conf.update(task_serializer="json", result_serializer="json", accept_content=["json"])
 
 
+async def _reconcile_single(session, account: Account) -> dict:
+    if account.provider == ProviderType.GOOGLE:
+        return await sync_google_account(session, account)
+    elif account.provider == ProviderType.MICROSOFT:
+        try:
+            from chronarch_core.sync.microsoft_sync import sync_microsoft_account
+
+            return await sync_microsoft_account(session, account)
+        except ImportError:
+            return {"status": "microsoft_sync_pending"}
+    return {"status": "unsupported_provider", "provider": account.provider.value}
+
+
+async def _reconcile_async(account_id: str) -> dict:
+    async with SessionLocal() as session:
+        if account_id == "__all__":
+            accounts = list((await session.execute(select(Account))).scalars())
+            results = {}
+            for acct in accounts:
+                try:
+                    res = await _reconcile_single(session, acct)
+                    results[acct.id] = {"status": "ok", "stats": res}
+                except Exception as exc:
+                    logger.exception("Failed to reconcile account %s", acct.id)
+                    results[acct.id] = {"status": "error", "error": str(exc)}
+            await session.commit()
+            return {"reconciled_count": len(accounts), "results": results}
+
+        account = await session.get(Account, account_id)
+        if not account:
+            return {"error": f"account {account_id} not found"}
+
+        try:
+            stats = await _reconcile_single(session, account)
+            await session.commit()
+            return {"account_id": account_id, "status": "ok", "stats": stats}
+        except Exception as exc:
+            logger.exception("Failed to reconcile account %s", account_id)
+            await session.commit()
+            return {"account_id": account_id, "status": "error", "error": str(exc)}
+
+
 @celery_app.task(name="chronarch.reconcile_account")
 def reconcile_account(account_id: str) -> dict:
-    """Placeholder for per-account reconciliation (BR-CAL pull sync). Will
-    instantiate the account's connector (chronarch_core.connectors) and
-    diff provider state against cached UnifiedEvent rows once connectors
-    are implemented."""
-    return {"account_id": account_id, "status": "not_implemented"}
+    return asyncio.run(_reconcile_async(account_id))
+
