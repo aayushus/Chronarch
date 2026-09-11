@@ -1,0 +1,133 @@
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from chronarch_core import ai_tools
+from chronarch_core.models.enums import UserRole
+from chronarch_core.models.user import User
+
+from ..auth import build_auth_context, get_current_user
+from ..deps import get_db_session
+from ..permission_helpers import get_delegation_grant, is_calendar_owner
+from .calendars_router import actor_type_for
+
+router = APIRouter(prefix="/api/v1/events", tags=["events"])
+
+
+class EventOut(BaseModel):
+    id: str
+    calendar_id: str
+    title: str
+    start: datetime
+    end: datetime
+    all_day: bool
+    location: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class EventCreate(BaseModel):
+    calendar_id: str
+    title: str
+    start: datetime
+    end: datetime
+    timezone: str = "UTC"
+    description: str | None = None
+    location: str | None = None
+
+
+class EventMove(BaseModel):
+    start: datetime
+    end: datetime
+
+
+async def _resolve_owner_and_grant(session: AsyncSession, user: User, calendar_id: str):
+    from chronarch_core.models.calendar import Calendar
+
+    calendar = await session.get(Calendar, calendar_id)
+    if calendar is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Calendar not found")
+    is_owner = await is_calendar_owner(session, user, calendar)
+    grant = None
+    if not is_owner and user.role == UserRole.ASSISTANT:
+        grant = await get_delegation_grant(session, user.id, calendar_id)
+    return is_owner, grant
+
+
+@router.get("", response_model=list[EventOut])
+async def list_events(
+    window_start: datetime,
+    window_end: datetime,
+    calendar_ids: list[str] | None = None,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    ctx = build_auth_context(user, actor_type_for(user))
+    events = await ai_tools.get_events(
+        session, ctx, window_start=window_start, window_end=window_end, calendar_ids=calendar_ids
+    )
+    return events
+
+
+@router.post("", response_model=EventOut, status_code=status.HTTP_201_CREATED)
+async def create_event(
+    body: EventCreate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    is_owner, grant = await _resolve_owner_and_grant(session, user, body.calendar_id)
+    ctx = build_auth_context(user, actor_type_for(user))
+    try:
+        event = await ai_tools.create_event(
+            session, ctx, calendar_id=body.calendar_id, title=body.title, start=body.start, end=body.end,
+            timezone=body.timezone, description=body.description, location=body.location,
+            is_owner=is_owner, delegation_grant=grant,
+        )
+    except ai_tools.PermissionDenied as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc))
+    return event
+
+
+@router.patch("/{event_id}/move", response_model=EventOut)
+async def move_event(
+    event_id: str,
+    body: EventMove,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    from chronarch_core.models.event import UnifiedEvent
+
+    existing = await session.get(UnifiedEvent, event_id)
+    if existing is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Event not found")
+    is_owner, grant = await _resolve_owner_and_grant(session, user, existing.calendar_id)
+    ctx = build_auth_context(user, actor_type_for(user))
+    try:
+        event = await ai_tools.move_event(
+            session, ctx, event_id=event_id, new_start=body.start, new_end=body.end,
+            is_owner=is_owner, delegation_grant=grant,
+        )
+    except ai_tools.PermissionDenied as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc))
+    return event
+
+
+@router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_event(
+    event_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    from chronarch_core.models.event import UnifiedEvent
+
+    existing = await session.get(UnifiedEvent, event_id)
+    if existing is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Event not found")
+    is_owner, grant = await _resolve_owner_and_grant(session, user, existing.calendar_id)
+    ctx = build_auth_context(user, actor_type_for(user))
+    try:
+        await ai_tools.delete_event(session, ctx, event_id=event_id, is_owner=is_owner, delegation_grant=grant)
+    except ai_tools.PermissionDenied as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc))

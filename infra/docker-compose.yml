@@ -1,0 +1,116 @@
+name: chronarch
+
+x-python-env: &python-env
+  DATABASE_URL: postgresql+asyncpg://chronarch:chronarch@postgres:5432/chronarch
+  REDIS_URL: redis://redis:6379/0
+  JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+  TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: chronarch
+      POSTGRES_PASSWORD: chronarch
+      POSTGRES_DB: chronarch
+    volumes:
+      - ./volumes/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chronarch"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    environment: *python-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    working_dir: /srv/apps/api
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    environment: *python-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mcp:
+    build:
+      context: ..
+      dockerfile: apps/mcp/Dockerfile
+    environment: *python-env
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8001:8001"
+
+  worker:
+    build:
+      context: ..
+      dockerfile: apps/worker/Dockerfile
+    environment: *python-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  scheduler:
+    build:
+      context: ..
+      dockerfile: apps/scheduler/Dockerfile
+    environment: *python-env
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  litellm:
+    build:
+      context: ../packages/litellm-config
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-litellm-dev}
+    ports:
+      - "4000:4000"
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3000:80"

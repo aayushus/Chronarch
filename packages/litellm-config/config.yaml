@@ -1,0 +1,29 @@
+# LiteLLM proxy config (BRD §20.2-20.3): routes the built-in copilot's
+# requests to OpenRouter by default, preferring free-tier models, with a
+# configurable fallback chain. Administrators override via env vars /
+# Admin UI (AI / LiteLLM settings) rather than editing this file directly
+# in a running deployment — this is the shipped default.
+
+model_list:
+  - model_name: primary
+    litellm_params:
+      model: openrouter/meta-llama/llama-3.1-8b-instruct:free
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: fallback
+    litellm_params:
+      model: openrouter/google/gemma-2-9b-it:free
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: emergency-fallback
+    litellm_params:
+      model: openrouter/nousresearch/hermes-3-llama-3.1-405b:free
+      api_key: os.environ/OPENROUTER_API_KEY
+
+router_settings:
+  routing_strategy: simple-shuffle
+  fallbacks: [{ "primary": ["fallback", "emergency-fallback"] }]
+  timeout: 30
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

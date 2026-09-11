@@ -1,0 +1,151 @@
+"""Availability engine (BRD §11, §25): free/busy aggregation, free-slot
+search, and conflict detection.
+
+BRD §11 is explicit: availability must NOT depend on editability. A
+read-only corporate meeting still blocks the executive's time. So this
+module only ever looks at `Calendar.blocks_availability` and event
+busy_status — it never consults the permission engine.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+
+from ..models.enums import BusyStatus
+
+
+@dataclass(frozen=True)
+class BusyInterval:
+    start: datetime
+    end: datetime
+    calendar_id: str
+    event_id: str
+
+
+@dataclass(frozen=True)
+class FreeSlot:
+    start: datetime
+    end: datetime
+
+
+def _is_blocking(busy_status: BusyStatus) -> bool:
+    return busy_status in (BusyStatus.BUSY, BusyStatus.TENTATIVE, BusyStatus.OUT_OF_OFFICE)
+
+
+def merge_intervals(intervals: list[BusyInterval]) -> list[tuple[datetime, datetime]]:
+    """Merge overlapping/adjacent busy intervals into a sorted, disjoint list."""
+    if not intervals:
+        return []
+    ordered = sorted(intervals, key=lambda i: i.start)
+    merged: list[list[datetime]] = [[ordered[0].start, ordered[0].end]]
+    for iv in ordered[1:]:
+        last = merged[-1]
+        if iv.start <= last[1]:
+            last[1] = max(last[1], iv.end)
+        else:
+            merged.append([iv.start, iv.end])
+    return [(s, e) for s, e in merged]
+
+
+def compute_busy_intervals(
+    events: list,
+    blocking_calendar_ids: set[str],
+) -> list[BusyInterval]:
+    """events: iterable of UnifiedEvent-like objects with .calendar_id,
+    .start, .end, .busy_status, .id. Only events on a calendar whose
+    `blocks_availability` is True (blocking_calendar_ids) are considered.
+    """
+    return [
+        BusyInterval(start=e.start, end=e.end, calendar_id=e.calendar_id, event_id=e.id)
+        for e in events
+        if e.calendar_id in blocking_calendar_ids and _is_blocking(e.busy_status)
+    ]
+
+
+def find_conflicts(
+    proposed_start: datetime,
+    proposed_end: datetime,
+    events: list,
+    blocking_calendar_ids: set[str],
+    exclude_event_id: str | None = None,
+) -> list[BusyInterval]:
+    """Return busy intervals that overlap the proposed [start, end) window."""
+    intervals = compute_busy_intervals(events, blocking_calendar_ids)
+    return [
+        iv
+        for iv in intervals
+        if iv.event_id != exclude_event_id and iv.start < proposed_end and iv.end > proposed_start
+    ]
+
+
+def find_free_slots(
+    window_start: datetime,
+    window_end: datetime,
+    duration: timedelta,
+    events: list,
+    blocking_calendar_ids: set[str],
+    *,
+    working_hours: tuple[int, int] | None = None,  # (start_hour, end_hour) in window's tz
+    buffer: timedelta = timedelta(0),
+    min_notice: timedelta = timedelta(0),
+    now: datetime | None = None,
+    max_results: int = 10,
+) -> list[FreeSlot]:
+    """Scan [window_start, window_end) for gaps of at least `duration`,
+    respecting working hours, meeting buffers, and minimum notice
+    (BRD §26 — used by MCP find_free_slots and the copilot).
+    """
+    busy = merge_intervals(compute_busy_intervals(events, blocking_calendar_ids))
+
+    # Apply buffer by padding each busy interval.
+    if buffer.total_seconds() > 0:
+        busy = merge_intervals(
+            [BusyInterval(s - buffer, e + buffer, "", "") for s, e in busy]
+        )
+
+    earliest = window_start
+    if now is not None and now + min_notice > earliest:
+        earliest = now + min_notice
+
+    slots: list[FreeSlot] = []
+    cursor = earliest
+    boundaries = busy + [(window_end, window_end)]
+
+    for busy_start, busy_end in boundaries:
+        if cursor < busy_start:
+            gap_start, gap_end = cursor, min(busy_start, window_end)
+            slots.extend(_slice_by_working_hours(gap_start, gap_end, duration, working_hours))
+        cursor = max(cursor, busy_end)
+        if cursor >= window_end or len(slots) >= max_results:
+            break
+
+    return slots[:max_results]
+
+
+def _slice_by_working_hours(
+    gap_start: datetime,
+    gap_end: datetime,
+    duration: timedelta,
+    working_hours: tuple[int, int] | None,
+) -> list[FreeSlot]:
+    if gap_end - gap_start < duration:
+        return []
+
+    if working_hours is None:
+        return [FreeSlot(gap_start, gap_start + duration)]
+
+    start_hour, end_hour = working_hours
+    results: list[FreeSlot] = []
+    day_cursor = gap_start
+
+    while day_cursor < gap_end:
+        day_start = day_cursor.replace(hour=start_hour, minute=0, second=0, microsecond=0)
+        day_end = day_cursor.replace(hour=end_hour, minute=0, second=0, microsecond=0)
+        slot_start = max(day_cursor, day_start)
+        slot_end = min(gap_end, day_end)
+        if slot_end - slot_start >= duration:
+            results.append(FreeSlot(slot_start, slot_start + duration))
+        day_cursor = (day_cursor + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    return results
