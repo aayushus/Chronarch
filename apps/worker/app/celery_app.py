@@ -28,6 +28,15 @@ async def _reconcile_single(session, account: Account) -> dict:
             return await sync_microsoft_account(session, account)
         except ImportError:
             return {"status": "microsoft_sync_pending"}
+    elif account.provider == ProviderType.ICS:
+        from chronarch_core.models.calendar import Calendar
+        from chronarch_core.sync.ics_sync import sync_ics_subscription_calendar
+
+        cals = list((await session.execute(select(Calendar).where(Calendar.account_id == account.id))).scalars())
+        stats = []
+        for cal in cals:
+            stats.append(await sync_ics_subscription_calendar(session, cal))
+        return {"status": "ok", "ics_calendars_synced": len(cals), "details": stats}
     return {"status": "unsupported_provider", "provider": account.provider.value}
 
 

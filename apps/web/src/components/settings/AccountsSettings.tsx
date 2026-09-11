@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import {
   AdminAccount,
   OAuthProviderConfig,
+  adminAddIcsSubscription,
   adminClearOAuthConfig,
   adminDisconnectAccount,
   adminGetGoogleConnectUrl,
@@ -29,6 +30,30 @@ export default function AccountsSettings() {
   const [oauth, setOauth] = useState<Record<string, OAuthProviderConfig>>({});
   const [oauthError, setOauthError] = useState<string | null>(null);
   const [oauthSaving, setOauthSaving] = useState<string | null>(null);
+
+  // ICS Subscription state (BR-CAL-004)
+  const [showIcsSubModal, setShowIcsSubModal] = useState(false);
+  const [icsSubName, setIcsSubName] = useState("");
+  const [icsSubUrl, setIcsSubUrl] = useState("");
+  const [icsSubSaving, setIcsSubSaving] = useState(false);
+  const [icsSubError, setIcsSubError] = useState<string | null>(null);
+
+  async function handleCreateIcsSub() {
+    setIcsSubSaving(true);
+    setIcsSubError(null);
+    try {
+      await adminAddIcsSubscription({ name: icsSubName.trim(), url: icsSubUrl.trim() });
+      setBanner({ kind: "success", text: `Subscribed to ${icsSubName.trim()} ICS calendar feed.` });
+      setShowIcsSubModal(false);
+      setIcsSubName("");
+      setIcsSubUrl("");
+      load();
+    } catch (e) {
+      setIcsSubError(String(e));
+    } finally {
+      setIcsSubSaving(false);
+    }
+  }
 
   function load() {
     adminListAccounts()
@@ -182,7 +207,101 @@ export default function AccountsSettings() {
         <button onClick={handleConnectMicrosoft} disabled={connecting} className="hoverable" style={{ ...btnStyle, opacity: connecting ? 0.6 : 1 }}>
           {connecting ? "Redirecting…" : "+ Connect Microsoft Account"}
         </button>
+        <button
+          onClick={() => setShowIcsSubModal(true)}
+          className="hoverable"
+          style={{ ...btnStyle, background: "var(--bg-raised)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}
+        >
+          + Subscribe to ICS Feed (BR-CAL-004)
+        </button>
       </div>
+
+      {showIcsSubModal && (
+        <div className="modal-backdrop" onClick={() => setShowIcsSubModal(false)}>
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 460, maxWidth: "90vw", padding: 24 }}
+          >
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Subscribe to ICS Calendar Feed</h3>
+            <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16 }}>
+              Add a public or private iCalendar feed via HTTP/HTTPS/webcal URL (BR-CAL-004). These calendars are synchronized periodically and treated as read-only.
+            </p>
+            {icsSubError && (
+              <div style={{ color: "var(--danger)", fontSize: 12, marginBottom: 12 }}>{icsSubError}</div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Calendar Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. US Holidays, Team Schedule"
+                  value={icsSubName}
+                  onChange={(e) => setIcsSubName(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: 6,
+                    border: "1px solid var(--border-subtle)",
+                    background: "var(--bg-base)",
+                    color: "var(--text-primary)",
+                    fontSize: 13,
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>ICS Feed URL</label>
+                <input
+                  type="url"
+                  placeholder="https://example.com/calendar.ics or webcal://..."
+                  value={icsSubUrl}
+                  onChange={(e) => setIcsSubUrl(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: 6,
+                    border: "1px solid var(--border-subtle)",
+                    background: "var(--bg-base)",
+                    color: "var(--text-primary)",
+                    fontSize: 13,
+                  }}
+                />
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                onClick={() => setShowIcsSubModal(false)}
+                className="hoverable"
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 6,
+                  border: "1px solid var(--border-subtle)",
+                  background: "transparent",
+                  color: "var(--text-primary)",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateIcsSub}
+                disabled={icsSubSaving || !icsSubName.trim() || !icsSubUrl.trim()}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 6,
+                  border: "none",
+                  background: "var(--accent)",
+                  color: "#fff",
+                  fontWeight: 600,
+                  cursor: icsSubSaving ? "not-allowed" : "pointer",
+                }}
+              >
+                {icsSubSaving ? "Subscribing…" : "Subscribe"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && <div style={{ color: "var(--danger)", fontSize: 12, marginBottom: 12 }}>{error}</div>}
 

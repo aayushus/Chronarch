@@ -205,3 +205,67 @@ async def delete_event(
         await ai_tools.delete_event(session, ctx, event_id=event_id, is_owner=is_owner, delegation_grant=grant)
     except ai_tools.PermissionDenied as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc))
+
+
+class IcsPreviewRequest(BaseModel):
+    content: str
+
+
+class IcsImportRequest(BaseModel):
+    calendar_id: str
+    title: str
+    start: datetime
+    end: datetime
+    timezone: str = "UTC"
+    description: str | None = None
+    location: str | None = None
+    all_day: bool = False
+
+
+@router.post("/ics/preview")
+async def preview_ics(
+    body: IcsPreviewRequest,
+    _user: User = Depends(get_current_user),
+):
+    from chronarch_core.ics import parse_ics_events
+
+    try:
+        events = parse_ics_events(body.content)
+        return {"events": events, "count": len(events)}
+    except Exception as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Failed to parse .ics content: {exc}")
+
+
+@router.post("/ics/import", response_model=EventOut)
+async def import_ics_event(
+    body: IcsImportRequest,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Import a single event from an .ics preview into the designated writable calendar (BR-ICS-003)."""
+    is_owner, grant = await _resolve_owner_and_grant(session, user, body.calendar_id)
+    # ActorType is ICS_IMPORT (BRD §22 audit requirement)
+    from chronarch_core.models.enums import ActorType
+
+    ctx = build_auth_context(user, ActorType.ICS_IMPORT)
+    try:
+        event = await ai_tools.create_event(
+            session,
+            ctx,
+            calendar_id=body.calendar_id,
+            title=body.title,
+            start=body.start,
+            end=body.end,
+            timezone=body.timezone,
+            description=body.description,
+            location=body.location,
+            all_day=body.all_day,
+            is_owner=is_owner,
+            delegation_grant=grant,
+        )
+    except ai_tools.PermissionDenied as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc))
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+    return event
+

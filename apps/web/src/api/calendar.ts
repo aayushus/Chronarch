@@ -98,3 +98,52 @@ export function getConflicts(
 export function deleteEvent(eventId: string): Promise<void> {
   return apiFetch<void>(`/events/${eventId}`, { method: "DELETE" });
 }
+
+export interface IcsPreviewEvent {
+  uid: string;
+  title: string;
+  start: string;
+  end: string;
+  all_day: boolean;
+  timezone: string;
+  location: string | null;
+  description: string | null;
+  organizer: { email: string; name: string | null } | null;
+  attendees: Array<{ email: string; name: string | null; status: string }>;
+  recurrence: string | null;
+}
+
+export function previewIcs(content: string): Promise<{ events: IcsPreviewEvent[]; count: number }> {
+  return apiFetch<{ events: IcsPreviewEvent[]; count: number }>("/events/ics/preview", {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+}
+
+export function importIcsEvent(body: {
+  calendar_id: string;
+  title: string;
+  start: string;
+  end: string;
+  timezone?: string;
+  description?: string | null;
+  location?: string | null;
+  all_day?: boolean;
+}): Promise<EventSummary> {
+  return apiFetch<EventSummary>("/events/ics/import", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export interface CopilotMessage {
+  role: "user" | "assistant" | "system";
+  content?: string | null;
+}
+
+export function copilotChat(messages: CopilotMessage[], userTime?: string): Promise<{ message: CopilotMessage }> {
+  return apiFetch<{ message: CopilotMessage }>("/copilot/chat", {
+    method: "POST",
+    body: JSON.stringify({ messages, user_time: userTime || new Date().toISOString() }),
+  });
+}

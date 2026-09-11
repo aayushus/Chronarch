@@ -196,6 +196,18 @@ export async function adminGetMicrosoftConnectUrl(): Promise<string> {
   return res.url;
 }
 
+export function adminAddIcsSubscription(body: { name: string; url: string; color?: string }): Promise<{
+  calendar_id: string;
+  name: string;
+  sync_stats: Record<string, unknown>;
+}> {
+  return apiFetch<{ calendar_id: string; name: string; sync_stats: Record<string, unknown> }>(
+    "/admin/accounts/ics-subscription",
+    { method: "POST", body: JSON.stringify(body) }
+  );
+}
+
+
 
 // --- OAuth provider credentials ---
 

@@ -15,6 +15,7 @@ from .routers import (
     admin_users_router,
     auth_router,
     calendars_router,
+    copilot_router,
     events_router,
     health,
 )
@@ -37,6 +38,7 @@ app.include_router(health.router)
 app.include_router(auth_router.router)
 app.include_router(calendars_router.router)
 app.include_router(events_router.router)
+app.include_router(copilot_router.router)
 app.include_router(admin_router.router)
 app.include_router(admin_users_router.router)
 app.include_router(admin_delegations_router.router)
@@ -47,4 +49,5 @@ app.include_router(admin_google_router.router)
 app.include_router(admin_microsoft_router.router)
 app.include_router(admin_oauth_router.router)
 app.include_router(admin_ai_router.router)
+
 

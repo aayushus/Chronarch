@@ -12,7 +12,9 @@ import {
 } from "../api/calendar";
 import { useAuth } from "../api/auth";
 import ConflictConfirmModal from "../components/ConflictConfirmModal";
+import CopilotDrawer from "../components/CopilotDrawer";
 import EventDetailPanel from "../components/EventDetailPanel";
+import IcsImportModal from "../components/IcsImportModal";
 import QuickCreateModal, { CreateDraft } from "../components/QuickCreateModal";
 import Sidebar from "../components/Sidebar";
 import TopBar, { CalendarViewMode } from "../components/TopBar";
@@ -41,8 +43,12 @@ export default function CalendarPage() {
     | { kind: "move"; eventId: string; start: Date; end: Date; allDay?: boolean; conflicts: ConflictInfo[] }
     | null
   >(null);
+  const [showIcsModal, setShowIcsModal] = useState(false);
+  const [droppedIcsContent, setDroppedIcsContent] = useState<string | undefined>(undefined);
+  const [copilotOpen, setCopilotOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventsLoading, setEventsLoading] = useState(false);
+
 
   useEffect(() => {
     listCalendars().then(setCalendars).catch((e) => setError(String(e)));
@@ -273,7 +279,29 @@ export default function CalendarPage() {
   const selectedCalendar = selectedEvent ? calendarById[selectedEvent.calendar_id] : undefined;
 
   return (
-    <div style={{ display: "flex", height: "100vh", background: "var(--bg-app)" }}>
+    <div
+      style={{ display: "flex", height: "100vh", background: "var(--bg-app)" }}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+        }
+      }}
+      onDrop={(e) => {
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          const file = e.dataTransfer.files[0];
+          if (file.name.endsWith(".ics") || file.type.includes("calendar")) {
+            e.preventDefault();
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+              const text = evt.target?.result as string;
+              setDroppedIcsContent(text);
+              setShowIcsModal(true);
+            };
+            reader.readAsText(file);
+          }
+        }
+      }}
+    >
       <Sidebar
         calendars={calendars}
         hiddenCalendarIds={hiddenCalendarIds}
@@ -302,6 +330,11 @@ export default function CalendarPage() {
             s.setHours(9, 0, 0, 0);
             setCreateDraft({ start: s, end: new Date(s.getTime() + 30 * 60000), allDay: false });
           }}
+          onImportIcs={() => {
+            setDroppedIcsContent(undefined);
+            setShowIcsModal(true);
+          }}
+          onToggleCopilot={() => setCopilotOpen((prev) => !prev)}
         />
 
         <div style={{ height: 2, background: eventsLoading ? "var(--accent)" : "transparent", transition: "background 0.15s" }} />
@@ -390,6 +423,30 @@ export default function CalendarPage() {
           onDiscard={() => setPendingConflict(null)}
         />
       )}
+
+      {showIcsModal && (
+        <IcsImportModal
+          calendars={calendars}
+          initialContent={droppedIcsContent}
+          onClose={() => {
+            setShowIcsModal(false);
+            setDroppedIcsContent(undefined);
+          }}
+          onImported={() => {
+            invalidateEventsCache();
+            fetchEventsLazy(rangeStart, rangeEnd).then(setEvents);
+          }}
+        />
+      )}
+
+      <CopilotDrawer
+        isOpen={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        onRefreshEvents={() => {
+          invalidateEventsCache();
+          fetchEventsLazy(rangeStart, rangeEnd).then(setEvents);
+        }}
+      />
     </div>
   );
 }
@@ -401,3 +458,4 @@ function ViewLoadingFallback() {
     </div>
   );
 }
+

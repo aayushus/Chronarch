@@ -73,3 +73,66 @@ async def disconnect_account(
         await session.execute(delete(Calendar).where(Calendar.account_id == account_id))
     await session.delete(account)
     await session.flush()
+
+
+class IcsSubscriptionCreate(BaseModel):
+    name: str
+    url: str
+    color: str = "#30d158"
+
+
+@router.post("/ics-subscription", status_code=status.HTTP_201_CREATED)
+async def create_ics_subscription(
+    body: IcsSubscriptionCreate,
+    admin: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Add an external ICS calendar subscription feed (BR-CAL-004)."""
+    from chronarch_core.models.enums import CalendarKind, ProviderType
+    from chronarch_core.sync.ics_sync import sync_ics_subscription_calendar
+
+    # 1. Create or find an ICS account for this owner
+    stmt = select(Account).where(
+        Account.owner_user_id == admin.id,
+        Account.provider == ProviderType.ICS,
+    )
+    account = (await session.execute(stmt)).scalars().first()
+    if account is None:
+        account = Account(
+            owner_user_id=admin.id,
+            provider=ProviderType.ICS,
+            provider_account_email="ICS Feeds",
+            provider_account_id=f"ics-{admin.id}",
+            sync_status="active",
+        )
+        session.add(account)
+        await session.flush()
+
+    # 2. Create the subscription calendar
+    calendar = Calendar(
+        account_id=account.id,
+        provider_calendar_id=f"sub-{body.name.lower().replace(' ', '-')}",
+        kind=CalendarKind.SUBSCRIPTION,
+        name=body.name,
+        color=body.color,
+        provider_writable=False,
+        visible=True,
+        blocks_availability=True,
+        ics_subscription_url=body.url.strip(),
+        ea_can_view=True,
+        ea_can_edit=False,
+        ai_can_read=True,
+        ai_can_write=False,
+    )
+    session.add(calendar)
+    await session.flush()
+
+    # 3. Synchronously perform initial backfill sync
+    stats = await sync_ics_subscription_calendar(session, calendar)
+
+    return {
+        "calendar_id": calendar.id,
+        "name": calendar.name,
+        "sync_stats": stats,
+    }
+
