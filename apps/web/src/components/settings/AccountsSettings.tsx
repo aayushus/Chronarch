@@ -171,9 +171,9 @@ export default function AccountsSettings() {
         </div>
       )}
 
-      <div style={{ background: "var(--bg-raised)", borderRadius: 10, padding: 14, marginBottom: 20 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Provider credentials</div>
-        <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 12px" }}>
+      <div style={{ background: "var(--bg-raised)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)", padding: 18, marginBottom: 24 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Provider credentials</div>
+        <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 16px" }}>
           OAuth client credentials for connecting accounts — stored encrypted, never displayed back.
           Leave a field blank to keep its stored value. Server env vars remain as fallback.
         </p>
@@ -181,7 +181,7 @@ export default function AccountsSettings() {
         <ProviderCredentialCard
           provider="google"
           title="Google"
-          hint="Google Cloud Console → APIs & Services → Credentials → Web application OAuth client (enable the Google Calendar API). Redirect URI: this origin + /api/v1/admin/accounts/google/callback"
+          hint="Google Cloud Console → APIs & Services → Credentials → Web application OAuth client (enable Google Calendar API). Redirect URI: this origin + /api/v1/admin/accounts/google/callback"
           config={oauth.google}
           showTenant={false}
           saving={oauthSaving === "google"}
@@ -191,7 +191,7 @@ export default function AccountsSettings() {
         <ProviderCredentialCard
           provider="microsoft"
           title="Microsoft"
-          hint="Azure portal → App registrations → Web client (enable Calendars.ReadWrite and User.Read permissions)."
+          hint="Azure portal → App registrations → Web client (enable Calendars.ReadWrite and User.Read permissions). Redirect URI: this origin + /api/v1/admin/accounts/microsoft/callback"
           config={oauth.microsoft}
           showTenant
           saving={oauthSaving === "microsoft"}
@@ -200,19 +200,19 @@ export default function AccountsSettings() {
         />
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        <button onClick={handleConnectGoogle} disabled={connecting} className="hoverable" style={{ ...btnStyle, opacity: connecting ? 0.6 : 1 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
+        <button onClick={handleConnectGoogle} disabled={connecting} className="btn-primary">
           {connecting ? "Redirecting…" : "+ Connect Google Account"}
         </button>
-        <button onClick={handleConnectMicrosoft} disabled={connecting} className="hoverable" style={{ ...btnStyle, opacity: connecting ? 0.6 : 1 }}>
+        <button onClick={handleConnectMicrosoft} disabled={connecting} className="btn-primary">
           {connecting ? "Redirecting…" : "+ Connect Microsoft Account"}
         </button>
         <button
           onClick={() => setShowIcsSubModal(true)}
-          className="hoverable"
-          style={{ ...btnStyle, background: "var(--bg-raised)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}
+          className="btn-secondary"
         >
-          + Subscribe to ICS Feed (BR-CAL-004)
+          <span>📁</span>
+          <span>+ Subscribe to ICS Feed</span>
         </button>
       </div>
 
@@ -277,25 +277,68 @@ export default function AccountsSettings() {
         </div>
       )}
 
+      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Connected Accounts</div>
       {error && <div style={{ color: "var(--danger)", fontSize: 12, marginBottom: 12 }}>{error}</div>}
 
-      {accounts.length === 0 && <div style={{ fontSize: 13, color: "var(--text-tertiary)" }}>No accounts connected.</div>}
+      {accounts.length === 0 && (
+        <div style={{ fontSize: 13, color: "var(--text-tertiary)", background: "var(--bg-raised)", padding: "20px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)", textAlign: "center" }}>
+          No accounts connected yet. Connect Google or Microsoft above.
+        </div>
+      )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {accounts.map((a) => (
-          <div key={a.id} style={{ background: "var(--bg-raised)", borderRadius: 10, padding: 14, display: "flex", alignItems: "center", gap: 16 }}>
+          <div
+            key={a.id}
+            style={{
+              background: "var(--bg-raised)",
+              borderRadius: "var(--radius-md)",
+              border: "1px solid var(--border-subtle)",
+              padding: 16,
+              display: "flex",
+              alignItems: "center",
+              gap: 16,
+            }}
+          >
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>
-                {a.provider_account_email} <span style={{ fontSize: 10, color: "var(--text-tertiary)", textTransform: "capitalize" }}>({a.provider})</span>
+              <div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+                <span>{a.provider_account_email}</span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    textTransform: "capitalize",
+                    padding: "2px 8px",
+                    borderRadius: 12,
+                    background: a.provider === "google" ? "rgba(10, 132, 255, 0.15)" : a.provider === "microsoft" ? "rgba(48, 209, 88, 0.15)" : "rgba(255, 255, 255, 0.1)",
+                    color: a.provider === "google" ? "var(--accent)" : a.provider === "microsoft" ? "var(--success)" : "var(--text-secondary)",
+                    fontWeight: 600,
+                  }}
+                >
+                  {a.provider}
+                </span>
               </div>
-              <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>
                 Owner: {a.owner_email} · {a.calendar_count} calendar{a.calendar_count === 1 ? "" : "s"} · sync:{" "}
-                <span style={{ color: a.sync_status === "error" ? "var(--danger)" : a.sync_status === "ok" ? "var(--success)" : "var(--text-tertiary)" }}>
+                <span
+                  style={{
+                    color:
+                      a.sync_status === "error"
+                        ? "var(--danger)"
+                        : a.sync_status === "ok" || a.sync_status === "active"
+                        ? "var(--success)"
+                        : "var(--warning)",
+                    fontWeight: 600,
+                  }}
+                >
                   {a.sync_status}
                 </span>
               </div>
             </div>
-            <button onClick={() => handleDisconnect(a)} className="hoverable" style={{ background: "none", border: "1px solid var(--danger)", color: "var(--danger)", borderRadius: 6, padding: "5px 10px", fontSize: 12, cursor: "pointer" }}>
+            <button
+              onClick={() => handleDisconnect(a)}
+              className="btn-danger"
+              style={{ padding: "6px 12px", fontSize: 12 }}
+            >
               Disconnect
             </button>
           </div>
@@ -331,55 +374,53 @@ function ProviderCredentialCard({
   const configured = !!config && (config.client_id_configured || config.client_secret_configured);
 
   return (
-    <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 12, marginTop: 12 }}>
+    <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 14, marginTop: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-        <span style={{ fontSize: 13, fontWeight: 600 }}>{title}</span>
+        <span style={{ fontSize: 13, fontWeight: 700 }}>{title}</span>
         <span
           style={{
             fontSize: 10,
             fontWeight: 700,
-            borderRadius: 4,
+            letterSpacing: 0.5,
             padding: "2px 6px",
-            background: configured ? "var(--success)" : "var(--bg-app)",
-            color: configured ? "#062611" : "var(--text-tertiary)",
+            borderRadius: 4,
+            background: configured ? "rgba(48, 209, 88, 0.15)" : "rgba(255, 255, 255, 0.08)",
+            color: configured ? "var(--success)" : "var(--text-tertiary)",
           }}
         >
           {configured ? "CONFIGURED" : "NOT CONFIGURED"}
         </span>
-        {config && (
-          <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
-            ID {config.client_id_configured ? "✓" : "—"} · secret {config.client_secret_configured ? "✓" : "—"}
-          </span>
-        )}
       </div>
-      <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 8 }}>{hint}</div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "0 0 10px" }}>{hint}</p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         <input
-          placeholder={config?.client_id_configured ? "Client ID (stored — blank keeps it)" : "Client ID"}
+          type="text"
+          placeholder={config?.client_id_configured ? "Client ID (configured)" : "Client ID"}
           value={clientId}
           onChange={(e) => setClientId(e.target.value)}
-          autoComplete="off"
-          style={{ ...inputStyle, minWidth: 220, flex: 1 }}
+          className="input-standard"
+          style={{ flex: "1 1 200px" }}
         />
         <input
-          placeholder={config?.client_secret_configured ? "Client secret (stored — blank keeps it)" : "Client secret"}
+          type="password"
+          placeholder={config?.client_secret_configured ? "Client Secret (configured)" : "Client Secret"}
           value={clientSecret}
           onChange={(e) => setClientSecret(e.target.value)}
-          type="password"
-          autoComplete="new-password"
-          style={{ ...inputStyle, minWidth: 220, flex: 1 }}
+          className="input-standard"
+          style={{ flex: "1 1 200px" }}
         />
         {showTenant && (
           <input
-            placeholder="Tenant ID (optional)"
+            type="text"
+            placeholder={config?.tenant_id ? `Tenant ID (${config.tenant_id})` : "Tenant ID (optional)"}
             value={tenantId}
             onChange={(e) => setTenantId(e.target.value)}
-            autoComplete="off"
-            style={{ ...inputStyle, minWidth: 160 }}
+            className="input-standard"
+            style={{ flex: "1 1 180px" }}
           />
         )}
       </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
         <button
           onClick={() => {
             onSave({
@@ -391,8 +432,8 @@ function ProviderCredentialCard({
             setClientSecret("");
           }}
           disabled={saving}
-          className="hoverable"
-          style={{ ...btnStyle, background: "var(--accent)", opacity: saving ? 0.6 : 1 }}
+          className="btn-primary"
+          style={{ padding: "6px 14px", fontSize: 12 }}
         >
           {saving ? "Saving…" : `Save ${title} credentials`}
         </button>
@@ -400,8 +441,8 @@ function ProviderCredentialCard({
           <button
             onClick={onClear}
             disabled={saving}
-            className="hoverable"
-            style={{ ...btnStyle, background: "none", border: "1px solid var(--danger)", color: "var(--danger)" }}
+            className="btn-danger"
+            style={{ padding: "6px 14px", fontSize: 12 }}
           >
             Clear
           </button>
