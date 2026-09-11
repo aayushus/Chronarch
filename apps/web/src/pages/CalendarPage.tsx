@@ -1,22 +1,19 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
 
-import {
-  CalendarSummary,
-  EventSummary,
-  createEvent,
-  deleteEvent,
-  listCalendars,
-  listEvents,
-} from "../api/calendar";
+import { CalendarSummary, EventSummary, createEvent, deleteEvent, listCalendars } from "../api/calendar";
 import { useAuth } from "../api/auth";
-import DayView from "../components/DayView";
 import EventDetailPanel from "../components/EventDetailPanel";
-import MonthView from "../components/MonthView";
 import QuickCreateModal from "../components/QuickCreateModal";
 import Sidebar from "../components/Sidebar";
 import TopBar, { CalendarViewMode } from "../components/TopBar";
-import WeekView from "../components/WeekView";
 import { addDays, startOfDay, startOfMonth, startOfWeek } from "../lib/dates";
+import { fetchEventsLazy, invalidateEventsCache } from "../lib/eventsCache";
+
+// Each grid view is only needed once its mode is selected — lazy-load them
+// so switching to Week/Month doesn't block on code the Day view never uses.
+const DayView = lazy(() => import("../components/DayView"));
+const WeekView = lazy(() => import("../components/WeekView"));
+const MonthView = lazy(() => import("../components/MonthView"));
 
 export default function CalendarPage() {
   const { logout } = useAuth();
@@ -28,6 +25,7 @@ export default function CalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<EventSummary | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [eventsLoading, setEventsLoading] = useState(false);
 
   useEffect(() => {
     listCalendars().then(setCalendars).catch((e) => setError(String(e)));
@@ -45,9 +43,21 @@ export default function CalendarPage() {
   }, [viewMode, viewedDate]);
 
   useEffect(() => {
-    listEvents(rangeStart, rangeEnd)
-      .then(setEvents)
-      .catch((e) => setError(String(e)));
+    let cancelled = false;
+    setEventsLoading(true);
+    fetchEventsLazy(rangeStart, rangeEnd)
+      .then((fresh) => {
+        if (!cancelled) setEvents(fresh);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setEventsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [rangeStart.getTime(), rangeEnd.getTime()]);
 
   const calendarById = useMemo(() => Object.fromEntries(calendars.map((c) => [c.id, c])), [calendars]);
@@ -73,8 +83,8 @@ export default function CalendarPage() {
     try {
       await createEvent(body);
       setShowCreate(false);
-      const fresh = await listEvents(rangeStart, rangeEnd);
-      setEvents(fresh);
+      invalidateEventsCache();
+      setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
     } catch (e) {
       setError(String(e));
     }
@@ -83,6 +93,7 @@ export default function CalendarPage() {
   async function handleDelete(eventId: string) {
     try {
       await deleteEvent(eventId);
+      invalidateEventsCache();
       setSelectedEvent(null);
       setEvents((prev) => prev.filter((e) => e.id !== eventId));
     } catch (e) {
@@ -119,44 +130,48 @@ export default function CalendarPage() {
           onCreateEvent={() => setShowCreate(true)}
         />
 
+        <div style={{ height: 2, background: eventsLoading ? "var(--accent)" : "transparent", transition: "background 0.15s" }} />
+
         {error && (
           <div style={{ color: "var(--danger)", fontSize: 12, padding: "6px 24px" }}>{error}</div>
         )}
 
         <div style={{ flex: 1, minHeight: 0 }}>
-          {viewMode === "day" && (
-            <DayView
-              day={viewedDate}
-              events={visibleEvents}
-              calendarById={calendarById}
-              onSelectEvent={setSelectedEvent}
-              selectedEventId={selectedEvent?.id}
-            />
-          )}
-          {viewMode === "week" && (
-            <WeekView
-              weekAnchor={viewedDate}
-              events={visibleEvents}
-              calendarById={calendarById}
-              onSelectEvent={setSelectedEvent}
-              onSelectDay={(d) => {
-                setViewedDate(d);
-                setViewMode("day");
-              }}
-            />
-          )}
-          {(viewMode === "month" || viewMode === "year") && (
-            <MonthView
-              monthAnchor={viewedDate}
-              events={visibleEvents}
-              calendarById={calendarById}
-              onSelectEvent={setSelectedEvent}
-              onSelectDay={(d) => {
-                setViewedDate(d);
-                setViewMode("day");
-              }}
-            />
-          )}
+          <Suspense fallback={<ViewLoadingFallback />}>
+            {viewMode === "day" && (
+              <DayView
+                day={viewedDate}
+                events={visibleEvents}
+                calendarById={calendarById}
+                onSelectEvent={setSelectedEvent}
+                selectedEventId={selectedEvent?.id}
+              />
+            )}
+            {viewMode === "week" && (
+              <WeekView
+                weekAnchor={viewedDate}
+                events={visibleEvents}
+                calendarById={calendarById}
+                onSelectEvent={setSelectedEvent}
+                onSelectDay={(d) => {
+                  setViewedDate(d);
+                  setViewMode("day");
+                }}
+              />
+            )}
+            {(viewMode === "month" || viewMode === "year") && (
+              <MonthView
+                monthAnchor={viewedDate}
+                events={visibleEvents}
+                calendarById={calendarById}
+                onSelectEvent={setSelectedEvent}
+                onSelectDay={(d) => {
+                  setViewedDate(d);
+                  setViewMode("day");
+                }}
+              />
+            )}
+          </Suspense>
         </div>
       </div>
 
@@ -176,6 +191,14 @@ export default function CalendarPage() {
           onCreate={handleCreate}
         />
       )}
+    </div>
+  );
+}
+
+function ViewLoadingFallback() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-tertiary)", fontSize: 13 }}>
+      Loading…
     </div>
   );
 }
