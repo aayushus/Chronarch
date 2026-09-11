@@ -163,11 +163,11 @@ export default function AiSettings() {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        <button onClick={handleSave} disabled={saving} className="hoverable" style={{ ...btnStyle, background: "var(--accent)", opacity: saving ? 0.6 : 1 }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+        <button onClick={handleSave} disabled={saving} className="btn-primary">
           {saving ? "Saving…" : "Save AI settings"}
         </button>
-        <button onClick={handleClear} disabled={saving} className="hoverable" style={{ ...btnStyle, background: "none", border: "1px solid var(--danger)", color: "var(--danger)" }}>
+        <button onClick={handleClear} disabled={saving} className="btn-danger">
           Reset to defaults
         </button>
       </div>
