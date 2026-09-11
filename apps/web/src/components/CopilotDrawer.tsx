@@ -52,7 +52,8 @@ export default function CopilotDrawer({ isOpen, onClose, onRefreshEvents }: Prop
   }
 
   return (
-    <div
+    <aside
+      className="vibrancy"
       style={{
         position: "fixed",
         right: 0,
@@ -60,12 +61,12 @@ export default function CopilotDrawer({ isOpen, onClose, onRefreshEvents }: Prop
         bottom: 0,
         width: 380,
         maxWidth: "95vw",
-        background: "var(--bg-base)",
+        background: "var(--bg-panel)",
         borderLeft: "1px solid var(--border-subtle)",
         display: "flex",
         flexDirection: "column",
         zIndex: 100,
-        boxShadow: "-4px 0 20px rgba(0, 0, 0, 0.2)",
+        boxShadow: "-8px 0 32px rgba(0, 0, 0, 0.35)",
       }}
     >
       {/* Header */}
@@ -76,7 +77,7 @@ export default function CopilotDrawer({ isOpen, onClose, onRefreshEvents }: Prop
           justifyContent: "space-between",
           padding: "16px 20px",
           borderBottom: "1px solid var(--border-subtle)",
-          background: "var(--bg-raised)",
+          background: "rgba(255, 255, 255, 0.02)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -91,7 +92,13 @@ export default function CopilotDrawer({ isOpen, onClose, onRefreshEvents }: Prop
             border: "none",
             color: "var(--text-secondary)",
             cursor: "pointer",
-            fontSize: 18,
+            fontSize: 16,
+            width: 28,
+            height: 28,
+            borderRadius: "var(--radius-sm)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
           ✕
@@ -114,15 +121,16 @@ export default function CopilotDrawer({ isOpen, onClose, onRefreshEvents }: Prop
             key={idx}
             style={{
               alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              maxWidth: "85%",
+              maxWidth: "88%",
               padding: "10px 14px",
-              borderRadius: 12,
+              borderRadius: "var(--radius-md)",
               fontSize: 13,
-              lineHeight: 1.4,
+              lineHeight: 1.45,
               whiteSpace: "pre-wrap",
               background: m.role === "user" ? "var(--accent)" : "var(--bg-raised)",
               color: m.role === "user" ? "#fff" : "var(--text-primary)",
               border: m.role === "user" ? "none" : "1px solid var(--border-subtle)",
+              boxShadow: m.role === "user" ? "0 2px 8px rgba(10, 132, 255, 0.3)" : "none",
             }}
           >
             {m.content}
@@ -133,16 +141,17 @@ export default function CopilotDrawer({ isOpen, onClose, onRefreshEvents }: Prop
             style={{
               alignSelf: "flex-start",
               padding: "10px 14px",
-              borderRadius: 12,
+              borderRadius: "var(--radius-md)",
               background: "var(--bg-raised)",
               color: "var(--text-secondary)",
               fontSize: 13,
               display: "flex",
               alignItems: "center",
-              gap: 6,
+              gap: 8,
+              border: "1px solid var(--border-subtle)",
             }}
           >
-            <span>Thinking…</span>
+            <span style={{ display: "inline-block", animation: "pulse 1.5s infinite" }}>Thinking…</span>
           </div>
         )}
         {error && (
@@ -151,8 +160,9 @@ export default function CopilotDrawer({ isOpen, onClose, onRefreshEvents }: Prop
               color: "var(--danger)",
               fontSize: 12,
               padding: "8px 12px",
-              borderRadius: 8,
+              borderRadius: "var(--radius-sm)",
               background: "rgba(255, 69, 58, 0.1)",
+              border: "1px solid rgba(255, 69, 58, 0.3)",
             }}
           >
             {error}
@@ -165,11 +175,11 @@ export default function CopilotDrawer({ isOpen, onClose, onRefreshEvents }: Prop
       <form
         onSubmit={handleSubmit}
         style={{
-          padding: "12px 16px",
+          padding: "14px 16px",
           borderTop: "1px solid var(--border-subtle)",
           display: "flex",
           gap: 8,
-          background: "var(--bg-raised)",
+          background: "rgba(0, 0, 0, 0.2)",
         }}
       >
         <input
@@ -178,35 +188,17 @@ export default function CopilotDrawer({ isOpen, onClose, onRefreshEvents }: Prop
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask Copilot anything…"
           disabled={loading}
-          style={{
-            flex: 1,
-            padding: "10px 12px",
-            borderRadius: 8,
-            border: "1px solid var(--border-subtle)",
-            background: "var(--bg-base)",
-            color: "var(--text-primary)",
-            fontSize: 13,
-            outline: "none",
-          }}
+          className="input-standard"
+          style={{ flex: 1 }}
         />
         <button
           type="submit"
           disabled={loading || !input.trim()}
-          style={{
-            padding: "0 14px",
-            borderRadius: 8,
-            border: "none",
-            background: "var(--accent)",
-            color: "#fff",
-            fontWeight: 600,
-            fontSize: 13,
-            cursor: loading || !input.trim() ? "not-allowed" : "pointer",
-            opacity: loading || !input.trim() ? 0.6 : 1,
-          }}
+          className="btn-primary"
         >
           Send
         </button>
       </form>
-    </div>
+    </aside>
   );
 }

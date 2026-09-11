@@ -219,82 +219,56 @@ export default function AccountsSettings() {
       {showIcsSubModal && (
         <div className="modal-backdrop" onClick={() => setShowIcsSubModal(false)}>
           <div
-            className="modal-content"
+            className="modal-card"
             onClick={(e) => e.stopPropagation()}
-            style={{ width: 460, maxWidth: "90vw", padding: 24 }}
+            style={{ width: 480, maxWidth: "90vw", padding: 24 }}
           >
-            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Subscribe to ICS Calendar Feed</h3>
-            <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px" }}>Subscribe to ICS Calendar Feed</h3>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}>
               Add a public or private iCalendar feed via HTTP/HTTPS/webcal URL (BR-CAL-004). These calendars are synchronized periodically and treated as read-only.
             </p>
             {icsSubError && (
-              <div style={{ color: "var(--danger)", fontSize: 12, marginBottom: 12 }}>{icsSubError}</div>
+              <div style={{ color: "var(--danger)", fontSize: 12, marginBottom: 12, background: "rgba(255, 69, 58, 0.1)", padding: "8px 12px", borderRadius: "var(--radius-sm)" }}>
+                {icsSubError}
+              </div>
             )}
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 20 }}>
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Calendar Name</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Calendar Name</label>
                 <input
                   type="text"
                   placeholder="e.g. US Holidays, Team Schedule"
                   value={icsSubName}
                   onChange={(e) => setIcsSubName(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: 6,
-                    border: "1px solid var(--border-subtle)",
-                    background: "var(--bg-base)",
-                    color: "var(--text-primary)",
-                    fontSize: 13,
-                  }}
+                  className="input-standard"
+                  style={{ width: "100%" }}
                 />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>ICS Feed URL</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>ICS Feed URL</label>
                 <input
                   type="url"
                   placeholder="https://example.com/calendar.ics or webcal://..."
                   value={icsSubUrl}
                   onChange={(e) => setIcsSubUrl(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: 6,
-                    border: "1px solid var(--border-subtle)",
-                    background: "var(--bg-base)",
-                    color: "var(--text-primary)",
-                    fontSize: 13,
-                  }}
+                  className="input-standard"
+                  style={{ width: "100%" }}
                 />
               </div>
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <button
                 onClick={() => setShowIcsSubModal(false)}
-                className="hoverable"
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: 6,
-                  border: "1px solid var(--border-subtle)",
-                  background: "transparent",
-                  color: "var(--text-primary)",
-                  cursor: "pointer",
-                }}
+                type="button"
+                className="btn-secondary"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateIcsSub}
                 disabled={icsSubSaving || !icsSubName.trim() || !icsSubUrl.trim()}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: 6,
-                  border: "none",
-                  background: "var(--accent)",
-                  color: "#fff",
-                  fontWeight: 600,
-                  cursor: icsSubSaving ? "not-allowed" : "pointer",
-                }}
+                type="button"
+                className="btn-primary"
               >
                 {icsSubSaving ? "Subscribing…" : "Subscribe"}
               </button>

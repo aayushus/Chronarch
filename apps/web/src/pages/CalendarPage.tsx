@@ -447,6 +447,36 @@ export default function CalendarPage() {
           fetchEventsLazy(rangeStart, rangeEnd).then(setEvents);
         }}
       />
+
+      {!copilotOpen && (
+        <button
+          onClick={() => setCopilotOpen(true)}
+          title="Ask Chronarch AI (BRD §20)"
+          className="hoverable"
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: selectedEvent ? 324 : 24,
+            zIndex: 40,
+            background: "linear-gradient(135deg, #0a84ff 0%, #5e5ce6 100%)",
+            color: "#fff",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
+            borderRadius: 24,
+            padding: "10px 18px",
+            fontSize: 13,
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            cursor: "pointer",
+            boxShadow: "0 8px 24px rgba(10, 132, 255, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3)",
+            transition: "all 0.15s ease",
+          }}
+        >
+          <span style={{ fontSize: 16 }}>✨</span>
+          <span>Ask AI</span>
+        </button>
+      )}
     </div>
   );
 }

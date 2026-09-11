@@ -97,21 +97,11 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
       </div>
 
       {canDelete && (
-        <div style={{ padding: 20, marginTop: "auto" }}>
+        <div style={{ padding: "16px 20px", marginTop: "auto" }}>
           <button
             onClick={() => onDelete(event.id)}
-            className="hoverable"
-            style={{
-              width: "100%",
-              background: "var(--danger)",
-              border: "none",
-              borderRadius: 6,
-              color: "#fff",
-              padding: "8px 0",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
+            className="btn-danger"
+            style={{ width: "100%" }}
           >
             Delete Event
           </button>

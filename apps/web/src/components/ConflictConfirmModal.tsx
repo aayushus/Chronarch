@@ -26,43 +26,32 @@ export default function ConflictConfirmModal({
   onDiscard,
 }: Props) {
   return (
-    <div
-      onClick={onDiscard}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 60,
-      }}
-    >
+    <div className="modal-backdrop" onClick={onDiscard}>
       <div
+        className="modal-card"
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "var(--bg-panel)",
-          borderRadius: 10,
-          padding: 20,
-          width: 340,
-          border: "1px solid var(--border)",
+          padding: 24,
+          width: 380,
+          maxWidth: "90vw",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span style={{ fontSize: 15 }}>⚠️</span>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>{title}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: 16 }}>⚠️</span>
+          <div style={{ fontSize: 16, fontWeight: 700 }}>{title}</div>
         </div>
-        <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>{summary}</div>
+        <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 14, lineHeight: 1.4 }}>{summary}</div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16, maxHeight: 180, overflowY: "auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 18, maxHeight: 180, overflowY: "auto" }}>
           {conflicts.map((c) => (
             <div
               key={c.event_id}
               style={{
                 background: "var(--bg-raised)",
-                borderRadius: 6,
-                padding: "7px 10px",
+                borderRadius: "var(--radius-sm)",
+                padding: "8px 12px",
                 fontSize: 12,
+                border: "1px solid var(--border-subtle)",
               }}
             >
               <div style={{ fontWeight: 600, color: c.redacted ? "var(--text-tertiary)" : "var(--text-primary)" }}>
@@ -71,7 +60,7 @@ export default function ConflictConfirmModal({
                   <span style={{ fontWeight: 400, color: "var(--text-tertiary)" }}> · {c.calendar_name}</span>
                 )}
               </div>
-              <div className="tabular-nums" style={{ color: "var(--text-secondary)", fontSize: 11 }}>
+              <div className="tabular-nums" style={{ color: "var(--text-secondary)", fontSize: 11, marginTop: 2 }}>
                 {formatTimeRange(new Date(c.start), new Date(c.end))}
                 {!c.redacted && ` · ${c.calendar_name}`}
               </div>
@@ -80,13 +69,18 @@ export default function ConflictConfirmModal({
         </div>
 
         <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" onClick={onBack} style={{ ...btnStyle, background: "var(--bg-raised)" }}>
+          <button type="button" onClick={onBack} className="btn-secondary" style={{ flex: 1 }}>
             Back
           </button>
-          <button type="button" onClick={onDiscard} style={{ ...btnStyle, background: "var(--bg-raised)" }}>
+          <button type="button" onClick={onDiscard} className="btn-secondary" style={{ flex: 1 }}>
             Discard
           </button>
-          <button type="button" onClick={onConfirm} style={{ ...btnStyle, background: "var(--warning)", color: "#1a1200" }}>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="btn-primary"
+            style={{ flex: 1.2, background: "var(--warning)", color: "#1a1200" }}
+          >
             {confirmLabel}
           </button>
         </div>
@@ -95,13 +89,3 @@ export default function ConflictConfirmModal({
   );
 }
 
-const btnStyle: React.CSSProperties = {
-  flex: 1,
-  border: "none",
-  borderRadius: 6,
-  color: "#fff",
-  padding: "8px 0",
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: "pointer",
-};

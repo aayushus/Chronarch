@@ -64,45 +64,30 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
   }
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 50,
-      }}
-    >
+    <div className="modal-backdrop" onClick={onClose}>
       <form
+        className="modal-card"
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
         style={{
-          background: "var(--bg-panel)",
-          borderRadius: 10,
-          padding: 20,
-          width: 320,
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-          border: "1px solid var(--border)",
+          padding: 24,
+          width: 360,
+          gap: 12,
         }}
       >
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>New Event</div>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>New Event</div>
         <input
           autoFocus
-          placeholder="Title"
+          placeholder="Event Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required
-          style={inputStyle}
+          className="input-standard"
         />
         {writable.length === 0 ? (
           <div style={{ fontSize: 12, color: "var(--warning)" }}>No writable calendars available.</div>
         ) : (
-          <select value={calendarId} onChange={(e) => setCalendarId(e.target.value)} style={inputStyle}>
+          <select value={calendarId} onChange={(e) => setCalendarId(e.target.value)} className="input-standard">
             {writable.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -110,22 +95,22 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
             ))}
           </select>
         )}
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-standard" />
         {!allDay && (
           <div style={{ display: "flex", gap: 8 }}>
-            <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} style={inputStyle} />
-            <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={inputStyle} />
+            <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="input-standard" style={{ flex: 1 }} />
+            <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="input-standard" style={{ flex: 1 }} />
           </div>
         )}
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-secondary)" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-secondary)", cursor: "pointer" }}>
           <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
           All-day event
         </label>
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <button type="button" onClick={onClose} style={{ ...btnStyle, background: "var(--bg-raised)" }}>
+          <button type="button" onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>
             Cancel
           </button>
-          <button type="submit" disabled={writable.length === 0} style={{ ...btnStyle, background: "var(--accent)" }}>
+          <button type="submit" disabled={writable.length === 0} className="btn-primary" style={{ flex: 1 }}>
             Create
           </button>
         </div>
@@ -134,24 +119,3 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
   );
 }
 
-const inputStyle: React.CSSProperties = {
-  background: "var(--bg-raised)",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  color: "var(--text-primary)",
-  padding: "8px 10px",
-  fontSize: 13,
-  flex: 1,
-  colorScheme: "dark",
-};
-
-const btnStyle: React.CSSProperties = {
-  flex: 1,
-  border: "none",
-  borderRadius: 6,
-  color: "#fff",
-  padding: "8px 0",
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: "pointer",
-};

@@ -95,17 +95,17 @@ export default function IcsImportModal({ calendars, initialContent, onClose, onI
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
-        className="modal-content"
+        className="modal-card"
         onClick={(e) => e.stopPropagation()}
         style={{ width: 540, maxWidth: "90vw", padding: 24 }}
       >
-        <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Import .ics Calendar File</h3>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>
+        <h3 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 6px" }}>Import .ics Calendar File</h3>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}>
           Upload a local .ics calendar file to preview and import its events into your calendar (BR-ICS-001..003).
         </p>
 
         {error && (
-          <div style={{ color: "var(--danger)", fontSize: 13, marginBottom: 14, background: "rgba(255, 69, 58, 0.1)", padding: "8px 12px", borderRadius: 6 }}>
+          <div style={{ color: "var(--danger)", fontSize: 13, marginBottom: 14, background: "rgba(255, 69, 58, 0.1)", padding: "8px 12px", borderRadius: "var(--radius-sm)" }}>
             {error}
           </div>
         )}
@@ -113,12 +113,13 @@ export default function IcsImportModal({ calendars, initialContent, onClose, onI
         {!previewEvents.length && !loading && (
           <div
             style={{
-              border: "2px dashed var(--border-subtle)",
-              borderRadius: 8,
+              border: "2px dashed var(--border)",
+              borderRadius: "var(--radius-md)",
               padding: 32,
               textAlign: "center",
               cursor: "pointer",
               marginBottom: 16,
+              background: "var(--bg-raised)",
             }}
             onClick={() => document.getElementById("ics-file-input")?.click()}
           >
@@ -129,7 +130,7 @@ export default function IcsImportModal({ calendars, initialContent, onClose, onI
               style={{ display: "none" }}
               onChange={handleFileChange}
             />
-            <div style={{ fontSize: 28, marginBottom: 8 }}>📁</div>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>📁</div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>Click to select or drag & drop an .ics file</div>
             <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 4 }}>
               Supports standard iCalendar exports (.ics)
@@ -154,7 +155,7 @@ export default function IcsImportModal({ calendars, initialContent, onClose, onI
                 maxHeight: 200,
                 overflowY: "auto",
                 border: "1px solid var(--border-subtle)",
-                borderRadius: 6,
+                borderRadius: "var(--radius-sm)",
                 padding: 8,
                 marginBottom: 16,
                 background: "var(--bg-raised)",
@@ -190,15 +191,8 @@ export default function IcsImportModal({ calendars, initialContent, onClose, onI
               <select
                 value={selectedCalendarId}
                 onChange={(e) => setSelectedCalendarId(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  borderRadius: 6,
-                  border: "1px solid var(--border-subtle)",
-                  background: "var(--bg-base)",
-                  color: "var(--text-primary)",
-                  fontSize: 13,
-                }}
+                className="input-standard"
+                style={{ width: "100%" }}
               >
                 {writableCalendars.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -210,34 +204,16 @@ export default function IcsImportModal({ calendars, initialContent, onClose, onI
           </div>
         )}
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
-          <button
-            onClick={onClose}
-            className="hoverable"
-            style={{
-              padding: "8px 16px",
-              borderRadius: 6,
-              border: "1px solid var(--border-subtle)",
-              background: "transparent",
-              color: "var(--text-primary)",
-              cursor: "pointer",
-            }}
-          >
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
+          <button onClick={onClose} type="button" className="btn-secondary">
             Cancel
           </button>
           {previewEvents.length > 0 && (
             <button
               onClick={handleImportAll}
               disabled={importing}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 6,
-                border: "none",
-                background: "var(--accent)",
-                color: "#fff",
-                fontWeight: 600,
-                cursor: importing ? "not-allowed" : "pointer",
-              }}
+              type="button"
+              className="btn-primary"
             >
               {importing ? "Importing…" : `Import ${previewEvents.length} Event${previewEvents.length === 1 ? "" : "s"}`}
             </button>
