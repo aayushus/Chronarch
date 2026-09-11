@@ -5,6 +5,9 @@ x-python-env: &python-env
   REDIS_URL: redis://redis:6379/0
   JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
   TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
+  APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+  GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+  GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
 
 services:
   postgres:

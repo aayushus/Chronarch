@@ -26,9 +26,15 @@ const NAV: { key: SettingsSection; label: string; Component: React.ComponentType
   { key: "system", label: "System", Component: SystemSettings },
 ];
 
+function initialSection(): SettingsSection {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has("accounts_connected") || params.has("accounts_error")) return "accounts";
+  return "calendars";
+}
+
 export default function SettingsPage() {
   const { logout, user } = useAuth();
-  const [section, setSection] = useState<SettingsSection>("calendars");
+  const [section, setSection] = useState<SettingsSection>(initialSection);
   const current = NAV.find((n) => n.key === section)!;
   const CurrentComponent = current.Component;
 

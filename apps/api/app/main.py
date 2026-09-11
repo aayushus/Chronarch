@@ -5,6 +5,7 @@ from .routers import (
     admin_accounts_router,
     admin_audit_router,
     admin_delegations_router,
+    admin_google_router,
     admin_mcp_router,
     admin_router,
     admin_users_router,
@@ -34,3 +35,4 @@ app.include_router(admin_delegations_router.router)
 app.include_router(admin_mcp_router.router)
 app.include_router(admin_accounts_router.router)
 app.include_router(admin_audit_router.router)
+app.include_router(admin_google_router.router)

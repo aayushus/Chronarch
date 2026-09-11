@@ -186,6 +186,11 @@ export function adminDisconnectAccount(id: string): Promise<void> {
   return apiFetch<void>(`/admin/accounts/${id}`, { method: "DELETE" });
 }
 
+export async function adminGetGoogleConnectUrl(): Promise<string> {
+  const res = await apiFetch<{ url: string }>("/admin/accounts/google/connect-url");
+  return res.url;
+}
+
 // --- Audit log ---
 
 export interface AuditEntry {
