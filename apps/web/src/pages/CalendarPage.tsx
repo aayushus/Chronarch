@@ -16,7 +16,7 @@ const WeekView = lazy(() => import("../components/WeekView"));
 const MonthView = lazy(() => import("../components/MonthView"));
 
 export default function CalendarPage() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [calendars, setCalendars] = useState<CalendarSummary[]>([]);
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [viewMode, setViewMode] = useState<CalendarViewMode>("day");
@@ -187,8 +187,9 @@ export default function CalendarPage() {
           if (viewMode !== "day" && viewMode !== "week") setViewMode("day");
         }}
         onMonthShift={(delta) => setViewedDate((d) => new Date(d.getFullYear(), d.getMonth() + delta, 1))}
-        userDisplayName=""
+        userDisplayName={user?.display_name ?? ""}
         onLogout={logout}
+        isAdmin={!!user?.is_admin}
       />
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>

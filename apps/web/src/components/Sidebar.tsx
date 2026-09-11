@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
 import { CalendarSummary } from "../api/calendar";
 import MiniMonth from "./MiniMonth";
@@ -13,6 +14,7 @@ interface Props {
   onMonthShift: (delta: number) => void;
   userDisplayName: string;
   onLogout: () => void;
+  isAdmin: boolean;
 }
 
 export default function Sidebar({
@@ -25,6 +27,7 @@ export default function Sidebar({
   onMonthShift,
   userDisplayName,
   onLogout,
+  isAdmin,
 }: Props) {
   const groups = new Map<string, { label: string; calendars: CalendarSummary[] }>();
   for (const cal of calendars) {
@@ -59,22 +62,44 @@ export default function Sidebar({
           <img src="/logo.svg" alt="" width={20} height={20} style={{ borderRadius: 5 }} />
           <span style={{ fontSize: 13, fontWeight: 600 }}>Chronarch</span>
         </div>
-        <button
-          onClick={onLogout}
-          title={`Sign out (${userDisplayName})`}
-          className="hoverable"
-          style={{
-            background: "none",
-            border: "none",
-            borderRadius: 4,
-            color: "var(--text-tertiary)",
-            fontSize: 11,
-            cursor: "pointer",
-            padding: "3px 6px",
-          }}
-        >
-          Sign out
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {isAdmin && (
+            <Link
+              to="/settings"
+              title="Settings"
+              className="icon-btn"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                color: "var(--text-tertiary)",
+                textDecoration: "none",
+                fontSize: 13,
+              }}
+            >
+              ⚙
+            </Link>
+          )}
+          <button
+            onClick={onLogout}
+            title={`Sign out (${userDisplayName})`}
+            className="hoverable"
+            style={{
+              background: "none",
+              border: "none",
+              borderRadius: 4,
+              color: "var(--text-tertiary)",
+              fontSize: 11,
+              cursor: "pointer",
+              padding: "3px 6px",
+            }}
+          >
+            Sign out
+          </button>
+        </div>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "4px 8px" }}>

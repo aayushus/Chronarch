@@ -1,9 +1,18 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 
 import { apiFetch, getToken, setToken } from "./client";
 
+export interface CurrentUser {
+  id: string;
+  email: string;
+  display_name: string;
+  role: string;
+  is_admin: boolean;
+}
+
 interface AuthContextValue {
   token: string | null;
+  user: CurrentUser | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -12,6 +21,21 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setTokenState] = useState<string | null>(getToken());
+  const [user, setUser] = useState<CurrentUser | null>(null);
+
+  useEffect(() => {
+    if (!token) {
+      setUser(null);
+      return;
+    }
+    apiFetch<CurrentUser>("/auth/me")
+      .then(setUser)
+      .catch(() => {
+        // Stale/invalid token — drop it so the app falls back to the login screen.
+        setToken(null);
+        setTokenState(null);
+      });
+  }, [token]);
 
   async function login(email: string, password: string) {
     const res = await apiFetch<{ access_token: string }>("/auth/login", {
@@ -25,9 +49,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   function logout() {
     setToken(null);
     setTokenState(null);
+    setUser(null);
   }
 
-  return <AuthContext.Provider value={{ token, login, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ token, user, login, logout }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {
