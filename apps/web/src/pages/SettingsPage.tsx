@@ -1,25 +1,36 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 
+import { useAuth } from "../api/auth";
+import AccountsSettings from "../components/settings/AccountsSettings";
+import AiSettings from "../components/settings/AiSettings";
+import AuditLogSettings from "../components/settings/AuditLogSettings";
 import CalendarsSettings from "../components/settings/CalendarsSettings";
+import DelegatesSettings from "../components/settings/DelegatesSettings";
+import McpSettings from "../components/settings/McpSettings";
+import SecuritySettings from "../components/settings/SecuritySettings";
+import SystemSettings from "../components/settings/SystemSettings";
+import UsersSettings from "../components/settings/UsersSettings";
 
 type SettingsSection = "calendars" | "accounts" | "delegates" | "users" | "ai" | "mcp" | "security" | "audit" | "system";
 
-const NAV: { key: SettingsSection; label: string; implemented: boolean }[] = [
-  { key: "calendars", label: "Calendars", implemented: true },
-  { key: "accounts", label: "Accounts", implemented: false },
-  { key: "delegates", label: "Delegates", implemented: false },
-  { key: "users", label: "Users", implemented: false },
-  { key: "ai", label: "AI / LiteLLM", implemented: false },
-  { key: "mcp", label: "MCP", implemented: false },
-  { key: "security", label: "Security", implemented: false },
-  { key: "audit", label: "Audit Log", implemented: false },
-  { key: "system", label: "System", implemented: false },
+const NAV: { key: SettingsSection; label: string; Component: React.ComponentType }[] = [
+  { key: "calendars", label: "Calendars", Component: CalendarsSettings },
+  { key: "accounts", label: "Accounts", Component: AccountsSettings },
+  { key: "delegates", label: "Delegates", Component: DelegatesSettings },
+  { key: "users", label: "Users", Component: UsersSettings },
+  { key: "ai", label: "AI / LiteLLM", Component: AiSettings },
+  { key: "mcp", label: "MCP", Component: McpSettings },
+  { key: "security", label: "Security", Component: SecuritySettings },
+  { key: "audit", label: "Audit Log", Component: AuditLogSettings },
+  { key: "system", label: "System", Component: SystemSettings },
 ];
 
 export default function SettingsPage() {
+  const { logout, user } = useAuth();
   const [section, setSection] = useState<SettingsSection>("calendars");
   const current = NAV.find((n) => n.key === section)!;
+  const CurrentComponent = current.Component;
 
   return (
     <div style={{ display: "flex", height: "100vh", background: "var(--bg-app)" }}>
@@ -64,7 +75,6 @@ export default function SettingsPage() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "space-between",
                 width: "100%",
                 textAlign: "left",
                 background: section === item.key ? "var(--bg-raised-hover)" : "transparent",
@@ -78,32 +88,25 @@ export default function SettingsPage() {
               }}
             >
               {item.label}
-              {!item.implemented && <span style={{ fontSize: 9, color: "var(--text-tertiary)" }}>soon</span>}
             </button>
           ))}
         </nav>
+
+        <div style={{ borderTop: "1px solid var(--border-subtle)", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{user?.email}</span>
+          <button
+            onClick={logout}
+            className="hoverable"
+            style={{ background: "none", border: "none", borderRadius: 4, color: "var(--text-tertiary)", fontSize: 11, cursor: "pointer", padding: "3px 6px" }}
+          >
+            Sign out
+          </button>
+        </div>
       </aside>
 
       <main style={{ flex: 1, overflowY: "auto", padding: "32px 40px" }}>
-        <div style={{ maxWidth: 760 }}>
-          {current.implemented ? (
-            section === "calendars" && <CalendarsSettings />
-          ) : (
-            <ComingSoon label={current.label} />
-          )}
-        </div>
+        <CurrentComponent />
       </main>
-    </div>
-  );
-}
-
-function ComingSoon({ label }: { label: string }) {
-  return (
-    <div>
-      <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{label}</h2>
-      <p style={{ fontSize: 13, color: "var(--text-tertiary)" }}>
-        {label} configuration isn't implemented yet — it's next up in the MVP build order.
-      </p>
     </div>
   );
 }

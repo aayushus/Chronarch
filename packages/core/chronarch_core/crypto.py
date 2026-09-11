@@ -6,10 +6,18 @@ MVP default: a single local key from the `TOKEN_ENCRYPTION_KEY` env var
 sees `encrypt`/`decrypt`.
 """
 
+import hashlib
 import os
 from functools import lru_cache
 
 from cryptography.fernet import Fernet
+
+
+def hash_mcp_key(raw_key: str) -> str:
+    """SHA-256 hash of a raw MCP API key. Shared by the issuing side
+    (apps/api admin credential creation) and the verifying side
+    (apps/mcp request auth) so they can never drift out of sync."""
+    return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
 
 
 class TokenCipher:

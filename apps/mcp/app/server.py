@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -206,6 +207,16 @@ async def _healthz(request: Request) -> JSONResponse:
 def build_app() -> Starlette:
     app = mcp.streamable_http_app()
     app.add_middleware(APIKeyMiddleware)
+    # Allows the admin Settings > System page (and any browser-based MCP
+    # client) to reach this service cross-origin — tighten allow_origins
+    # for production deployments, same as apps/api/app/main.py.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.add_route("/healthz", _healthz)
     return app
 

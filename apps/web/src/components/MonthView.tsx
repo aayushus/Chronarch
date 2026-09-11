@@ -1,6 +1,7 @@
 import React from "react";
 
 import { CalendarSummary, EventSummary } from "../api/calendar";
+import { contrastText } from "../lib/color";
 import { WEEKDAY_SHORT, sameDay, startOfMonth } from "../lib/dates";
 
 interface Props {
@@ -65,6 +66,7 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                   </div>
                   {dayEvents.slice(0, 3).map((e) => {
                     const cal = calendarById[e.calendar_id];
+                    const color = cal?.color ?? "var(--accent)";
                     return (
                       <div
                         key={e.id}
@@ -76,8 +78,8 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                         style={{
                           fontSize: 10,
                           fontWeight: 600,
-                          color: "#fff",
-                          background: cal?.color ?? "var(--accent)",
+                          color: contrastText(color.startsWith("#") ? color : "#0a84ff"),
+                          background: color,
                           borderRadius: 3,
                           padding: "1px 4px",
                           marginBottom: 2,

@@ -62,44 +62,6 @@ export default function Sidebar({
           <img src="/logo.svg" alt="" width={20} height={20} style={{ borderRadius: 5 }} />
           <span style={{ fontSize: 13, fontWeight: 600 }}>Chronarch</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {isAdmin && (
-            <Link
-              to="/settings"
-              title="Settings"
-              className="icon-btn"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 22,
-                height: 22,
-                borderRadius: 6,
-                color: "var(--text-tertiary)",
-                textDecoration: "none",
-                fontSize: 13,
-              }}
-            >
-              ⚙
-            </Link>
-          )}
-          <button
-            onClick={onLogout}
-            title={`Sign out (${userDisplayName})`}
-            className="hoverable"
-            style={{
-              background: "none",
-              border: "none",
-              borderRadius: 4,
-              color: "var(--text-tertiary)",
-              fontSize: 11,
-              cursor: "pointer",
-              padding: "3px 6px",
-            }}
-          >
-            Sign out
-          </button>
-        </div>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "4px 8px" }}>
@@ -170,6 +132,57 @@ export default function Sidebar({
           onSelect={onSelectDate}
           onMonthShift={onMonthShift}
         />
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "10px 12px",
+          borderTop: "1px solid var(--border-subtle)",
+        }}
+      >
+        {isAdmin ? (
+          <Link
+            to="/settings"
+            className="hoverable"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              color: "var(--text-secondary)",
+              textDecoration: "none",
+              fontSize: 12,
+              borderRadius: 6,
+              padding: "5px 8px",
+              marginLeft: -8,
+            }}
+          >
+            <span aria-hidden style={{ fontSize: 13 }}>
+              ⚙
+            </span>
+            Settings
+          </Link>
+        ) : (
+          <span />
+        )}
+        <button
+          onClick={onLogout}
+          title={`Sign out (${userDisplayName})`}
+          className="hoverable"
+          style={{
+            background: "none",
+            border: "none",
+            borderRadius: 4,
+            color: "var(--text-tertiary)",
+            fontSize: 11,
+            cursor: "pointer",
+            padding: "5px 8px",
+          }}
+        >
+          Sign out
+        </button>
       </div>
     </aside>
   );

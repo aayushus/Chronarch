@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 
 import { CalendarSummary, EventSummary } from "../api/calendar";
 import { formatHour, formatTimeRange, sameDay } from "../lib/dates";
-import { tint } from "../lib/color";
+import { contrastText, tint } from "../lib/color";
 import { packOverlaps } from "../lib/layout";
 
 const HOUR_HEIGHT = 56;
@@ -102,14 +102,16 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
         <div className="all-day-lane" style={{ borderBottom: "1px solid var(--border-subtle)", padding: "8px 16px 8px 64px" }}>
           {allDayEvents.map((e) => {
             const cal = calendarById[e.calendar_id];
+            const color = cal?.color ?? "var(--accent)";
             return (
               <div
                 key={e.id}
                 onClick={() => onSelectEvent(e)}
-                className="event-block all-day-pill hoverable"
+                className="event-block hoverable"
                 style={{
-                  background: cal?.color ?? "var(--accent)",
-                  color: "#fff",
+                  background: color,
+                  color: contrastText(color.startsWith("#") ? color : "#0a84ff"),
+                  borderRadius: 6,
                   padding: "4px 10px",
                   fontSize: 12,
                   fontWeight: 600,
