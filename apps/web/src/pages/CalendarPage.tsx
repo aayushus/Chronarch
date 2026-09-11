@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
 
-import { CalendarSummary, EventSummary, createEvent, deleteEvent, listCalendars } from "../api/calendar";
+import { CalendarSummary, EventSummary, createEvent, deleteEvent, listCalendars, moveEvent } from "../api/calendar";
 import { useAuth } from "../api/auth";
 import EventDetailPanel from "../components/EventDetailPanel";
 import QuickCreateModal from "../components/QuickCreateModal";
@@ -101,6 +101,77 @@ export default function CalendarPage() {
     }
   }
 
+  async function handleMoveEvent(eventId: string, newStart: Date, newEnd: Date) {
+    // Optimistic: reflect the drag immediately, roll back if the server rejects it
+    // (permission denied, conflict) — the drag should feel instant either way.
+    const previous = events;
+    setEvents((prev) =>
+      prev.map((e) => (e.id === eventId ? { ...e, start: newStart.toISOString(), end: newEnd.toISOString() } : e))
+    );
+    if (selectedEvent?.id === eventId) {
+      setSelectedEvent((prev) => (prev ? { ...prev, start: newStart.toISOString(), end: newEnd.toISOString() } : prev));
+    }
+    try {
+      await moveEvent(eventId, newStart.toISOString(), newEnd.toISOString());
+      invalidateEventsCache();
+    } catch (e) {
+      setEvents(previous);
+      setError(String(e));
+    }
+  }
+
+  // Keyboard shortcuts (BRD §9.14): T/D/W/M jump views, arrows navigate,
+  // N opens quick-create, Esc closes whatever's open. Ignored while typing
+  // in a form field so they don't fight with normal text entry.
+  useEffect(() => {
+    function isTypingTarget(el: EventTarget | null): boolean {
+      const tag = (el as HTMLElement)?.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      // Escape must work even while a form field has focus (e.g. the quick-create
+      // modal's title input) — every other shortcut stays suppressed while typing.
+      if (e.key !== "Escape" && isTypingTarget(e.target)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      switch (e.key.toLowerCase()) {
+        case "t":
+          setViewedDate(new Date());
+          break;
+        case "d":
+          setViewMode("day");
+          break;
+        case "w":
+          setViewMode("week");
+          break;
+        case "m":
+          setViewMode("month");
+          break;
+        case "n":
+          e.preventDefault();
+          setShowCreate(true);
+          break;
+        case "escape":
+          setShowCreate(false);
+          setSelectedEvent(null);
+          break;
+        case "arrowleft":
+          shift(-1);
+          break;
+        case "arrowright":
+          shift(1);
+          break;
+        default:
+          return;
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode]);
+
   const selectedCalendar = selectedEvent ? calendarById[selectedEvent.calendar_id] : undefined;
 
   return (
@@ -145,6 +216,7 @@ export default function CalendarPage() {
                 calendarById={calendarById}
                 onSelectEvent={setSelectedEvent}
                 selectedEventId={selectedEvent?.id}
+                onMoveEvent={handleMoveEvent}
               />
             )}
             {viewMode === "week" && (
@@ -157,6 +229,7 @@ export default function CalendarPage() {
                   setViewedDate(d);
                   setViewMode("day");
                 }}
+                onMoveEvent={handleMoveEvent}
               />
             )}
             {(viewMode === "month" || viewMode === "year") && (

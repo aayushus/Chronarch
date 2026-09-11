@@ -43,6 +43,7 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                 <div
                   key={d.toISOString()}
                   onClick={() => onSelectDay(d)}
+                  className="hoverable"
                   style={{
                     borderLeft: "1px solid var(--border-subtle)",
                     padding: 6,
@@ -52,6 +53,7 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                   }}
                 >
                   <div
+                    className="tabular-nums"
                     style={{
                       fontSize: 12,
                       fontWeight: sameDay(d, today) ? 700 : 400,
@@ -70,6 +72,7 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                           ev.stopPropagation();
                           onSelectEvent(e);
                         }}
+                        className="event-block"
                         style={{
                           fontSize: 10,
                           fontWeight: 600,

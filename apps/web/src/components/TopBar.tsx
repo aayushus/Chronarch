@@ -26,11 +26,13 @@ export default function TopBar({ viewedDate, viewMode, onViewModeChange, onToday
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        <button onClick={onCreateEvent} title="New event" style={circleBtnStyle}>
+        <button onClick={onCreateEvent} title="New event (N)" className="icon-btn" style={circleBtnStyle}>
           +
         </button>
         <div>
-          <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.1 }}>{dateLabel}</div>
+          <div className="date-header tabular-nums" style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.1 }}>
+            {dateLabel}
+          </div>
           {viewMode === "day" && (
             <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>{weekdayLabel}</div>
           )}
@@ -42,6 +44,7 @@ export default function TopBar({ viewedDate, viewMode, onViewModeChange, onToday
           <button
             key={mode}
             onClick={() => onViewModeChange(mode)}
+            className="hoverable"
             style={{
               border: "none",
               borderRadius: 6,
@@ -59,13 +62,13 @@ export default function TopBar({ viewedDate, viewMode, onViewModeChange, onToday
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <button onClick={() => onShift(-1)} style={navBtnStyle}>
+        <button onClick={() => onShift(-1)} className="icon-btn" style={navBtnStyle}>
           ‹
         </button>
-        <button onClick={onToday} style={{ ...navBtnStyle, padding: "6px 14px", fontSize: 13 }}>
+        <button onClick={onToday} title="Today (T)" className="icon-btn" style={{ ...navBtnStyle, padding: "6px 14px", fontSize: 13 }}>
           Today
         </button>
-        <button onClick={() => onShift(1)} style={navBtnStyle}>
+        <button onClick={() => onShift(1)} className="icon-btn" style={navBtnStyle}>
           ›
         </button>
       </div>

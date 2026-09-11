@@ -22,7 +22,7 @@ const RSVP_ICON: Record<string, string> = {
 export default function EventDetailPanel({ event, calendar, onClose, onDelete, canDelete }: Props) {
   if (!event) {
     return (
-      <aside style={panelStyle}>
+      <aside className="vibrancy" style={panelStyle}>
         <div style={{ padding: 24, color: "var(--text-tertiary)", fontSize: 13, textAlign: "center", marginTop: 60 }}>
           Select an event to see details
         </div>
@@ -34,18 +34,20 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
   const end = new Date(event.end);
 
   return (
-    <aside style={panelStyle}>
+    <aside className="vibrancy" style={panelStyle}>
       <div style={{ padding: 20, borderLeft: `3px solid ${calendar?.color ?? "var(--accent)"}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>{event.title}</div>
-          <button onClick={onClose} style={closeBtnStyle}>
+          <button onClick={onClose} className="icon-btn" style={closeBtnStyle}>
             ✕
           </button>
         </div>
         <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
           {start.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
         </div>
-        <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{formatTimeRange(start, end)}</div>
+        <div className="tabular-nums" style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+          {formatTimeRange(start, end)}
+        </div>
         {event.location && (
           <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4 }}>📍 {event.location}</div>
         )}
@@ -98,6 +100,7 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
         <div style={{ padding: 20, marginTop: "auto" }}>
           <button
             onClick={() => onDelete(event.id)}
+            className="hoverable"
             style={{
               width: "100%",
               background: "var(--danger)",
@@ -132,7 +135,9 @@ const panelStyle: React.CSSProperties = {
 const closeBtnStyle: React.CSSProperties = {
   background: "none",
   border: "none",
+  borderRadius: 4,
   color: "var(--text-tertiary)",
   fontSize: 13,
   cursor: "pointer",
+  padding: "3px 6px",
 };

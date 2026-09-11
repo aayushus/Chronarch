@@ -36,6 +36,7 @@ export default function Sidebar({
 
   return (
     <aside
+      className="vibrancy"
       style={{
         width: 240,
         minWidth: 240,
@@ -61,12 +62,15 @@ export default function Sidebar({
         <button
           onClick={onLogout}
           title={`Sign out (${userDisplayName})`}
+          className="hoverable"
           style={{
             background: "none",
             border: "none",
+            borderRadius: 4,
             color: "var(--text-tertiary)",
             fontSize: 11,
             cursor: "pointer",
+            padding: "3px 6px",
           }}
         >
           Sign out
@@ -95,6 +99,7 @@ export default function Sidebar({
             {group.calendars.map((cal) => (
               <label
                 key={cal.id}
+                className="hoverable"
                 style={{
                   display: "flex",
                   alignItems: "center",

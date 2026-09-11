@@ -26,13 +26,13 @@ export default function MiniMonth({ viewedDate, selectedDate, onSelect, onMonthS
   return (
     <div style={{ padding: "12px 12px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-        <button onClick={() => onMonthShift(-1)} style={navBtnStyle}>
+        <button onClick={() => onMonthShift(-1)} className="icon-btn" style={navBtnStyle}>
           ‹
         </button>
         <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
           {monthStart.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
         </span>
-        <button onClick={() => onMonthShift(1)} style={navBtnStyle}>
+        <button onClick={() => onMonthShift(1)} className="icon-btn" style={navBtnStyle}>
           ›
         </button>
       </div>
@@ -54,6 +54,7 @@ export default function MiniMonth({ viewedDate, selectedDate, onSelect, onMonthS
             <button
               key={d.toISOString()}
               onClick={() => onSelect(d)}
+              className="tabular-nums hoverable"
               style={{
                 aspectRatio: "1",
                 display: "flex",
