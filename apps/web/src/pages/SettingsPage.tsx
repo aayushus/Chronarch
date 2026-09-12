@@ -19,7 +19,7 @@ const NAV: { key: SettingsSection; label: string; Component: React.ComponentType
   { key: "accounts", label: "Accounts", Component: AccountsSettings },
   { key: "delegates", label: "Delegates", Component: DelegatesSettings },
   { key: "users", label: "Users", Component: UsersSettings },
-  { key: "ai", label: "AI / LiteLLM", Component: AiSettings },
+  { key: "ai", label: "AI / Copilot", Component: AiSettings },
   { key: "mcp", label: "MCP", Component: McpSettings },
   { key: "security", label: "Security", Component: SecuritySettings },
   { key: "audit", label: "Audit Log", Component: AuditLogSettings },
