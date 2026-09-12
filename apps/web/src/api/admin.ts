@@ -121,6 +121,10 @@ export function adminSetDelegationActive(id: string, active: boolean): Promise<D
   return apiFetch<Delegation>(`/admin/delegations/${id}?active=${active}`, { method: "PATCH" });
 }
 
+export function adminDeleteDelegation(id: string): Promise<void> {
+  return apiFetch<void>(`/admin/delegations/${id}`, { method: "DELETE" });
+}
+
 export type GrantFields = Omit<DelegationGrant, "calendar_id" | "calendar_name">;
 
 export function adminUpsertGrant(delegationId: string, calendarId: string, fields: GrantFields): Promise<Delegation> {

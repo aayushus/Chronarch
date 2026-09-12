@@ -133,6 +133,21 @@ async def set_delegation_active(
     return await _to_out(session, deleg)
 
 
+@router.delete("/{delegation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_delegation(
+    delegation_id: str,
+    _admin: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
+    deleg = await session.get(Delegation, delegation_id)
+    if deleg is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Delegation not found")
+    from sqlalchemy import delete
+    await session.execute(delete(DelegationCalendarGrant).where(DelegationCalendarGrant.delegation_id == delegation_id))
+    await session.delete(deleg)
+    await session.flush()
+
+
 @router.put("/{delegation_id}/grants/{calendar_id}", response_model=DelegationOut)
 async def upsert_grant(
     delegation_id: str,
