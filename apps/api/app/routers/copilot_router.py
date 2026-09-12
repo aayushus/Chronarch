@@ -153,6 +153,8 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     user_time: str | None = None  # User's current local ISO timestamp for relative date resolution
+    viewed_date: str | None = None  # Active date in the user's calendar viewport
+    view_mode: str | None = None  # Active view: "day" | "week" | "month" | "year"
 
 
 async def _execute_tool(
@@ -163,6 +165,7 @@ async def _execute_tool(
     owned_ids: set[str],
     grants: dict[str, Any],
 ) -> dict[str, Any]:
+
     """Dispatch copilot tool execution to internal `ai_tools`."""
     from datetime import timedelta
 
@@ -305,9 +308,14 @@ async def copilot_chat(
     grants = await get_delegation_grants(session, user.id)
 
     now_str = req.user_time or datetime.now().isoformat()
+    view_ctx = ""
+    if req.viewed_date:
+        view_ctx = f" The user is currently viewing their calendar on {req.viewed_date} in {req.view_mode or 'day'} view."
+
     system_prompt = (
-        f"You are the Chronarch AI Calendar Copilot. Current reference time is {now_str}. "
+        f"You are the Chronarch AI Calendar Copilot. Current reference time is {now_str}.{view_ctx} "
         "You help the user check their schedule, find available time slots, reschedule, and manage meetings. "
+        "When summarizing an agenda or day, present meetings cleanly with time, title, and key details. "
         "Always use available tools to inspect calendars and find free slots. "
         "Before creating or modifying events, confirm with clear details (title, start, end, calendar). "
         "Be concise, polite, and helpful."

@@ -136,3 +136,57 @@ async def create_ics_subscription(
         "sync_stats": stats,
     }
 
+
+@router.post("/{account_id}/sync")
+async def sync_account(
+    account_id: str,
+    _admin: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Trigger an on-demand reconciliation sync for a connected provider account."""
+    from datetime import datetime, timezone
+    from chronarch_core.models.enums import ProviderType
+    from chronarch_core.sync.google_sync import sync_google_account
+    from chronarch_core.sync.microsoft_sync import sync_microsoft_account
+    from chronarch_core.sync.ics_sync import sync_ics_subscription_calendar
+
+    account = await session.get(Account, account_id)
+    if not account:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Account not found")
+
+    stats = {}
+    now_iso = datetime.now(timezone.utc).isoformat()
+    try:
+        if account.provider == ProviderType.GOOGLE:
+            stats = await sync_google_account(session, account)
+        elif account.provider == ProviderType.MICROSOFT:
+            stats = await sync_microsoft_account(session, account)
+        elif account.provider == ProviderType.ICS:
+            # Sync all subscription calendars belonging to this ICS account
+            sub_cals = list(
+                (await session.execute(select(Calendar).where(Calendar.account_id == account.id))).scalars()
+            )
+            total_stats = {"events_synced": 0, "events_deleted": 0}
+            for cal in sub_cals:
+                s = await sync_ics_subscription_calendar(session, cal)
+                total_stats["events_synced"] += s.get("events_synced", 0)
+                total_stats["events_deleted"] += s.get("events_deleted", 0)
+            stats = total_stats
+
+        account.last_synced_at = now_iso
+        account.sync_status = "active"
+        account.last_sync_error = None
+        await session.commit()
+    except Exception as e:
+        account.sync_status = "error"
+        account.last_sync_error = str(e)
+        await session.commit()
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"Sync failed: {str(e)}")
+
+    return {
+        "synced": True,
+        "account_id": account.id,
+        "last_synced_at": now_iso,
+        "stats": stats,
+    }
+

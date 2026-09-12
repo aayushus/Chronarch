@@ -48,11 +48,33 @@ export default function CalendarPage() {
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventsLoading, setEventsLoading] = useState(false);
-
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     listCalendars().then(setCalendars).catch((e) => setError(String(e)));
+    import("../api/calendar").then(({ getSyncStatus }) => {
+      getSyncStatus()
+        .then((s) => setLastSyncedAt(s.last_synced_at))
+        .catch(() => {});
+    });
   }, []);
+
+  async function handleSyncNow() {
+    setIsSyncing(true);
+    try {
+      const { triggerCalendarSync } = await import("../api/calendar");
+      const res = await triggerCalendarSync();
+      setLastSyncedAt(res.last_synced_at);
+      invalidateEventsCache();
+      const fresh = await fetchEventsLazy(rangeStart, rangeEnd);
+      setEvents(fresh);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setIsSyncing(false);
+    }
+  }
 
   const [rangeStart, rangeEnd] = useMemo(() => {
     if (viewMode === "day") return [startOfDay(viewedDate), addDays(startOfDay(viewedDate), 1)];
@@ -330,6 +352,9 @@ export default function CalendarPage() {
           onViewModeChange={setViewMode}
           onToday={() => setViewedDate(new Date())}
           onShift={shift}
+          lastSyncedAt={lastSyncedAt}
+          isSyncing={isSyncing}
+          onSyncNow={handleSyncNow}
           onCreateEvent={() => {
             const s = new Date(viewedDate);
             s.setHours(9, 0, 0, 0);
@@ -442,6 +467,8 @@ export default function CalendarPage() {
       <CopilotDrawer
         isOpen={copilotOpen}
         onClose={() => setCopilotOpen(false)}
+        viewedDate={viewedDate}
+        viewMode={viewMode}
         onRefreshEvents={() => {
           invalidateEventsCache();
           fetchEventsLazy(rangeStart, rangeEnd).then(setEvents);

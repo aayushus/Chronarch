@@ -116,6 +116,27 @@ export default function AccountsSettings() {
     }
   }
 
+  const [syncingAccountId, setSyncingAccountId] = useState<string | null>(null);
+
+  async function handleSyncAccount(a: AdminAccount) {
+    setSyncingAccountId(a.id);
+    try {
+      const { adminSyncAccount } = await import("../../api/calendar");
+      const res = await adminSyncAccount(a.id);
+      setAccounts((prev) =>
+        prev.map((x) => (x.id === a.id ? { ...x, last_synced_at: res.last_synced_at, sync_status: "active" } : x))
+      );
+      setBanner({
+        kind: "success",
+        text: `Reconciliation sync completed for ${a.provider_account_email}.`,
+      });
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSyncingAccountId(null);
+    }
+  }
+
   if (loading) return <div style={{ color: "var(--text-tertiary)", fontSize: 13 }}>Loading accounts…</div>;
 
   return (
@@ -293,13 +314,45 @@ export default function AccountsSettings() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleDisconnect(a)}
-                    className="btn-danger hoverable"
-                    style={{ padding: "6px 12px", fontSize: 12 }}
-                  >
-                    Disconnect
-                  </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <button
+                      onClick={() => handleSyncAccount(a)}
+                      disabled={syncingAccountId === a.id}
+                      className="hoverable"
+                      title="Run manual reconciliation sync with provider"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        background: "var(--bg-app)",
+                        border: "1px solid var(--border-subtle)",
+                        borderRadius: 6,
+                        color: "var(--text-primary)",
+                        padding: "6px 12px",
+                        fontSize: 12,
+                        cursor: syncingAccountId === a.id ? "wait" : "pointer",
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: "inline-block",
+                          transform: syncingAccountId === a.id ? "rotate(360deg)" : "none",
+                          transition: syncingAccountId === a.id ? "transform 1s linear infinite" : "none",
+                          fontSize: 12,
+                        }}
+                      >
+                        ↻
+                      </span>
+                      <span>{syncingAccountId === a.id ? "Syncing…" : "Sync Now"}</span>
+                    </button>
+                    <button
+                      onClick={() => handleDisconnect(a)}
+                      className="btn-danger hoverable"
+                      style={{ padding: "6px 12px", fontSize: 12 }}
+                    >
+                      Disconnect
+                    </button>
+                  </div>
                 </div>
               );
             })}

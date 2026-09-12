@@ -141,9 +141,48 @@ export interface CopilotMessage {
   content?: string | null;
 }
 
-export function copilotChat(messages: CopilotMessage[], userTime?: string): Promise<{ message: CopilotMessage }> {
+export function copilotChat(
+  messages: CopilotMessage[],
+  opts?: { userTime?: string; viewedDate?: string; viewMode?: string }
+): Promise<{ message: CopilotMessage }> {
   return apiFetch<{ message: CopilotMessage }>("/copilot/chat", {
     method: "POST",
-    body: JSON.stringify({ messages, user_time: userTime || new Date().toISOString() }),
+    body: JSON.stringify({
+      messages,
+      user_time: opts?.userTime || new Date().toISOString(),
+      viewed_date: opts?.viewedDate,
+      view_mode: opts?.viewMode,
+    }),
+  });
+}
+
+export interface SyncStatusResult {
+  account_count: number;
+  last_synced_at: string | null;
+  is_syncing: boolean;
+  has_error: boolean;
+}
+
+export function getSyncStatus(): Promise<SyncStatusResult> {
+  return apiFetch<SyncStatusResult>("/calendars/sync-status");
+}
+
+export interface SyncResult {
+  synced: boolean;
+  last_synced_at: string;
+  events_synced: number;
+  accounts_synced: number;
+  errors: string[];
+}
+
+export function triggerCalendarSync(): Promise<SyncResult> {
+  return apiFetch<SyncResult>("/calendars/sync", {
+    method: "POST",
+  });
+}
+
+export function adminSyncAccount(accountId: string): Promise<{ synced: boolean; account_id: string; last_synced_at: string; stats: any }> {
+  return apiFetch(`/admin/accounts/${accountId}/sync`, {
+    method: "POST",
   });
 }
