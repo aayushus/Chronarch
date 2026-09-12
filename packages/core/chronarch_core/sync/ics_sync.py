@@ -59,10 +59,11 @@ async def sync_ics_subscription_calendar(session: AsyncSession, calendar: Calend
             existing.recurrence = rem.recurrence
             existing.visibility = vis
             existing.busy_status = busy
-            existing.writable = False
+            existing.source_permissions = {"write": False}
             upserted_count += 1
         else:
             new_event = UnifiedEvent(
+                provider_account_id=calendar.account_id,
                 calendar_id=calendar.id,
                 provider_event_id=rem.provider_event_id,
                 title=rem.title,
@@ -78,7 +79,7 @@ async def sync_ics_subscription_calendar(session: AsyncSession, calendar: Calend
                 recurrence=rem.recurrence,
                 visibility=vis,
                 busy_status=busy,
-                writable=False,
+                source_permissions={"write": False},
             )
             session.add(new_event)
             upserted_count += 1

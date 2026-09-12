@@ -293,11 +293,18 @@ async def _get_connector_for_calendar(session: AsyncSession, calendar: Calendar)
     access_token = cipher.decrypt(account.encrypted_access_token) if account.encrypted_access_token else None
     refresh_token = cipher.decrypt(account.encrypted_refresh_token) if account.encrypted_refresh_token else None
 
+    if not access_token and not refresh_token:
+        return None, account
+
     if account.provider == ProviderType.GOOGLE:
         from ..connectors.google import GoogleConnector
         from ..oauth import resolve_google_credentials
 
-        client_id, client_secret = await resolve_google_credentials(session)
+        try:
+            client_id, client_secret = await resolve_google_credentials(session)
+        except RuntimeError:
+            return None, account
+
         connector = GoogleConnector(
             access_token=access_token,
             refresh_token=refresh_token,
@@ -309,7 +316,11 @@ async def _get_connector_for_calendar(session: AsyncSession, calendar: Calendar)
         from ..connectors.microsoft import MicrosoftConnector
         from ..oauth import resolve_microsoft_credentials
 
-        client_id, client_secret, tenant_id = await resolve_microsoft_credentials(session)
+        try:
+            client_id, client_secret, tenant_id = await resolve_microsoft_credentials(session)
+        except RuntimeError:
+            return None, account
+
         connector = MicrosoftConnector(
             access_token=access_token,
             refresh_token=refresh_token,
@@ -319,7 +330,7 @@ async def _get_connector_for_calendar(session: AsyncSession, calendar: Calendar)
         )
         return connector, account
 
-    return None, None
+    return None, account
 
 
 def _persist_refreshed_token(account, new_access_token: str) -> None:

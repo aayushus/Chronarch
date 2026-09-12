@@ -101,8 +101,14 @@ async def rotate_all_encrypted_data(
     # 3. OAuth Provider Configs
     oauth_configs = list((await session.execute(select(OAuthProviderConfig))).scalars())
     for cfg in oauth_configs:
+        changed = False
+        if cfg.encrypted_client_id:
+            cfg.encrypted_client_id = reencrypt(cfg.encrypted_client_id, old_cipher, new_cipher)
+            changed = True
         if cfg.encrypted_client_secret:
             cfg.encrypted_client_secret = reencrypt(cfg.encrypted_client_secret, old_cipher, new_cipher)
+            changed = True
+        if changed:
             counts["oauth_secrets"] += 1
 
     await session.flush()

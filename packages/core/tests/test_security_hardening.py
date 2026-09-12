@@ -51,6 +51,7 @@ async def test_rotate_all_encrypted_data(session):
         owner_user_id="u1",
         provider=ProviderType.GOOGLE,
         provider_account_email="test@example.com",
+        provider_account_id="google-user-123",
         encrypted_access_token=old_cipher.encrypt("google-access-secret"),
         encrypted_refresh_token=old_cipher.encrypt("google-refresh-secret"),
     )
@@ -61,11 +62,10 @@ async def test_rotate_all_encrypted_data(session):
         encrypted_openrouter_api_key=old_cipher.encrypt("sk-openrouter-secret"),
     )
 
-    # 3. Seed OAuth config with old-key client secret
+    # 3. OAuth config with old-key client id and secret
     oauth_cfg = OAuthProviderConfig(
-        id="oauth-1",
-        provider="google",
-        client_id="client-id-123",
+        provider=ProviderType.GOOGLE,
+        encrypted_client_id=old_cipher.encrypt("client-id-123"),
         encrypted_client_secret=old_cipher.encrypt("client-secret-abc"),
     )
 
@@ -75,6 +75,7 @@ async def test_rotate_all_encrypted_data(session):
     # Verify decryption with old key works before rotation
     assert old_cipher.decrypt(acct.encrypted_access_token) == "google-access-secret"
     assert old_cipher.decrypt(ai_setting.encrypted_openrouter_api_key) == "sk-openrouter-secret"
+    assert old_cipher.decrypt(oauth_cfg.encrypted_client_id) == "client-id-123"
     assert old_cipher.decrypt(oauth_cfg.encrypted_client_secret) == "client-secret-abc"
 
     # Execute rotation
@@ -96,4 +97,5 @@ async def test_rotate_all_encrypted_data(session):
     assert new_cipher.decrypt(acct.encrypted_access_token) == "google-access-secret"
     assert new_cipher.decrypt(acct.encrypted_refresh_token) == "google-refresh-secret"
     assert new_cipher.decrypt(ai_setting.encrypted_openrouter_api_key) == "sk-openrouter-secret"
+    assert new_cipher.decrypt(oauth_cfg.encrypted_client_id) == "client-id-123"
     assert new_cipher.decrypt(oauth_cfg.encrypted_client_secret) == "client-secret-abc"

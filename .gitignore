@@ -20,29 +20,41 @@ dist/
 build/
 out/
 
-# IDE
+# IDE & OS
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# OS
 .DS_Store
 Thumbs.db
 
-# Testing
+# Testing & Coverage
 coverage/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
 
 # TypeScript
 *.tsbuildinfo
 
-# Python
+# Python & Linters
 __pycache__/
-*.pyc
-.venv/
+*.py[cod]
+*$py.class
 *.egg-info/
-.pytest_cache/
+.venv/
+env/
+venv/
+ENV/
+.mypy_cache/
+.ruff_cache/
 
-# Infra
+# Local DB & SQLite
+*.db
+*.sqlite3
+
+# Infra & Docker runtime data
 infra/volumes/
+litellm-dynamic/
