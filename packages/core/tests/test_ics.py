@@ -53,3 +53,28 @@ def test_parse_ics_to_remote_events():
     assert remotes[0].provider_event_id == "test-event-1@chronarch.local"
     assert remotes[0].writable is False
     assert remotes[1].all_day is True
+
+
+def test_parse_ics_to_remote_events_missing_uid_fallback():
+    ics_no_uid = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:20260920T100000Z
+DTEND:20260920T110000Z
+SUMMARY:No UID Sync
+END:VEVENT
+END:VCALENDAR"""
+    remotes = parse_ics_to_remote_events(ics_no_uid)
+    assert len(remotes) == 1
+    assert remotes[0].provider_event_id.startswith("ics-")
+    assert len(remotes[0].provider_event_id) > 10
+
+
+def test_validate_feed_url_ssrf():
+    from chronarch_core.ics import _validate_feed_url
+
+    with pytest.raises(ValueError, match="Connecting to local/internal network addresses is not allowed"):
+        _validate_feed_url("http://127.0.0.1/feed.ics")
+
+    with pytest.raises(ValueError, match="Invalid URL scheme"):
+        _validate_feed_url("file:///etc/passwd")

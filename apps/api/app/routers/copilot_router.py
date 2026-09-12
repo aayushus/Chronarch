@@ -129,11 +129,15 @@ COPILOT_TOOLS = [
         "type": "function",
         "function": {
             "name": "delete_event",
-            "description": "Cancel or delete an existing event.",
+            "description": "Cancel or delete an existing event. Destructive action: require explicit user confirmation before executing.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "event_id": {"type": "string", "description": "The event ID to delete"},
+                    "confirmed": {
+                        "type": "boolean",
+                        "description": "Must be true only if the user has explicitly confirmed deleting this specific event.",
+                    },
                 },
                 "required": ["event_id"],
             },
@@ -305,12 +309,27 @@ async def _execute_tool(
         existing = await session.get(UnifiedEvent, ev_id)
         if not existing:
             return {"error": f"Event {ev_id} not found"}
+
+        if not args.get("confirmed", False):
+            return {
+                "requires_confirmation": True,
+                "action": "delete_event",
+                "event_id": ev_id,
+                "title": existing.title,
+                "start": existing.start.isoformat(),
+                "end": existing.end.isoformat(),
+                "message": (
+                    f"Deleting '{existing.title}' is a destructive action. "
+                    "Please ask the user to explicitly confirm before proceeding."
+                ),
+            }
+
         is_owner = existing.calendar_id in owned_ids
         grant = grants.get(existing.calendar_id)
         await ai_tools.delete_event(
             session, ctx, event_id=ev_id, is_owner=is_owner, delegation_grant=grant
         )
-        return {"deleted": True, "event_id": ev_id}
+        return {"deleted": True, "event_id": ev_id, "title": existing.title}
 
     return {"error": f"Unknown tool: {name}"}
 
@@ -337,6 +356,9 @@ async def copilot_chat(
         "When summarizing an agenda or day, present meetings cleanly with time, title, and key details. "
         "Always use available tools to inspect calendars and find free slots. "
         "Before creating or modifying events, confirm with clear details (title, start, end, calendar). "
+        "IMPORTANT: Deleting or cancelling an event is a destructive action. Never delete an event without "
+        "asking the user for explicit confirmation first. If the user hasn't explicitly confirmed deleting "
+        "that exact meeting in the chat, prompt them for confirmation before setting confirmed=true. "
         "Be concise, polite, and helpful."
     )
 

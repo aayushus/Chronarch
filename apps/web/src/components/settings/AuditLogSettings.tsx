@@ -127,7 +127,7 @@ const ACTOR_METAS: Record<string, { label: string; icon: string; bg: string; col
     color: "var(--primary)",
   },
   ea_ui: {
-    label: "EA Delegate",
+    label: "Assistant",
     icon: "🤝",
     bg: "rgba(175, 82, 222, 0.15)",
     color: "#bf5af2",
@@ -250,8 +250,8 @@ export default function AuditLogSettings() {
           </span>
         </div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
-          Immutable ledger recording every modification across Executive UI, Delegate UI, ICS Import,
-          Copilot, and MCP tools (BRD §22). Sensitive authorization secrets are stripped before persistence.
+          Immutable ledger recording every modification across Executive UI, Assistant UI, ICS Import,
+          Copilot, and MCP tools. Sensitive authorization secrets are stripped before persistence.
         </p>
       </div>
 
@@ -354,7 +354,7 @@ export default function AuditLogSettings() {
           >
             <option value="all">All Sources</option>
             <option value="executive_ui">Executive UI</option>
-            <option value="ea_ui">EA Delegate</option>
+            <option value="ea_ui">Assistant</option>
             <option value="copilot">AI Copilot</option>
             <option value="mcp">MCP Agent</option>
             <option value="ics_import">ICS Import</option>

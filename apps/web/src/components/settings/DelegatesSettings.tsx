@@ -27,7 +27,7 @@ const GRANT_CATEGORIES: GrantCategory[] = [
     fields: [
       { key: "can_view_availability", label: "View availability (free/busy)", desc: "See when busy without titles or details" },
       { key: "can_view_titles", label: "View event titles", desc: "Read event subjects and meetings" },
-      { key: "can_view_full_details", label: "View full details", desc: "Read descriptions, locations, attachments, video links" },
+      { key: "can_view_full_details", label: "View full details", desc: "Read descriptions, locations, attendees, and conference links" },
     ],
   },
   {
@@ -213,7 +213,7 @@ export default function DelegatesSettings() {
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Delegates</h2>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5, maxWidth: 640 }}>
-            Executive ↔ Assistant pairings and granular per-calendar permission grants (BRD §14). Grants are capped by each calendar's provider permissions.
+            Executive ↔ Assistant pairings and granular per-calendar permission grants. Grants are capped by each calendar's provider permissions.
           </p>
         </div>
         <button
@@ -594,7 +594,7 @@ export default function DelegatesSettings() {
           onClose={() => setShowCreate(false)}
           onCreated={() => {
             setShowCreate(false);
-            setBanner({ kind: "success", text: "Successfully created delegate pairing." });
+            setBanner({ kind: "success", text: "Delegate pairing created." });
             load();
           }}
         />
@@ -697,7 +697,7 @@ function CreateDelegationModal({
 
             <div>
               <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
-                Assistant (Delegate)
+                Assistant
               </label>
               <select
                 value={assistantId}

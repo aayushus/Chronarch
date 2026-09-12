@@ -112,7 +112,10 @@ async def sync_microsoft_account(session: AsyncSession, account: Account) -> dic
                     await session.delete(stale)
                     events_deleted += 1
 
+            # Never prune locally-created events that have not been written upstream yet.
             for provider_event_id in list(existing_events.keys()):
+                if not provider_event_id or provider_event_id.startswith("local-"):
+                    continue
                 if provider_event_id not in remote_ids:
                     await session.delete(existing_events.pop(provider_event_id))
                     events_deleted += 1

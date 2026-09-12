@@ -26,7 +26,7 @@ const SCOPE_DEFINITIONS: ScopeDefinition[] = [
   {
     key: "calendar.read",
     label: "Calendar Details (Read)",
-    desc: "Read full meeting titles, descriptions, locations, video links, and attendees",
+    desc: "Read full meeting titles, descriptions, locations, conference links, and attendees",
     category: "read",
   },
   {
@@ -141,7 +141,7 @@ export default function McpSettings() {
             </span>
           </div>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
-            Scoped access tokens for external AI clients like Claude Desktop, Cursor, and ChatGPT (BRD §19).
+            Scoped access tokens for external AI clients like Claude Desktop, Cursor, and ChatGPT.
             Provider OAuth tokens are never exposed — agents only receive granular calendar permissions.
           </p>
         </div>

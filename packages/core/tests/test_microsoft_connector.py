@@ -30,6 +30,13 @@ def test_parse_graph_time_timed():
     assert dt.minute == 30
     assert dt.tzinfo == timezone.utc
 
+    # Windows timezone name (e.g. Eastern Standard Time is UTC-4 in daylight savings)
+    dt_ny = _parse_graph_time({"dateTime": "2026-09-15T14:30:00", "timeZone": "Eastern Standard Time"}, is_all_day=False)
+    # 14:30 EDT = 18:30 UTC
+    assert dt_ny.hour == 18
+    assert dt_ny.minute == 30
+    assert dt_ny.tzinfo == timezone.utc
+
 
 def test_parse_graph_time_all_day():
     dt = _parse_graph_time({"dateTime": "2026-09-15T00:00:00.0000000"}, is_all_day=True)

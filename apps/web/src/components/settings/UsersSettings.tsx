@@ -96,7 +96,7 @@ export default function UsersSettings() {
             </span>
           </div>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
-            Manage executive calendar owners, assistant delegates, and administrators (BRD §4).
+            Manage executive calendar owners, assistants, and administrators.
             Roles govern calendar ownership and delegate relationship eligibility.
           </p>
         </div>
@@ -226,7 +226,7 @@ export default function UsersSettings() {
           </div>
           <div>
             <div style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", fontWeight: 600 }}>
-              Assistants (EA)
+              Assistants
             </div>
             <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
               {stats.assistants}
@@ -675,7 +675,7 @@ function CreateUserModal({
                 onChange={(e) => setRole(e.target.value)}
                 style={modalInputStyle}
               >
-                <option value="assistant">Assistant (EA)</option>
+                <option value="assistant">Assistant</option>
                 <option value="executive">Executive</option>
               </select>
             </div>

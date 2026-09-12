@@ -122,6 +122,14 @@ def parse_ics_events(raw_content: bytes | str) -> list[dict[str, Any]]:
     return events
 
 
+import hashlib
+import ipaddress
+import socket
+from urllib.parse import urlparse
+
+MAX_ICS_FEED_BYTES = 5 * 1024 * 1024  # 5 MB safety limit
+
+
 def parse_ics_to_remote_events(raw_content: bytes | str) -> list[RemoteEvent]:
     """Parse raw iCalendar content into RemoteEvent objects for syncing."""
     parsed = parse_ics_events(raw_content)
@@ -129,9 +137,17 @@ def parse_ics_to_remote_events(raw_content: bytes | str) -> list[RemoteEvent]:
     for item in parsed:
         start_dt = datetime.fromisoformat(item["start"])
         end_dt = datetime.fromisoformat(item["end"])
+
+        # If UID is missing or empty, generate a deterministic hash based on event identity
+        uid = item.get("uid")
+        if not uid or not uid.strip():
+            identity_str = f"{item['start']}_{item['end']}_{item.get('title', '')}_{item.get('recurrence', '')}"
+            digest = hashlib.sha256(identity_str.encode("utf-8")).hexdigest()[:16]
+            uid = f"ics-{digest}"
+
         remotes.append(
             RemoteEvent(
-                provider_event_id=item["uid"] or f"ics-{start_dt.timestamp()}-{item['title'][:10]}",
+                provider_event_id=uid,
                 title=item["title"],
                 description=item["description"],
                 start=start_dt,
@@ -152,18 +168,51 @@ def parse_ics_to_remote_events(raw_content: bytes | str) -> list[RemoteEvent]:
     return remotes
 
 
+def _validate_feed_url(url: str) -> None:
+    """Validate URL scheme and ensure the target is not a private/loopback address (SSRF guard)."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"Invalid URL scheme '{parsed.scheme}'. Only http and https are allowed.")
+
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError("Missing hostname in feed URL.")
+
+    # Guard against localhost, metadata endpoints, and private IPs
+    if hostname.lower() in ("localhost", "127.0.0.1", "::1", "metadata.google.internal"):
+        raise ValueError("Connecting to local/internal network addresses is not allowed.")
+
+    try:
+        # Resolve address to check IP range
+        addr_infos = socket.getaddrinfo(hostname, None)
+        for _, _, _, _, sockaddr in addr_infos:
+            ip = ipaddress.ip_address(sockaddr[0])
+            if ip.is_private or ip.is_loopback or ip.is_reserved or ip.is_link_local:
+                raise ValueError("Feed URL resolves to a private or reserved network address.")
+    except socket.gaierror:
+        # If DNS fails here, httpx will fail later with resolution error
+        pass
+
+
 async def fetch_ics_feed(url: str, timeout: float = 20.0) -> bytes:
-    """Fetch an external ICS subscription feed over HTTP/HTTPS (BR-CAL-004)."""
+    """Fetch an external ICS subscription feed over HTTP/HTTPS with SSRF and size safeguards (BR-CAL-004)."""
     if url.startswith("webcal://"):
         url = "https://" + url[len("webcal://"):]
     elif url.startswith("webcals://"):
         url = "https://" + url[len("webcals://"):]
+
+    _validate_feed_url(url)
 
     headers = {
         "User-Agent": "Chronarch/1.0 (Calendar Subscription Sync; +https://github.com/aayushus/Chronarch)",
         "Accept": "text/calendar, text/plain, */*",
     }
     async with httpx.AsyncClient(follow_redirects=True, timeout=timeout) as client:
-        resp = await client.get(url, headers=headers)
-        resp.raise_for_status()
-        return resp.content
+        async with client.stream("GET", url, headers=headers) as resp:
+            resp.raise_for_status()
+            content = bytearray()
+            async for chunk in resp.aiter_bytes():
+                content.extend(chunk)
+                if len(content) > MAX_ICS_FEED_BYTES:
+                    raise ValueError(f"ICS feed exceeds size limit of {MAX_ICS_FEED_BYTES // (1024*1024)}MB")
+            return bytes(content)

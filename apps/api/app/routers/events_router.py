@@ -215,6 +215,8 @@ async def delete_event(
     ctx = build_auth_context(user, actor_type_for(user))
     try:
         await ai_tools.delete_event(session, ctx, event_id=event_id, is_owner=is_owner, delegation_grant=grant)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc))
     except ai_tools.PermissionDenied as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc))
 

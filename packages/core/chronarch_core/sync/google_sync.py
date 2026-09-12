@@ -127,7 +127,10 @@ async def sync_google_account(session: AsyncSession, account: Account) -> dict:
             # window missing from the upstream listing was deleted upstream
             # without a tombstone in this page — prune it so deletions
             # propagate instead of living forever locally.
+            # Never prune locally-created events that have not been written upstream yet.
             for provider_event_id in list(existing_events.keys()):
+                if not provider_event_id or provider_event_id.startswith("local-"):
+                    continue
                 if provider_event_id not in remote_ids:
                     await session.delete(existing_events.pop(provider_event_id))
                     events_deleted += 1

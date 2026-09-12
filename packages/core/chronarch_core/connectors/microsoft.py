@@ -11,6 +11,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Optional
 from urllib.parse import quote, urlencode
+import zoneinfo
 
 import httpx
 
@@ -127,14 +128,129 @@ async def fetch_userinfo(access_token: str) -> dict[str, Any]:
         return resp.json()
 
 
+# Common Microsoft Graph Windows timezone names mapped to IANA identifiers
+WINDOWS_TO_IANA_TIMEZONES: dict[str, str] = {
+    "Dateline Standard Time": "Etc/GMT+12",
+    "UTC-11": "Etc/GMT+11",
+    "Hawaiian Standard Time": "Pacific/Honolulu",
+    "Alaskan Standard Time": "America/Anchorage",
+    "Pacific Standard Time": "America/Los_Angeles",
+    "Pacific Standard Time (Mexico)": "America/Tijuana",
+    "US Mountain Standard Time": "America/Phoenix",
+    "Mountain Standard Time": "America/Denver",
+    "Mountain Standard Time (Mexico)": "America/Chihuahua",
+    "Central Standard Time": "America/Chicago",
+    "Central Standard Time (Mexico)": "America/Mexico_City",
+    "Canada Central Standard Time": "America/Regina",
+    "SA Pacific Standard Time": "America/Bogota",
+    "Eastern Standard Time": "America/New_York",
+    "US Eastern Standard Time": "America/Indianapolis",
+    "Venezuela Standard Time": "America/Caracas",
+    "Paraguay Standard Time": "America/Asuncion",
+    "Atlantic Standard Time": "America/Halifax",
+    "Central Brazilian Standard Time": "America/Cuiaba",
+    "SA Western Standard Time": "America/La_Paz",
+    "Pacific SA Standard Time": "America/Santiago",
+    "Newfoundland Standard Time": "America/St_Johns",
+    "E. South America Standard Time": "America/Sao_Paulo",
+    "Argentina Standard Time": "America/Buenos_Aires",
+    "SA Eastern Standard Time": "America/Cayenne",
+    "Greenland Standard Time": "America/Godthab",
+    "Montevideo Standard Time": "America/Montevideo",
+    "UTC-02": "Etc/GMT+2",
+    "Mid-Atlantic Standard Time": "Etc/GMT+2",
+    "Azores Standard Time": "Atlantic/Azores",
+    "Cape Verde Standard Time": "Atlantic/Cape_Verde",
+    "UTC": "UTC",
+    "GMT Standard Time": "Europe/London",
+    "Greenwich Standard Time": "Atlantic/Reykjavik",
+    "W. Europe Standard Time": "Europe/Berlin",
+    "Central Europe Standard Time": "Europe/Budapest",
+    "Romance Standard Time": "Europe/Paris",
+    "Central European Standard Time": "Europe/Warsaw",
+    "W. Central Africa Standard Time": "Africa/Lagos",
+    "Jordan Standard Time": "Asia/Amman",
+    "GTB Standard Time": "Europe/Bucharest",
+    "Middle East Standard Time": "Asia/Beirut",
+    "Egypt Standard Time": "Africa/Cairo",
+    "South Africa Standard Time": "Africa/Johannesburg",
+    "FLE Standard Time": "Europe/Kiev",
+    "Israel Standard Time": "Asia/Jerusalem",
+    "E. Europe Standard Time": "Europe/Chisinau",
+    "Arabic Standard Time": "Asia/Baghdad",
+    "Arab Standard Time": "Asia/Riyadh",
+    "Russian Standard Time": "Europe/Moscow",
+    "East Africa Standard Time": "Africa/Nairobi",
+    "Iran Standard Time": "Asia/Tehran",
+    "Arabian Standard Time": "Asia/Dubai",
+    "Azerbaijan Standard Time": "Asia/Baku",
+    "Mauritius Standard Time": "Indian/Mauritius",
+    "Georgian Standard Time": "Asia/Tbilisi",
+    "Caucasus Standard Time": "Asia/Yerevan",
+    "Afghanistan Standard Time": "Asia/Kabul",
+    "Ekaterinburg Standard Time": "Asia/Yekaterinburg",
+    "Pakistan Standard Time": "Asia/Karachi",
+    "West Asia Standard Time": "Asia/Tashkent",
+    "India Standard Time": "Asia/Kolkata",
+    "Sri Lanka Standard Time": "Asia/Colombo",
+    "Nepal Standard Time": "Asia/Kathmandu",
+    "Central Asia Standard Time": "Asia/Almaty",
+    "Bangladesh Standard Time": "Asia/Dhaka",
+    "N. Central Asia Standard Time": "Asia/Novosibirsk",
+    "Myanmar Standard Time": "Asia/Rangoon",
+    "SE Asia Standard Time": "Asia/Bangkok",
+    "North Asia Standard Time": "Asia/Krasnoyarsk",
+    "China Standard Time": "Asia/Shanghai",
+    "North Asia East Standard Time": "Asia/Irkutsk",
+    "Singapore Standard Time": "Asia/Singapore",
+    "W. Australia Standard Time": "Australia/Perth",
+    "Taipei Standard Time": "Asia/Taipei",
+    "Ulaanbaatar Standard Time": "Asia/Ulaanbaatar",
+    "Tokyo Standard Time": "Asia/Tokyo",
+    "Korea Standard Time": "Asia/Seoul",
+    "Yakutsk Standard Time": "Asia/Yakutsk",
+    "Cen. Australia Standard Time": "Australia/Adelaide",
+    "AUS Central Standard Time": "Australia/Darwin",
+    "E. Australia Standard Time": "Australia/Brisbane",
+    "AUS Eastern Standard Time": "Australia/Sydney",
+    "West Pacific Standard Time": "Pacific/Port_Moresby",
+    "Tasmania Standard Time": "Australia/Hobart",
+    "Vladivostok Standard Time": "Asia/Vladivostok",
+    "Lord Howe Standard Time": "Australia/Lord_Howe",
+    "New Zealand Standard Time": "Pacific/Auckland",
+    "Fiji Standard Time": "Pacific/Fiji",
+}
+
+
+def _resolve_zoneinfo(tz_name: str | None) -> zoneinfo.ZoneInfo:
+    """Resolve a timezone identifier (IANA or Windows) to a ZoneInfo instance."""
+    if not tz_name or tz_name.upper() == "UTC":
+        return zoneinfo.ZoneInfo("UTC")
+    mapped = WINDOWS_TO_IANA_TIMEZONES.get(tz_name, tz_name)
+    try:
+        return zoneinfo.ZoneInfo(mapped)
+    except Exception:
+        return zoneinfo.ZoneInfo("UTC")
+
+
 def _parse_graph_time(node: dict, is_all_day: bool) -> datetime:
     raw = node.get("dateTime", "")
     if is_all_day:
         # All-day dates come like "2026-09-15T00:00:00.0000000"
         return datetime.fromisoformat(raw[:10]).replace(tzinfo=timezone.utc)
-    if raw.endswith("Z"):
-        return datetime.fromisoformat(raw[:-1]).replace(tzinfo=timezone.utc)
-    return datetime.fromisoformat(raw).replace(tzinfo=timezone.utc)
+
+    # Strip subsecond precision past 6 digits if present, or Z suffix
+    cleaned = raw.rstrip("Z")
+    if "." in cleaned:
+        base, frac = cleaned.split(".", 1)
+        cleaned = f"{base}.{frac[:6]}"
+
+    dt = datetime.fromisoformat(cleaned)
+    tz_str = node.get("timeZone")
+    if dt.tzinfo is None:
+        tz = _resolve_zoneinfo(tz_str)
+        dt = dt.replace(tzinfo=tz)
+    return dt.astimezone(timezone.utc)
 
 
 def _to_remote_event(item: dict, writable: bool) -> RemoteEvent:
@@ -142,11 +258,25 @@ def _to_remote_event(item: dict, writable: bool) -> RemoteEvent:
     start = _parse_graph_time(item["start"], all_day)
     end = _parse_graph_time(item["end"], all_day)
     organizer = item.get("organizer", {}).get("emailAddress")
+
+    raw_response_map = {
+        "none": "needs_action",
+        "organizer": "accepted",
+        "accepted": "accepted",
+        "tentativelyaccepted": "tentative",
+        "tentative": "tentative",
+        "declined": "declined",
+        "notresponded": "needs_action",
+    }
+
     attendees = [
         {
             "email": a.get("emailAddress", {}).get("address"),
             "name": a.get("emailAddress", {}).get("name"),
-            "response_status": a.get("status", {}).get("response", "none"),
+            "response_status": raw_response_map.get(
+                str(a.get("status", {}).get("response", "none")).lower(),
+                "needs_action",
+            ),
         }
         for a in item.get("attendees", [])
         if a.get("emailAddress", {}).get("address")
@@ -335,7 +465,7 @@ class MicrosoftConnector(BaseConnector):
 
         resp = await self._request(
             "PATCH",
-            f"/me/calendars/{quote(calendar_id, safe='')}/events/{quote(provider_event_id, safe='')}",
+            f"/me/events/{quote(provider_event_id, safe='')}",
             json=graph_patch,
         )
         return _to_remote_event(resp.json(), writable=True)
@@ -343,13 +473,13 @@ class MicrosoftConnector(BaseConnector):
     async def delete_event(self, calendar_id: str, provider_event_id: str) -> None:
         await self._request(
             "DELETE",
-            f"/me/calendars/{quote(calendar_id, safe='')}/events/{quote(provider_event_id, safe='')}",
+            f"/me/events/{quote(provider_event_id, safe='')}",
         )
 
     async def get_raw_event(self, calendar_id: str, provider_event_id: str) -> dict[str, Any]:
         resp = await self._request(
             "GET",
-            f"/me/calendars/{quote(calendar_id, safe='')}/events/{quote(provider_event_id, safe='')}",
+            f"/me/events/{quote(provider_event_id, safe='')}",
         )
         return resp.json()
 
@@ -367,7 +497,7 @@ class MicrosoftConnector(BaseConnector):
         )
         resp = await self._request(
             "PATCH",
-            f"/me/calendars/{quote(calendar_id, safe='')}/events/{quote(provider_event_id, safe='')}",
+            f"/me/events/{quote(provider_event_id, safe='')}",
             json={"attendees": attendees},
         )
         return resp.json().get("attendees", [])
@@ -379,7 +509,7 @@ class MicrosoftConnector(BaseConnector):
         updated = [a for a in attendees if a.get("emailAddress", {}).get("address", "").lower() != normalized]
         resp = await self._request(
             "PATCH",
-            f"/me/calendars/{quote(calendar_id, safe='')}/events/{quote(provider_event_id, safe='')}",
+            f"/me/events/{quote(provider_event_id, safe='')}",
             json={"attendees": updated},
         )
         return resp.json().get("attendees", [])

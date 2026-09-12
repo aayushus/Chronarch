@@ -17,7 +17,15 @@ export default function LoginPage() {
       await login(email, password);
       navigate("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      // apiFetch throws "401 Unauthorized: …" for bad credentials — show a
+      // clean message for that, and a distinct one for outages so users
+      // don't retry a correct password against a down server.
+      const msg = err instanceof Error ? err.message : "";
+      setError(
+        msg.startsWith("401")
+          ? "Invalid email or password."
+          : "Couldn't reach the server. Check your connection and try again."
+      );
     }
   }
 

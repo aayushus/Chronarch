@@ -18,7 +18,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   missing_code_or_state: "Provider didn't return the expected response — try again.",
   invalid_state: "That connect link expired or was already used — try again.",
   unauthorized: "Your admin session expired — sign in again and retry.",
-  connect_failed: "Couldn't finish connecting that account. Check the server logs for details.",
+  connect_failed: "Couldn't finish connecting that account. Verify the redirect URI and that the Calendar API is enabled, then try again.",
 };
 
 type WizardProvider = "google" | "microsoft" | "ics" | null;
@@ -146,7 +146,7 @@ export default function AccountsSettings() {
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Accounts</h2>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5, maxWidth: 640 }}>
-            Connected Google, Microsoft, and ICS calendars (BR-CAL-001/002/004). Synchronizes multi-organization schedules and backfills up to 365 days of events.
+            Connected Google, Microsoft, and ICS calendars. Synchronizes multi-organization schedules, backfilling the last 90 days and the next 365 days of events.
           </p>
         </div>
         <button
@@ -268,7 +268,7 @@ export default function AccountsSettings() {
                         fontSize: 18,
                       }}
                     >
-                      {isGoogle ? "🇬" : isMicrosoft ? "🪟" : "📁"}
+                      {isGoogle ? "G" : isMicrosoft ? "🪟" : "📁"}
                     </div>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
@@ -661,9 +661,11 @@ function ConnectAccountWizardModal({
                       alignItems: "center",
                       justifyContent: "center",
                       fontSize: 18,
+                      fontWeight: 700,
+                      color: "var(--accent)",
                     }}
                   >
-                    🇬
+                    G
                   </div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 600 }}>Google Calendar</div>

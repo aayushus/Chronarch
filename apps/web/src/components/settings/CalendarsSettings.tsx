@@ -80,7 +80,7 @@ export default function CalendarsSettings() {
       <div style={{ marginBottom: 22 }}>
         <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Calendars</h2>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
-          Visibility, availability participation, and delegation/AI access authority per calendar (BRD §12).
+          Visibility, availability participation, and delegation/AI access authority per calendar.
         </p>
       </div>
 

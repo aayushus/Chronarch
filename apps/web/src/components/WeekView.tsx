@@ -174,10 +174,19 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
               onMoveEvent(prev.eventId, prev.originStart, newEnd < minEnd ? minEnd : newEnd);
             }
           } else if (prev.deltaDays !== 0 || prev.deltaMinutes !== 0) {
-            const duration = prev.originEnd.getTime() - prev.originStart.getTime();
+            const top = gridRef.current?.getBoundingClientRect().top;
             const shiftedDay = addDaysPreserveTime(prev.originStart, prev.deltaDays);
-            const newStart = new Date(shiftedDay.getTime() + prev.deltaMinutes * 60000);
-            onMoveEvent(prev.eventId, newStart, new Date(newStart.getTime() + duration));
+            if (top !== undefined && e.clientY < top) {
+              // Grid -> lane: released above the grid top converts to all-day on that target day.
+              const s = startOfDay(shiftedDay);
+              const t = new Date(s);
+              t.setDate(t.getDate() + 1);
+              onMoveEvent(prev.eventId, s, t, true);
+            } else {
+              const duration = prev.originEnd.getTime() - prev.originStart.getTime();
+              const newStart = new Date(shiftedDay.getTime() + prev.deltaMinutes * 60000);
+              onMoveEvent(prev.eventId, newStart, new Date(newStart.getTime() + duration));
+            }
           }
         }
         return null;
