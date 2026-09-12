@@ -76,13 +76,12 @@ export default function CalendarsSettings() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-        <div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 4px" }}>Calendars</h2>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0, maxWidth: 620 }}>
-            Visibility, availability participation, and delegation/AI access authority per calendar (BRD §12).
-          </p>
-        </div>
+      {/* Header */}
+      <div style={{ marginBottom: 22 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Calendars</h2>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
+          Visibility, availability participation, and delegation/AI access authority per calendar (BRD §12).
+        </p>
       </div>
 
       {banner && (

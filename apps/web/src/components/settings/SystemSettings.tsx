@@ -50,10 +50,10 @@ export default function SystemSettings() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
         <div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>System</h2>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>System</h2>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5, maxWidth: 640 }}>
             Live health status of each service, checked directly from your browser against its exposed port.
           </p>
         </div>

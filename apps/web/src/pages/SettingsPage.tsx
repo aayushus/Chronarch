@@ -108,8 +108,10 @@ export default function SettingsPage() {
         </div>
       </aside>
 
-      <main style={{ flex: 1, overflowY: "auto", padding: "32px 40px" }}>
-        <CurrentComponent />
+      <main style={{ flex: 1, overflowY: "auto", padding: "36px 48px" }}>
+        <div style={{ maxWidth: 960, margin: "0 auto" }}>
+          <CurrentComponent />
+        </div>
       </main>
     </div>
   );

@@ -140,7 +140,7 @@ export default function AiSettings() {
     : 0;
 
   return (
-    <div style={{ maxWidth: 760, margin: "0 auto" }}>
+    <div>
       {/* Page Header */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

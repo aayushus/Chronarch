@@ -73,7 +73,7 @@ export default function UsersSettings() {
   }
 
   return (
-    <div style={{ maxWidth: 880, margin: "0 auto" }}>
+    <div>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>

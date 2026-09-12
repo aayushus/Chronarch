@@ -209,10 +209,10 @@ export default function DelegatesSettings() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
         <div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 4px" }}>Delegates</h2>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0, maxWidth: 620 }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Delegates</h2>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5, maxWidth: 640 }}>
             Executive ↔ Assistant pairings and granular per-calendar permission grants (BRD §14). Grants are capped by each calendar's provider permissions.
           </p>
         </div>

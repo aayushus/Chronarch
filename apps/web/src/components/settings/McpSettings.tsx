@@ -118,7 +118,7 @@ export default function McpSettings() {
   const revokedCreds = creds.filter((c) => c.revoked);
 
   return (
-    <div style={{ maxWidth: 840, margin: "0 auto" }}>
+    <div>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>

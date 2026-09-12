@@ -121,10 +121,10 @@ export default function AccountsSettings() {
   return (
     <div>
       {/* Header section */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
         <div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 4px" }}>Accounts</h2>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0, maxWidth: 620 }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Accounts</h2>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5, maxWidth: 640 }}>
             Connected Google, Microsoft, and ICS calendars (BR-CAL-001/002/004). Synchronizes multi-organization schedules and backfills up to 365 days of events.
           </p>
         </div>

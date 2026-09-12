@@ -228,7 +228,7 @@ export default function AuditLogSettings() {
   }
 
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+    <div>
       {/* Header */}
       <div style={{ marginBottom: 22 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
