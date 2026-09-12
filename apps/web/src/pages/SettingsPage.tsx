@@ -8,11 +8,10 @@ import AuditLogSettings from "../components/settings/AuditLogSettings";
 import CalendarsSettings from "../components/settings/CalendarsSettings";
 import DelegatesSettings from "../components/settings/DelegatesSettings";
 import McpSettings from "../components/settings/McpSettings";
-import SecuritySettings from "../components/settings/SecuritySettings";
 import SystemSettings from "../components/settings/SystemSettings";
 import UsersSettings from "../components/settings/UsersSettings";
 
-type SettingsSection = "calendars" | "accounts" | "delegates" | "users" | "ai" | "mcp" | "security" | "audit" | "system";
+type SettingsSection = "calendars" | "accounts" | "delegates" | "users" | "ai" | "mcp" | "audit" | "system";
 
 const NAV: { key: SettingsSection; label: string; Component: React.ComponentType }[] = [
   { key: "calendars", label: "Calendars", Component: CalendarsSettings },
@@ -21,7 +20,6 @@ const NAV: { key: SettingsSection; label: string; Component: React.ComponentType
   { key: "users", label: "Users", Component: UsersSettings },
   { key: "ai", label: "AI / Copilot", Component: AiSettings },
   { key: "mcp", label: "MCP", Component: McpSettings },
-  { key: "security", label: "Security", Component: SecuritySettings },
   { key: "audit", label: "Audit Log", Component: AuditLogSettings },
   { key: "system", label: "System", Component: SystemSettings },
 ];
