@@ -10,7 +10,12 @@ from chronarch_core.permissions import CalendarAction, resolve_permission
 
 from ..auth import build_auth_context, get_current_user
 from ..deps import get_db_session
-from ..permission_helpers import get_delegation_grant, is_calendar_owner
+from ..permission_helpers import (
+    get_delegation_grant,
+    get_delegation_grants,
+    get_owned_calendar_ids,
+    is_calendar_owner,
+)
 
 router = APIRouter(prefix="/api/v1/calendars", tags=["calendars"])
 
@@ -109,14 +114,17 @@ async def get_sync_status(
     )
     if not accounts:
         # Check if user has access to any calendars via delegation
-        from chronarch_core.models.delegation import DelegationCalendarGrant
-        grants = list(
-            (await session.execute(
-                select(DelegationCalendarGrant).where(DelegationCalendarGrant.grantee_user_id == user.id)
-            )).scalars()
+        from chronarch_core.models.delegation import Delegation, DelegationCalendarGrant
+        stmt = (
+            select(DelegationCalendarGrant.calendar_id)
+            .join(Delegation, Delegation.id == DelegationCalendarGrant.delegation_id)
+            .where(
+                Delegation.assistant_user_id == user.id,
+                Delegation.active.is_(True),
+            )
         )
-        if grants:
-            cal_ids = {g.calendar_id for g in grants}
+        cal_ids = set((await session.execute(stmt)).scalars())
+        if cal_ids:
             delegated_cals = list(
                 (await session.execute(select(Calendar).where(Calendar.id.in_(cal_ids)))).scalars()
             )

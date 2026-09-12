@@ -103,6 +103,16 @@ async def test_respond_to_event_writes_audit(session):
         is_owner=True,
     )
 
+    # Add attendee for the executive user
+    await ai_tools.add_attendee(
+        session,
+        ctx,
+        event_id=event.id,
+        email="exec@co.com",
+        name="Executive",
+        is_owner=True,
+    )
+
     ev = await ai_tools.respond_to_event(
         session,
         ctx,
@@ -111,6 +121,9 @@ async def test_respond_to_event_writes_audit(session):
         is_owner=True,
     )
     assert ev.id == event.id
+    assert len(ev.attendees) == 1
+    assert ev.attendees[0]["response_status"] == "accepted"
+    assert ev.attendees[0]["status"] == "accepted"
 
 
 async def test_ea_without_grant_denied_attendee_management(session):

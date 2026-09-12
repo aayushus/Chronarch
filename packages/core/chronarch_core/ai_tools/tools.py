@@ -690,20 +690,28 @@ async def respond_to_event(
         if account and connector.access_token:
             _persist_refreshed_token(account, connector.access_token)
 
-    # Update local attendee state if user/account email matches or an attendee exists
+    # Update local attendee state if user/account email matches an attendee
     if event.attendees:
-        user_email = (account.provider_account_email if account else None) or (ctx.actor_id if "@" in ctx.actor_id else None)
-        updated_attendees = []
-        matched = False
-        for att in event.attendees:
-            att_copy = dict(att)
-            if user_email and att_copy.get("email", "").lower() == user_email.lower():
-                att_copy["status"] = target_status
-                matched = True
-            updated_attendees.append(att_copy)
-        if not matched and updated_attendees:
-            updated_attendees[0]["status"] = target_status
-        event.attendees = updated_attendees
+        user_email = account.provider_account_email if account else None
+        if not user_email and ctx.user_id:
+            from ..models.user import User
+            user_obj = await session.get(User, ctx.user_id)
+            if user_obj:
+                user_email = user_obj.email
+
+        if user_email:
+            user_email_lower = user_email.lower().strip()
+            updated_attendees = []
+            matched = False
+            for att in event.attendees:
+                att_copy = dict(att)
+                if att_copy.get("email", "").lower().strip() == user_email_lower:
+                    att_copy["response_status"] = target_status
+                    att_copy["status"] = target_status
+                    matched = True
+                updated_attendees.append(att_copy)
+            if matched:
+                event.attendees = updated_attendees
 
     await session.flush()
     await write_audit_entry(
