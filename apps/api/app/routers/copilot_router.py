@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/copilot", tags=["copilot"])
 
 LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000/v1/chat/completions")
-LITELLM_MASTER_KEY = os.environ.get("LITELLM_MASTER_KEY", "sk-master-chronarch-secret")
+LITELLM_MASTER_KEY = os.environ.get("LITELLM_MASTER_KEY", "sk-litellm-dev")
 
 COPILOT_TOOLS = [
     {
@@ -170,25 +170,38 @@ async def _execute_tool(
     from datetime import timedelta
 
     if name == "list_calendars":
-        cals = await ai_tools.list_calendars(session, ctx)
-        return {
-            "calendars": [
+        cals = await ai_tools.list_calendars(
+            session, ctx, owner_calendar_ids=owned_ids, grants_by_calendar=grants
+        )
+        calendars_out = []
+        for c in cals:
+            is_owner = c.id in owned_ids
+            grant = grants.get(c.id)
+            writable = bool(is_owner or (grant and (grant.can_edit or grant.can_create or grant.can_reschedule)))
+            calendars_out.append(
                 {
                     "id": c.id,
                     "name": c.name,
-                    "writable": c.provider_writable,
+                    "writable": writable,
                     "kind": c.kind.value,
                     "color": c.color,
                 }
-                for c in cals
-            ]
-        }
+            )
+        return {"calendars": calendars_out}
 
     elif name == "get_events":
         w_start = datetime.fromisoformat(args["window_start"])
         w_end = datetime.fromisoformat(args["window_end"])
         cal_ids = args.get("calendar_ids")
-        events = await ai_tools.get_events(session, ctx, window_start=w_start, window_end=w_end, calendar_ids=cal_ids)
+        events = await ai_tools.get_events(
+            session,
+            ctx,
+            window_start=w_start,
+            window_end=w_end,
+            calendar_ids=cal_ids,
+            owner_calendar_ids=owned_ids,
+            grants_by_calendar=grants,
+        )
         return {
             "events": [
                 {
@@ -209,7 +222,13 @@ async def _execute_tool(
         w_end = datetime.fromisoformat(args["window_end"])
         dur = timedelta(minutes=int(args.get("duration_minutes", 30)))
         slots = await ai_tools.find_free_slots(
-            session, ctx, window_start=w_start, window_end=w_end, duration=dur
+            session,
+            ctx,
+            window_start=w_start,
+            window_end=w_end,
+            duration=dur,
+            owner_calendar_ids=owned_ids,
+            grants_by_calendar=grants,
         )
         return {
             "free_slots": [
@@ -304,7 +323,7 @@ async def copilot_chat(
 ):
     """Conversational copilot interaction loop."""
     ctx = build_auth_context(user, ActorType.COPILOT)
-    owned_ids = await get_owned_calendar_ids(session, user.id)
+    owned_ids = await get_owned_calendar_ids(session, user)
     grants = await get_delegation_grants(session, user.id)
 
     now_str = req.user_time or datetime.now().isoformat()

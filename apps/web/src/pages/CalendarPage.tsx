@@ -310,9 +310,9 @@ export default function CalendarPage() {
       }}
       onDrop={(e) => {
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          e.preventDefault();
           const file = e.dataTransfer.files[0];
-          if (file.name.endsWith(".ics") || file.type.includes("calendar")) {
-            e.preventDefault();
+          if (file.name.toLowerCase().endsWith(".ics") || file.type.includes("calendar")) {
             const reader = new FileReader();
             reader.onload = (evt) => {
               const text = evt.target?.result as string;

@@ -166,6 +166,8 @@ async def create_event(
             return {"error": str(exc)}
         except ValueError as exc:
             return {"error": f"invalid window: {exc}"}
+        except Exception as exc:
+            return {"error": str(exc)}
         await session.commit()
         return {"id": event.id, "title": event.title, "start": event.start.isoformat(), "end": event.end.isoformat()}
 
@@ -184,6 +186,8 @@ async def move_event(event_id: str, start: str, end: str) -> dict:
             return {"error": str(exc)}
         except ValueError as exc:
             return {"error": f"invalid window: {exc}"}
+        except Exception as exc:
+            return {"error": str(exc)}
         await session.commit()
         return {"id": event.id, "start": event.start.isoformat(), "end": event.end.isoformat()}
 
@@ -196,6 +200,8 @@ async def delete_event(event_id: str) -> dict:
         try:
             await ai_tools.delete_event(session, ctx, event_id=event_id)
         except ai_tools.PermissionDenied as exc:
+            return {"error": str(exc)}
+        except Exception as exc:
             return {"error": str(exc)}
         await session.commit()
         return {"status": "deleted", "id": event_id}
@@ -212,6 +218,8 @@ async def add_attendee(event_id: str, email: str, name: str | None = None) -> di
             return {"error": str(exc)}
         except ValueError as exc:
             return {"error": str(exc)}
+        except Exception as exc:
+            return {"error": str(exc)}
         await session.commit()
         return {"status": "ok", "id": event_id, "attendees": event.attendees}
 
@@ -227,6 +235,8 @@ async def remove_attendee(event_id: str, email: str) -> dict:
             return {"error": str(exc)}
         except ValueError as exc:
             return {"error": str(exc)}
+        except Exception as exc:
+            return {"error": str(exc)}
         await session.commit()
         return {"status": "ok", "id": event_id, "attendees": event.attendees}
 
@@ -241,6 +251,8 @@ async def respond_to_event(event_id: str, response: str) -> dict:
         except ai_tools.PermissionDenied as exc:
             return {"error": str(exc)}
         except ValueError as exc:
+            return {"error": str(exc)}
+        except Exception as exc:
             return {"error": str(exc)}
         await session.commit()
         return {"status": "ok", "id": event_id}

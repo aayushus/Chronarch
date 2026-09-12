@@ -44,7 +44,15 @@ async def list_calendars(
     session: AsyncSession = Depends(get_db_session),
 ):
     ctx = build_auth_context(user, actor_type_for(user))
-    calendars = await ai_tools.list_calendars(session, ctx)
+    owner_ids = await get_owned_calendar_ids(session, user)
+    grants = (
+        await get_delegation_grants(session, user.id)
+        if user.role == UserRole.ASSISTANT
+        else None
+    )
+    calendars = await ai_tools.list_calendars(
+        session, ctx, owner_calendar_ids=owner_ids, grants_by_calendar=grants
+    )
 
     account_ids = {c.account_id for c in calendars}
     accounts = {}
@@ -101,11 +109,21 @@ async def get_sync_status(
     )
     if not accounts:
         # Check if user has access to any calendars via delegation
-        all_cals = list((await session.execute(select(Calendar))).scalars())
-        account_ids = {c.account_id for c in all_cals}
-        accounts = list(
-            (await session.execute(select(Account).where(Account.id.in_(account_ids)))).scalars()
-        ) if account_ids else []
+        from chronarch_core.models.delegation import DelegationCalendarGrant
+        grants = list(
+            (await session.execute(
+                select(DelegationCalendarGrant).where(DelegationCalendarGrant.grantee_user_id == user.id)
+            )).scalars()
+        )
+        if grants:
+            cal_ids = {g.calendar_id for g in grants}
+            delegated_cals = list(
+                (await session.execute(select(Calendar).where(Calendar.id.in_(cal_ids)))).scalars()
+            )
+            account_ids = {c.account_id for c in delegated_cals if c.account_id}
+            accounts = list(
+                (await session.execute(select(Account).where(Account.id.in_(account_ids)))).scalars()
+            ) if account_ids else []
 
     last_synced = None
     statuses = [a.sync_status for a in accounts]

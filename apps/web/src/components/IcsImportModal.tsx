@@ -19,7 +19,7 @@ export default function IcsImportModal({ calendars, initialContent, onClose, onI
 
   // Writable calendars only (BR-ICS-003)
   const writableCalendars = calendars.filter(
-    (c) => c.writable || c.can_create || c.provider_writable
+    (c) => (c.can_create ?? c.writable)
   );
 
   React.useEffect(() => {

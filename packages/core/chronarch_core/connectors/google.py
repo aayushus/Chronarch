@@ -150,7 +150,7 @@ def _to_remote_event(item: dict, writable: bool) -> RemoteEvent:
         location=item.get("location"),
         conference={"url": item["hangoutLink"]} if item.get("hangoutLink") else None,
         recurrence={"rule": item["recurrence"]} if item.get("recurrence") else None,
-        visibility=item.get("visibility", "default").replace("default", "standard"),
+        visibility={"public": "public", "private": "private"}.get(item.get("visibility", "default").lower(), "standard"),
         busy_status=busy_status,
         writable=writable and item.get("status") != "cancelled",
         provider_updated_at=datetime.fromisoformat(item["updated"]) if item.get("updated") else None,
@@ -371,8 +371,8 @@ class GoogleConnector(BaseConnector):
                 a["responseStatus"] = target
                 matched = True
                 break
-        if not matched and attendees:
-            attendees[0]["responseStatus"] = target
+        if not matched:
+            raise ValueError("Cannot RSVP: calendar user is not listed as an attendee with self=True on this event.")
         await self._request(
             "PATCH",
             f"{API_BASE}/calendars/{quote(calendar_id, safe='')}/events/{quote(provider_event_id, safe='')}",

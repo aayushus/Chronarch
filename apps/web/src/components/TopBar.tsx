@@ -131,6 +131,7 @@ export default function TopBar({
 }
 
 function formatTimeAgo(date: Date): string {
+  if (isNaN(date.getTime())) return "Unknown";
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
   if (seconds < 60) return "just now";
   const minutes = Math.floor(seconds / 60);

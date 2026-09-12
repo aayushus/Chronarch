@@ -101,8 +101,20 @@ async def list_events(
     session: AsyncSession = Depends(get_db_session),
 ):
     ctx = build_auth_context(user, actor_type_for(user))
+    owner_ids = await get_owned_calendar_ids(session, user)
+    grants = (
+        await get_delegation_grants(session, user.id)
+        if user.role == UserRole.ASSISTANT
+        else None
+    )
     events = await ai_tools.get_events(
-        session, ctx, window_start=window_start, window_end=window_end, calendar_ids=calendar_ids
+        session,
+        ctx,
+        window_start=window_start,
+        window_end=window_end,
+        calendar_ids=calendar_ids,
+        owner_calendar_ids=owner_ids,
+        grants_by_calendar=grants,
     )
     return events
 

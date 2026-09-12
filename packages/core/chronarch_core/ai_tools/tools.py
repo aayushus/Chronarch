@@ -105,9 +105,16 @@ async def _readable_calendars(
     return readable
 
 
-async def list_calendars(session: AsyncSession, ctx: AuthContext) -> list[Calendar]:
-    all_calendars = list((await session.execute(select(Calendar))).scalars())
-    return [c for c in all_calendars if resolve_permission(ctx, c, CalendarAction.VIEW_AVAILABILITY).allowed]
+async def list_calendars(
+    session: AsyncSession,
+    ctx: AuthContext,
+    *,
+    owner_calendar_ids: set[str] | None = None,
+    grants_by_calendar: dict | None = None,
+) -> list[Calendar]:
+    return await _readable_calendars(
+        session, ctx, None, owner_calendar_ids=owner_calendar_ids, grants_by_calendar=grants_by_calendar
+    )
 
 
 async def get_events(
@@ -117,8 +124,12 @@ async def get_events(
     window_start: datetime,
     window_end: datetime,
     calendar_ids: list[str] | None = None,
+    owner_calendar_ids: set[str] | None = None,
+    grants_by_calendar: dict | None = None,
 ) -> list[UnifiedEvent]:
-    calendars = await _readable_calendars(session, ctx, calendar_ids)
+    calendars = await _readable_calendars(
+        session, ctx, calendar_ids, owner_calendar_ids=owner_calendar_ids, grants_by_calendar=grants_by_calendar
+    )
     cal_by_id = {c.id: c for c in calendars}
     if not cal_by_id:
         return []
@@ -137,7 +148,11 @@ async def get_events(
     visible = []
     for event in events:
         cal = cal_by_id[event.calendar_id]
-        decision = resolve_permission(ctx, cal, CalendarAction.VIEW_TITLE, event=event)
+        is_owner = bool(owner_calendar_ids and cal.id in owner_calendar_ids)
+        grant = grants_by_calendar.get(cal.id) if grants_by_calendar else None
+        decision = resolve_permission(
+            ctx, cal, CalendarAction.VIEW_TITLE, event=event, is_owner=is_owner, delegation_grant=grant
+        )
         if decision.allowed:
             visible.append(event)
     return visible
@@ -150,8 +165,12 @@ async def get_availability(
     window_start: datetime,
     window_end: datetime,
     calendar_ids: list[str] | None = None,
+    owner_calendar_ids: set[str] | None = None,
+    grants_by_calendar: dict | None = None,
 ) -> list[dict]:
-    calendars = await _readable_calendars(session, ctx, calendar_ids)
+    calendars = await _readable_calendars(
+        session, ctx, calendar_ids, owner_calendar_ids=owner_calendar_ids, grants_by_calendar=grants_by_calendar
+    )
     blocking_ids = {c.id for c in calendars if c.blocks_availability}
     if not blocking_ids:
         return []
@@ -177,8 +196,12 @@ async def find_free_slots(
     working_hours: tuple[int, int] | None = None,
     buffer: timedelta = timedelta(0),
     now: datetime | None = None,
+    owner_calendar_ids: set[str] | None = None,
+    grants_by_calendar: dict | None = None,
 ) -> list[dict]:
-    calendars = await _readable_calendars(session, ctx, calendar_ids)
+    calendars = await _readable_calendars(
+        session, ctx, calendar_ids, owner_calendar_ids=owner_calendar_ids, grants_by_calendar=grants_by_calendar
+    )
     blocking_ids = {c.id for c in calendars if c.blocks_availability}
 
     stmt = select(UnifiedEvent).where(
@@ -649,11 +672,38 @@ async def respond_to_event(
     if not decision.allowed:
         raise PermissionDenied(CalendarAction.RESPOND_TO_INVITATION, decision.reason)
 
+    norm_status = response_status.lower().strip()
+    status_map = {
+        "accepted": "accepted",
+        "accept": "accepted",
+        "declined": "declined",
+        "decline": "declined",
+        "tentative": "tentative",
+    }
+    if norm_status not in status_map:
+        raise ValueError(f"Invalid response_status '{response_status}'. Allowed: accepted, declined, tentative.")
+    target_status = status_map[norm_status]
+
     connector, account = await _get_connector_for_calendar(session, calendar)
     if connector and event.provider_event_id and calendar.provider_writable:
-        await connector.respond_to_event(calendar.provider_calendar_id, event.provider_event_id, response_status)
+        await connector.respond_to_event(calendar.provider_calendar_id, event.provider_event_id, target_status)
         if account and connector.access_token:
             _persist_refreshed_token(account, connector.access_token)
+
+    # Update local attendee state if user/account email matches or an attendee exists
+    if event.attendees:
+        user_email = (account.provider_account_email if account else None) or (ctx.actor_id if "@" in ctx.actor_id else None)
+        updated_attendees = []
+        matched = False
+        for att in event.attendees:
+            att_copy = dict(att)
+            if user_email and att_copy.get("email", "").lower() == user_email.lower():
+                att_copy["status"] = target_status
+                matched = True
+            updated_attendees.append(att_copy)
+        if not matched and updated_attendees:
+            updated_attendees[0]["status"] = target_status
+        event.attendees = updated_attendees
 
     await session.flush()
     await write_audit_entry(
@@ -662,7 +712,7 @@ async def respond_to_event(
         action=AuditAction.RESPOND_TO_EVENT,
         calendar_id=calendar.id,
         event_id=event.id,
-        detail={"response_status": response_status},
+        detail={"response_status": target_status},
     )
     return event
 

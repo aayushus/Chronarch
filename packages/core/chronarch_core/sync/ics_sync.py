@@ -99,4 +99,6 @@ async def sync_ics_subscription_calendar(session: AsyncSession, calendar: Calend
         "total_parsed": len(remote_events),
         "upserted": upserted_count,
         "pruned": len(to_delete),
+        "events_synced": upserted_count,
+        "events_deleted": len(to_delete),
     }
