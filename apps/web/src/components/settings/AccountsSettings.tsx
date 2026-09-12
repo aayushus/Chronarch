@@ -854,7 +854,7 @@ function ConnectAccountWizardModal({
                     className="btn-primary hoverable"
                     style={{ padding: "8px 20px" }}
                   >
-                    {connecting ? "Redirecting to Google…" : "Authorize & Connect with Google →"}
+                    {connecting ? "Redirecting to Google…" : "Authorize & Connect with Google"}
                   </button>
                 </div>
               </div>
@@ -982,7 +982,7 @@ function ConnectAccountWizardModal({
                     className="btn-primary hoverable"
                     style={{ padding: "8px 20px" }}
                   >
-                    {savingConfig ? "Saving Credentials…" : connecting ? "Redirecting…" : "Save & Connect Google Account →"}
+                    {savingConfig ? "Saving Credentials…" : connecting ? "Redirecting…" : "Save & Connect Google Account"}
                   </button>
                 </div>
               </div>
@@ -1049,7 +1049,7 @@ function ConnectAccountWizardModal({
                     className="btn-primary hoverable"
                     style={{ padding: "8px 20px" }}
                   >
-                    {connecting ? "Redirecting to Microsoft…" : "Authorize & Connect with Microsoft →"}
+                    {connecting ? "Redirecting to Microsoft…" : "Authorize & Connect with Microsoft"}
                   </button>
                 </div>
               </div>
@@ -1159,7 +1159,7 @@ function ConnectAccountWizardModal({
                     className="btn-primary hoverable"
                     style={{ padding: "8px 20px" }}
                   >
-                    {savingConfig ? "Saving Credentials…" : connecting ? "Redirecting…" : "Save & Connect Microsoft →"}
+                    {savingConfig ? "Saving Credentials…" : connecting ? "Redirecting…" : "Save & Connect Microsoft"}
                   </button>
                 </div>
               </div>

@@ -539,7 +539,7 @@ export default function McpSettings() {
                   fontWeight: 600,
                 }}
               >
-                {copiedKey ? "Copied!" : "Copy"}
+                {copiedKey ? "✓ Copied!" : "Copy"}
               </button>
             </div>
 

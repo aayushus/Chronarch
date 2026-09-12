@@ -162,7 +162,7 @@ export default function AiSettings() {
           </span>
         </div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
-          Configure intelligence models powering the in-app calendar copilot and automated task scheduling.
+          Configure intelligence models powering the in-app calendar copilot and smart scheduling assistance.
           External AI assistants like Claude Desktop connect independently via MCP.
         </p>
       </div>

@@ -159,11 +159,11 @@ export default function DelegatesSettings() {
   }
 
   async function handleDeleteDelegation(d: Delegation) {
-    if (!confirm(`Delete delegation pairing between ${d.assistant_email} and ${d.executive_email}?`)) return;
+    if (!confirm(`Delete pairing between ${d.assistant_email} and ${d.executive_email}?`)) return;
     try {
       await adminDeleteDelegation(d.id);
       setDelegations((prev) => prev.filter((x) => x.id !== d.id));
-      setBanner({ kind: "success", text: `Deleted delegation pairing.` });
+      setBanner({ kind: "success", text: "Pairing deleted." });
     } catch (e) {
       setError(String(e));
     }
@@ -594,7 +594,7 @@ export default function DelegatesSettings() {
           onClose={() => setShowCreate(false)}
           onCreated={() => {
             setShowCreate(false);
-            setBanner({ kind: "success", text: "Delegate pairing created." });
+            setBanner({ kind: "success", text: "Pairing created." });
             load();
           }}
         />
