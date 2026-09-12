@@ -9,8 +9,6 @@ interface Props {
   onToday: () => void;
   onShift: (delta: number) => void;
   onCreateEvent: () => void;
-  onToggleCopilot?: () => void;
-  onImportIcs?: () => void;
 }
 
 export default function TopBar({
@@ -20,8 +18,6 @@ export default function TopBar({
   onToday,
   onShift,
   onCreateEvent,
-  onToggleCopilot,
-  onImportIcs,
 }: Props) {
   const dateLabel = viewedDate.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
   const weekdayLabel = viewedDate.toLocaleDateString(undefined, { weekday: "long" });
@@ -73,45 +69,6 @@ export default function TopBar({
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        {onImportIcs && (
-          <button
-            onClick={onImportIcs}
-            title="Import .ics file (BR-ICS-001)"
-            className="hoverable"
-            style={{
-              ...navBtnStyle,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 13,
-              fontWeight: 500,
-            }}
-          >
-            <span>📁</span>
-            <span>Import .ics</span>
-          </button>
-        )}
-        {onToggleCopilot && (
-          <button
-            onClick={onToggleCopilot}
-            title="Ask AI Copilot (BRD §20)"
-            className="hoverable"
-            style={{
-              ...navBtnStyle,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              background: "rgba(10, 132, 255, 0.15)",
-              color: "var(--accent)",
-              border: "1px solid rgba(10, 132, 255, 0.3)",
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
-            <span>✨</span>
-            <span>Ask AI</span>
-          </button>
-        )}
         <button onClick={() => onShift(-1)} className="icon-btn" style={navBtnStyle}>
           ‹
         </button>

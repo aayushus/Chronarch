@@ -15,6 +15,8 @@ interface Props {
   userDisplayName: string;
   onLogout: () => void;
   isAdmin: boolean;
+  onOpenCopilot: () => void;
+  onOpenIcsImport: () => void;
 }
 
 export default function Sidebar({
@@ -28,6 +30,8 @@ export default function Sidebar({
   userDisplayName,
   onLogout,
   isAdmin,
+  onOpenCopilot,
+  onOpenIcsImport,
 }: Props) {
   const groups = new Map<string, { label: string; calendars: CalendarSummary[] }>();
   for (const cal of calendars) {
@@ -50,19 +54,71 @@ export default function Sidebar({
         height: "100%",
       }}
     >
+      {/* App Branding Header */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "14px 16px 8px",
+          padding: "14px 16px 10px",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <img src="/logo.svg" alt="" width={20} height={20} style={{ borderRadius: 5 }} />
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Chronarch</span>
+          <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: -0.2 }}>Chronarch</span>
         </div>
       </div>
+
+      {/* Quick Actions (macOS / Apple Calendar Style) */}
+      <div style={{ padding: "0 8px 10px", display: "flex", flexDirection: "column", gap: 3 }}>
+        <button
+          onClick={onOpenCopilot}
+          className="hoverable"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            width: "100%",
+            border: "none",
+            borderRadius: "var(--radius-sm)",
+            padding: "6px 10px",
+            background: "rgba(10, 132, 255, 0.12)",
+            color: "var(--accent)",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+            textAlign: "left",
+          }}
+        >
+          <span style={{ fontSize: 14 }}>✨</span>
+          <span>Ask Copilot</span>
+        </button>
+
+        <button
+          onClick={onOpenIcsImport}
+          className="hoverable"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            width: "100%",
+            border: "none",
+            borderRadius: "var(--radius-sm)",
+            padding: "6px 10px",
+            background: "transparent",
+            color: "var(--text-secondary)",
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: "pointer",
+            textAlign: "left",
+          }}
+        >
+          <span style={{ fontSize: 13, opacity: 0.8 }}>📁</span>
+          <span>Import .ics</span>
+        </button>
+      </div>
+
+      <div style={{ height: 1, background: "var(--border-subtle)", margin: "0 8px 6px" }} />
 
       <div style={{ flex: 1, overflowY: "auto", padding: "4px 8px" }}>
         {groups.size === 0 && (
