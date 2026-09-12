@@ -33,8 +33,11 @@ export default function TopBar({
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        <button onClick={onCreateEvent} title="New event (N)" className="icon-btn" style={circleBtnStyle}>
-          +
+        <button onClick={onCreateEvent} title="New event (N)" className="icon-btn hoverable" style={circleBtnStyle}>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="7" y1="2" x2="7" y2="12" />
+            <line x1="2" y1="7" x2="12" y2="7" />
+          </svg>
         </button>
         <div>
           <div className="date-header tabular-nums" style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.1 }}>
@@ -58,24 +61,25 @@ export default function TopBar({
               padding: "6px 14px",
               fontSize: 13,
               cursor: "pointer",
-              background: viewMode === mode ? "var(--bg-raised-hover)" : "transparent",
-              color: viewMode === mode ? "var(--text-primary)" : "var(--text-secondary)",
-              textTransform: "capitalize",
+              fontWeight: 500,
+              background: viewMode === mode ? "var(--accent)" : "transparent",
+              color: viewMode === mode ? "#fff" : "var(--text-secondary)",
+              transition: "var(--transition-fast)",
             }}
           >
-            {mode}
+            {mode.charAt(0).toUpperCase() + mode.slice(1)}
           </button>
         ))}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <button onClick={() => onShift(-1)} className="icon-btn" style={navBtnStyle}>
-          ‹
-        </button>
-        <button onClick={onToday} title="Today (T)" className="icon-btn" style={{ ...navBtnStyle, padding: "6px 14px", fontSize: 13 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <button onClick={onToday} className="hoverable" style={navBtnStyle}>
           Today
         </button>
-        <button onClick={() => onShift(1)} className="icon-btn" style={navBtnStyle}>
+        <button onClick={() => onShift(-1)} className="hoverable" style={navBtnStyle} title="Previous">
+          ‹
+        </button>
+        <button onClick={() => onShift(1)} className="hoverable" style={navBtnStyle} title="Next">
           ›
         </button>
       </div>
@@ -90,8 +94,10 @@ const circleBtnStyle: React.CSSProperties = {
   border: "none",
   background: "var(--accent)",
   color: "#fff",
-  fontSize: 18,
-  lineHeight: "28px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
   cursor: "pointer",
 };
 

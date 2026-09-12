@@ -195,7 +195,11 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div
         className="all-day-lane"
-        style={{ borderBottom: "1px solid var(--border-subtle)", padding: "8px 16px 8px 64px", minHeight: allDayEvents.length > 0 ? undefined : 12 }}
+        style={{
+          borderBottom: "1px solid var(--border-subtle)",
+          padding: "6px 8px 6px 58px",
+          minHeight: allDayEvents.length > 0 ? undefined : 12,
+        }}
         onMouseDown={(e) => {
           // Lane background click: new all-day event. Items start a
           // lane-out drag instead (see below).
@@ -287,7 +291,7 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                 top: yFromMinutes(Math.min(creating.startMin, creating.curMin), HOUR_HEIGHT, START_HOUR),
                 height: Math.max(10, (Math.abs(creating.curMin - creating.startMin) / 60) * HOUR_HEIGHT),
                 left: 58,
-                right: 2,
+                right: 8,
                 background: "var(--accent)",
                 opacity: 0.35,
                 borderRadius: 6,
@@ -331,7 +335,7 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                   top: ghostTop,
                   height: HOUR_HEIGHT - 2,
                   left: 58,
-                  right: 2,
+                  right: 8,
                   background: "var(--accent)",
                   opacity: 0.35,
                   borderRadius: 6,
@@ -384,8 +388,8 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                   position: "absolute",
                   top,
                   height,
-                  left: `calc(56px + ${column * widthPct}%)`,
-                  width: `calc(${widthPct}% - 6px)`,
+                  left: `calc(58px + ${column * widthPct}%)`,
+                  width: `calc(${widthPct}% - 10px)`,
                   background: tint(color.startsWith("#") ? color : "#0a84ff", 0.22),
                   borderLeft: `3px solid ${color}`,
                   borderRadius: 6,
