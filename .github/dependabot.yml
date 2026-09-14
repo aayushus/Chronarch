@@ -1,0 +1,31 @@
+# Dependabot: weekly dependency updates (pip, npm, Docker base images).
+# Security updates land as PRs for review — check the eval/RBAC suites
+# (core pytest + matrix script) before merging major bumps.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directories:
+      - packages/core
+      - apps/api
+      - apps/mcp
+      - apps/worker
+      - apps/scheduler
+    schedule:
+      interval: weekly
+      day: monday
+  - package-ecosystem: npm
+    directory: apps/web
+    schedule:
+      interval: weekly
+      day: monday
+  - package-ecosystem: docker
+    directories:
+      - apps/api
+      - apps/mcp
+      - apps/web
+      - apps/worker
+      - apps/scheduler
+      - packages/litellm-config
+    schedule:
+      interval: weekly
+      day: monday
