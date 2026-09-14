@@ -117,6 +117,73 @@ async def list_calendars(
     )
 
 
+async def list_accounts(
+    session: AsyncSession,
+    ctx: AuthContext,
+    *,
+    owner_user_id: str | None = None,
+) -> list[dict]:
+    """Accounts the caller may know about (BRD §17 `list_accounts`).
+
+    MCP callers see only accounts backing their readable calendars;
+    human callers see owned accounts (or all, for admins). Never returns
+    tokens, passwords, or OAuth secrets — only identity + sync status.
+    """
+    from ..models.account import Account
+
+    calendars = await _readable_calendars(session, ctx, None)
+    calendar_account_ids = {c.account_id for c in calendars if c.account_id}
+    stmt = select(Account)
+    if owner_user_id:
+        stmt = stmt.where(Account.owner_user_id == owner_user_id)
+    accounts = list((await session.execute(stmt)).scalars())
+    out = []
+    for account in accounts:
+        if ctx.is_admin or (owner_user_id and account.owner_user_id == owner_user_id):
+            visible = True
+        else:
+            # MCP/copilot/EA: only accounts contributing a readable calendar.
+            visible = account.id in calendar_account_ids
+        if not visible:
+            continue
+        out.append(
+            {
+                "id": account.id,
+                "provider": account.provider.value,
+                "email": account.provider_account_email,
+                "sync_status": account.sync_status,
+                "last_synced_at": account.last_synced_at,
+            }
+        )
+    return out
+
+
+async def get_event(
+    session: AsyncSession,
+    ctx: AuthContext,
+    *,
+    event_id: str,
+    owner_calendar_ids: set[str] | None = None,
+    grants_by_calendar: dict | None = None,
+) -> UnifiedEvent:
+    """Fetch a single event by id (BRD §17 `get_event`), enforcing
+    VIEW_FULL_DETAILS. Raises ValueError if missing, PermissionDenied if
+    the viewer may not see details."""
+    event = await session.get(UnifiedEvent, event_id)
+    if event is None:
+        raise ValueError(f"event {event_id} not found")
+    calendar = await _get_calendar(session, event.calendar_id)
+    is_owner = bool(owner_calendar_ids and calendar.id in owner_calendar_ids)
+    grant = grants_by_calendar.get(calendar.id) if grants_by_calendar else None
+    decision = resolve_permission(
+        ctx, calendar, CalendarAction.VIEW_FULL_DETAILS,
+        event=event, is_owner=is_owner, delegation_grant=grant,
+    )
+    if not decision.allowed:
+        raise PermissionDenied(CalendarAction.VIEW_FULL_DETAILS, decision.reason)
+    return event
+
+
 async def get_events(
     session: AsyncSession,
     ctx: AuthContext,
@@ -312,6 +379,22 @@ async def _get_connector_for_calendar(session: AsyncSession, calendar: Calendar)
     if not account:
         return None, None
 
+    if account.provider == ProviderType.CALDAV:
+        from ..connectors.caldav import CalDAVConnector
+
+        if not account.caldav_server_url or not account.caldav_username:
+            return None, account
+        if not account.encrypted_caldav_password:
+            return None, account
+        cipher = get_cipher()
+        password = cipher.decrypt(account.encrypted_caldav_password)
+        connector = CalDAVConnector(
+            server_url=account.caldav_server_url,
+            username=account.caldav_username,
+            password=password,
+        )
+        return connector, account
+
     cipher = get_cipher()
     access_token = cipher.decrypt(account.encrypted_access_token) if account.encrypted_access_token else None
     refresh_token = cipher.decrypt(account.encrypted_refresh_token) if account.encrypted_refresh_token else None
@@ -380,13 +463,15 @@ async def create_event(
     delegation_grant=None,
 ) -> UnifiedEvent:
     _validate_window(start, end)
+    from ..timezones import normalize_timezone
+
+    timezone = normalize_timezone(timezone)
     calendar = await _get_calendar(session, calendar_id)
     decision = resolve_permission(
         ctx, calendar, CalendarAction.CREATE, is_owner=is_owner, delegation_grant=delegation_grant
     )
     if not decision.allowed:
         raise PermissionDenied(CalendarAction.CREATE, decision.reason)
-
     provider_event_id = ""
     connector, account = await _get_connector_for_calendar(session, calendar)
     if connector and calendar.provider_writable:
@@ -412,8 +497,9 @@ async def create_event(
         )
         created_remote = await connector.create_event(calendar.provider_calendar_id, remote_req)
         provider_event_id = created_remote.provider_event_id
-        if account and connector.access_token:
-            _persist_refreshed_token(account, connector.access_token)
+        refreshed_token = getattr(connector, "access_token", None)
+        if account and refreshed_token:
+            _persist_refreshed_token(account, refreshed_token)
 
     event = UnifiedEvent(
         provider_account_id=calendar.account_id,
@@ -484,8 +570,9 @@ async def move_event(
                 "end": {"dateTime": new_end.isoformat(), "timeZone": event.timezone},
             }
         await connector.update_event(calendar.provider_calendar_id, event.provider_event_id, patch)
-        if account and connector.access_token:
-            _persist_refreshed_token(account, connector.access_token)
+        refreshed_token = getattr(connector, "access_token", None)
+        if account and refreshed_token:
+            _persist_refreshed_token(account, refreshed_token)
 
     old_start, old_end = event.start, event.end
     event.start, event.end = new_start, new_end
@@ -506,6 +593,110 @@ async def move_event(
             "to_end": new_end.isoformat(),
             **({"all_day": new_all_day} if new_all_day is not None else {}),
         },
+    )
+    return event
+
+
+async def update_event(
+    session: AsyncSession,
+    ctx: AuthContext,
+    *,
+    event_id: str,
+    title: str | None = None,
+    description: str | None = None,
+    location: str | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    timezone: str | None = None,
+    all_day: bool | None = None,
+    is_owner: bool = False,
+    delegation_grant=None,
+) -> UnifiedEvent:
+    """Full-field edit (BRD §18 `update_event`). Field-level updates ride
+    on the EDIT permission; a time change additionally requires RESCHEDULE.
+    At least one field must be provided. Writes through to the provider
+    when the calendar is provider-writable, then audits as UPDATE_EVENT.
+    """
+    from ..permissions import CalendarAction as _Action
+
+    event = await session.get(UnifiedEvent, event_id)
+    if event is None:
+        raise ValueError(f"event {event_id} not found")
+    calendar = await _get_calendar(session, event.calendar_id)
+
+    if all(v is None for v in (title, description, location, start, end, timezone, all_day)):
+        raise ValueError("update_event requires at least one field to change")
+
+    new_start = start if start is not None else event.start
+    new_end = end if end is not None else event.end
+    if start is not None or end is not None:
+        _validate_window(new_start, new_end)
+
+    edit_decision = resolve_permission(
+        ctx, calendar, _Action.EDIT, event=event, is_owner=is_owner, delegation_grant=delegation_grant,
+    )
+    if not edit_decision.allowed:
+        raise PermissionDenied(_Action.EDIT, edit_decision.reason)
+    if start is not None or end is not None or all_day is not None:
+        resched_decision = resolve_permission(
+            ctx, calendar, _Action.RESCHEDULE, event=event, is_owner=is_owner, delegation_grant=delegation_grant,
+        )
+        if not resched_decision.allowed:
+            raise PermissionDenied(_Action.RESCHEDULE, resched_decision.reason)
+
+    changes: dict[str, list[str]] = {}
+    connector, account = await _get_connector_for_calendar(session, calendar)
+    if connector and event.provider_event_id and calendar.provider_writable:
+        target_all_day = all_day if all_day is not None else event.all_day
+        patch: dict = {}
+        if target_all_day and (start is not None or end is not None or all_day is not None):
+            patch["start"] = {"date": new_start.date().isoformat()}
+            patch["end"] = {"date": new_end.date().isoformat()}
+        elif start is not None or end is not None:
+            patch["start"] = {"dateTime": new_start.isoformat(), "timeZone": timezone or event.timezone}
+            patch["end"] = {"dateTime": new_end.isoformat(), "timeZone": timezone or event.timezone}
+        if title is not None:
+            patch["title"] = title
+        if description is not None:
+            patch["description"] = description
+        if location is not None:
+            patch["location"] = location
+        if patch:
+            await connector.update_event(calendar.provider_calendar_id, event.provider_event_id, patch)
+        refreshed = getattr(connector, "access_token", None)
+        if account and refreshed:
+            _persist_refreshed_token(account, refreshed)
+
+    if title is not None and title != event.title:
+        changes["title"] = [event.title, title]
+        event.title = title
+    if description is not None and description != event.description:
+        changes["description"] = [str(event.description), str(description)]
+        event.description = description
+    if location is not None and location != event.location:
+        changes["location"] = [str(event.location), str(location)]
+        event.location = location
+    if start is not None:
+        changes["start"] = [event.start.isoformat(), new_start.isoformat()]
+        event.start = new_start
+    if end is not None:
+        changes["end"] = [event.end.isoformat(), new_end.isoformat()]
+        event.end = new_end
+    if timezone is not None:
+        from ..timezones import normalize_timezone as _normalize_timezone
+
+        event.timezone = _normalize_timezone(timezone)
+    if all_day is not None:
+        event.all_day = all_day
+    await session.flush()
+
+    await write_audit_entry(
+        session,
+        ctx=ctx,
+        action=AuditAction.UPDATE_EVENT,
+        calendar_id=calendar.id,
+        event_id=event.id,
+        detail={"changes": changes},
     )
     return event
 
@@ -532,8 +723,9 @@ async def delete_event(
     connector, account = await _get_connector_for_calendar(session, calendar)
     if connector and event.provider_event_id and calendar.provider_writable:
         await connector.delete_event(calendar.provider_calendar_id, event.provider_event_id)
-        if account and connector.access_token:
-            _persist_refreshed_token(account, connector.access_token)
+        refreshed_token = getattr(connector, "access_token", None)
+        if account and refreshed_token:
+            _persist_refreshed_token(account, refreshed_token)
 
     await write_audit_entry(
         session,
@@ -585,8 +777,9 @@ async def add_attendee(
     connector, account = await _get_connector_for_calendar(session, calendar)
     if connector and event.provider_event_id and calendar.provider_writable:
         await connector.add_attendee(calendar.provider_calendar_id, event.provider_event_id, email, name)
-        if account and connector.access_token:
-            _persist_refreshed_token(account, connector.access_token)
+        refreshed_token = getattr(connector, "access_token", None)
+        if account and refreshed_token:
+            _persist_refreshed_token(account, refreshed_token)
 
     await session.flush()
     await write_audit_entry(
@@ -632,8 +825,9 @@ async def remove_attendee(
     connector, account = await _get_connector_for_calendar(session, calendar)
     if connector and event.provider_event_id and calendar.provider_writable:
         await connector.remove_attendee(calendar.provider_calendar_id, event.provider_event_id, email)
-        if account and connector.access_token:
-            _persist_refreshed_token(account, connector.access_token)
+        refreshed_token = getattr(connector, "access_token", None)
+        if account and refreshed_token:
+            _persist_refreshed_token(account, refreshed_token)
 
     await session.flush()
     await write_audit_entry(
@@ -687,8 +881,9 @@ async def respond_to_event(
     connector, account = await _get_connector_for_calendar(session, calendar)
     if connector and event.provider_event_id and calendar.provider_writable:
         await connector.respond_to_event(calendar.provider_calendar_id, event.provider_event_id, target_status)
-        if account and connector.access_token:
-            _persist_refreshed_token(account, connector.access_token)
+        refreshed_token = getattr(connector, "access_token", None)
+        if account and refreshed_token:
+            _persist_refreshed_token(account, refreshed_token)
 
     # Update local attendee state if user/account email matches an attendee
     if event.attendees:

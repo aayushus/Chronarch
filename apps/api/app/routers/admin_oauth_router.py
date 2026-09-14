@@ -17,7 +17,7 @@ from chronarch_core.models.oauth_config import OAuthProviderConfig
 from chronarch_core.models.user import User
 from chronarch_core.oauth import list_oauth_configs
 
-from ..admin_guard import require_admin
+from ..admin_guard import require_permission
 from ..deps import get_db_session
 
 router = APIRouter(prefix="/api/v1/admin/oauth", tags=["admin"])
@@ -64,14 +64,14 @@ def _parse_provider(provider: str) -> ProviderType:
 
 @router.get("", response_model=list[OAuthConfigOut])
 async def list_configs(
-    _admin: User = Depends(require_admin), session: AsyncSession = Depends(get_db_session)
+    _user: User = Depends(require_permission("oauth.view")), session: AsyncSession = Depends(get_db_session)
 ):
     return [_to_out(c) for c in await list_oauth_configs(session)]
 
 
 @router.get("/{provider}", response_model=OAuthConfigOut)
 async def get_config(
-    provider: str, _admin: User = Depends(require_admin), session: AsyncSession = Depends(get_db_session)
+    provider: str, _user: User = Depends(require_permission("oauth.view")), session: AsyncSession = Depends(get_db_session)
 ):
     config = await session.get(OAuthProviderConfig, _parse_provider(provider))
     if config is None:
@@ -83,7 +83,7 @@ async def get_config(
 async def upsert_config(
     provider: str,
     body: OAuthConfigUpdate,
-    _admin: User = Depends(require_admin),
+    _user: User = Depends(require_permission("oauth.manage")),
     session: AsyncSession = Depends(get_db_session),
 ):
     parsed = _parse_provider(provider)
@@ -105,7 +105,7 @@ async def upsert_config(
 
 @router.delete("/{provider}", response_model=OAuthConfigOut)
 async def clear_config(
-    provider: str, _admin: User = Depends(require_admin), session: AsyncSession = Depends(get_db_session)
+    provider: str, _user: User = Depends(require_permission("oauth.view")), session: AsyncSession = Depends(get_db_session)
 ):
     config = await session.get(OAuthProviderConfig, _parse_provider(provider))
     if config is not None:

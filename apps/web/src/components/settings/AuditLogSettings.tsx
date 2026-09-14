@@ -1,4 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { friendlyError } from "../../api/client";
+
+import Icon, { IconName } from "../Icon";
+import EmptyState from "../EmptyState";
 import { AuditEntry, adminListAuditLog } from "../../api/admin";
 
 interface ActionMeta {
@@ -119,46 +123,46 @@ const ACTION_METAS: Record<string, ActionMeta> = {
   },
 };
 
-const ACTOR_METAS: Record<string, { label: string; icon: string; bg: string; color: string }> = {
-  executive_ui: {
-    label: "Executive UI",
-    icon: "👤",
+const ACTOR_METAS: Record<string, { label: string; icon: IconName; bg: string; color: string }> = {
+  admin_ui: {
+    label: "Admin UI",
+    icon: "calendar",
     bg: "rgba(10, 132, 255, 0.12)",
     color: "var(--primary)",
   },
-  ea_ui: {
-    label: "Assistant",
-    icon: "🤝",
+  delegate_ui: {
+    label: "Delegate",
+    icon: "users",
     bg: "rgba(175, 82, 222, 0.15)",
     color: "#bf5af2",
   },
   copilot: {
     label: "AI Copilot",
-    icon: "✨",
+    icon: "sparkles",
     bg: "rgba(255, 159, 10, 0.15)",
     color: "var(--warning)",
   },
   mcp: {
     label: "MCP Agent",
-    icon: "🤖",
+    icon: "command",
     bg: "rgba(50, 215, 75, 0.15)",
     color: "var(--success)",
   },
   ics_import: {
     label: "ICS File",
-    icon: "📅",
+    icon: "calendar",
     bg: "rgba(255, 255, 255, 0.08)",
     color: "var(--text-secondary)",
   },
   api: {
     label: "REST API",
-    icon: "⚡",
+    icon: "external",
     bg: "rgba(255, 255, 255, 0.08)",
     color: "var(--text-secondary)",
   },
   system: {
     label: "System",
-    icon: "⚙️",
+    icon: "settings",
     bg: "rgba(255, 255, 255, 0.08)",
     color: "var(--text-secondary)",
   },
@@ -180,7 +184,7 @@ export default function AuditLogSettings() {
   useEffect(() => {
     adminListAuditLog(300)
       .then(setEntries)
-      .catch((e) => setError(String(e)))
+      .catch((e) => setError(friendlyError(e)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -250,7 +254,7 @@ export default function AuditLogSettings() {
           </span>
         </div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
-          Immutable ledger recording every modification across Executive UI, Assistant UI, ICS Import,
+          Immutable ledger recording every modification across Admin UI, Delegate UI, ICS Import,
           Copilot, and MCP tools. Sensitive authorization secrets are stripped before persistence.
         </p>
       </div>
@@ -353,8 +357,8 @@ export default function AuditLogSettings() {
             }}
           >
             <option value="all">All Sources</option>
-            <option value="executive_ui">Executive UI</option>
-            <option value="ea_ui">Assistant</option>
+            <option value="admin_ui">Admin UI</option>
+            <option value="delegate_ui">Delegate</option>
             <option value="copilot">AI Copilot</option>
             <option value="mcp">MCP Agent</option>
             <option value="ics_import">ICS Import</option>
@@ -401,15 +405,11 @@ export default function AuditLogSettings() {
         }}
       >
         {filteredEntries.length === 0 ? (
-          <div style={{ padding: "48px 20px", textAlign: "center" }}>
-            <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.8 }}>📋</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
-              No audit records match your filter
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-              Try clearing your search terms or filter selections.
-            </div>
-          </div>
+          <EmptyState
+            icon="search"
+            title="No audit records match your filter"
+            body="Try clearing your search terms or filter selections."
+          />
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 12.5 }}>
             <thead>
@@ -446,12 +446,13 @@ export default function AuditLogSettings() {
                   badgeColor: "var(--text-secondary)",
                   badgeBorder: "var(--border)",
                 };
-                const actorMeta = ACTOR_METAS[e.actor_type] || {
-                  label: e.actor_type,
-                  icon: "⚡",
-                  bg: "var(--bg-app)",
-                  color: "var(--text-secondary)",
-                };
+                const actorMeta: { label: string; icon: IconName; bg: string; color: string } =
+                  ACTOR_METAS[e.actor_type] || {
+                    label: e.actor_type,
+                    icon: "clock",
+                    bg: "var(--bg-app)",
+                    color: "var(--text-secondary)",
+                  };
 
                 const date = new Date(e.occurred_at);
                 const isOdd = idx % 2 === 1;
@@ -507,7 +508,9 @@ export default function AuditLogSettings() {
                           fontWeight: 600,
                         }}
                       >
-                        <span>{actorMeta.icon}</span>
+                        <span style={{ display: "inline-flex" }}>
+                          <Icon name={actorMeta.icon} size={11} />
+                        </span>
                         <span>{actorMeta.label}</span>
                       </div>
                     </td>

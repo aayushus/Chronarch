@@ -1,6 +1,6 @@
 # Chronarch
 
-Self-hosted, privacy-first calendar aggregation and management platform for professionals who maintain calendars across multiple organizations and providers — with Executive Assistant delegation, an external MCP server for AI agents (Claude Desktop, Cursor, ChatGPT), an embedded contextual AI copilot drawer, and live bi-directional Google, Microsoft Graph, and ICS calendar sync.
+Self-hosted, calendar aggregation and management platform for professionals who maintain calendars across multiple organizations and providers — with Executive Assistant delegation, an external MCP server for AI agents (Claude Desktop, Cursor, ChatGPT), an embedded contextual AI copilot drawer, and live bi-directional Google, Microsoft Graph, and ICS calendar sync.
 
 Full requirements and design specification: [brd.md](brd.md).
 

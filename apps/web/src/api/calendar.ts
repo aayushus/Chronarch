@@ -1,4 +1,5 @@
-import { apiFetch } from "./client";
+import { apiFetch, getToken } from "./client";
+import { browserTimezone, localISO } from "../lib/dates";
 
 export interface CalendarSummary {
   id: string;
@@ -55,6 +56,8 @@ export function createEvent(body: {
   start: string;
   end: string;
   all_day?: boolean;
+  description?: string | null;
+  location?: string | null;
 }): Promise<EventSummary> {
   return apiFetch<EventSummary>("/events", { method: "POST", body: JSON.stringify(body) });
 }
@@ -139,6 +142,8 @@ export function importIcsEvent(body: {
 export interface CopilotMessage {
   role: "user" | "assistant" | "system";
   content?: string | null;
+  /** Visible reasoning trace (tool activity). Local-only, never sent. */
+  trace?: { text: string; summary?: string }[];
 }
 
 export function copilotChat(
@@ -148,12 +153,84 @@ export function copilotChat(
   return apiFetch<{ message: CopilotMessage }>("/copilot/chat", {
     method: "POST",
     body: JSON.stringify({
-      messages,
-      user_time: opts?.userTime || new Date().toISOString(),
+      messages: messages.map(({ role, content }) => ({ role, content })),
+      user_time: opts?.userTime || localISO(),
       viewed_date: opts?.viewedDate,
       view_mode: opts?.viewMode,
+      user_timezone: browserTimezone(),
     }),
   });
+}
+
+export type CopilotStreamEvent =
+  | { type: "status"; text: string }
+  | { type: "tool"; name: string; text: string }
+  | { type: "result"; name: string; summary: string }
+  | { type: "token"; text: string }
+  | { type: "done"; content: string }
+  | { type: "error"; message: string };
+
+/** POST to the SSE chat endpoint, invoking onEvent for each server event. */
+export async function copilotChatStream(
+  messages: CopilotMessage[],
+  opts: { userTime?: string; viewedDate?: string; viewMode?: string } | undefined,
+  onEvent: (e: CopilotStreamEvent) => void
+): Promise<void> {
+  const headers = new Headers({ "Content-Type": "application/json" });
+  const token = getToken();  if (token) headers.set("Authorization", `Bearer ${token}`);
+  headers.set("X-Timezone", browserTimezone());
+
+  const res = await fetch("/api/v1/copilot/chat/stream", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      messages: messages.map(({ role, content }) => ({ role, content })),
+      user_time: opts?.userTime || localISO(),
+      viewed_date: opts?.viewedDate,
+      view_mode: opts?.viewMode,
+      user_timezone: browserTimezone(),
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`${res.status} ${res.statusText}: ${body}`);
+  }
+  if (!res.body) throw new Error("Streaming is not supported in this browser.");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let pendingEvent = "message";
+
+  const dispatch = (rawEvent: string, rawData: string) => {
+    if (!rawData) return;
+    try {
+      const data = JSON.parse(rawData);
+      if (["status", "tool", "result", "token", "done", "error"].includes(rawEvent)) {
+        onEvent({ type: rawEvent, ...data } as CopilotStreamEvent);
+      }
+    } catch {
+      /* partial frame — ignore */
+    }
+  };
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let sep: number;
+    while ((sep = buffer.indexOf("\n\n")) !== -1) {
+      const frame = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+      pendingEvent = "message";
+      let payload = "";
+      for (const line of frame.split("\n")) {
+        if (line.startsWith("event:")) pendingEvent = line.slice(6).trim();
+        else if (line.startsWith("data:")) payload += line.slice(5).trim();
+      }
+      dispatch(pendingEvent, payload);
+    }
+  }
 }
 
 export interface SyncStatusResult {

@@ -77,7 +77,7 @@ def _calendar_level(calendar: Calendar, ctx: AuthContext, is_owner: bool) -> Per
             return PermissionLevel.FREE_BUSY
         return PermissionLevel.DELETE if calendar.ai_can_write else PermissionLevel.READ_FULL
 
-    # EA UI / API acting as an assistant.
+    # Delegate UI / API acting as a grantee.
     if not calendar.ea_can_view:
         return PermissionLevel.NONE if not calendar.blocks_availability else PermissionLevel.FREE_BUSY
     if calendar.privacy_mask:
@@ -103,21 +103,20 @@ def _user_level(
         # matching scope grants up to the level the action requires.
         return ACTION_REQUIRED_LEVEL[action]
 
-    if ctx.role == UserRole.ASSISTANT:
+    if ctx.role == UserRole.DELEGATE:
         if grant is None:
             return PermissionLevel.NONE
         field = _GRANT_FIELD_FOR_ACTION[action]
         return ACTION_REQUIRED_LEVEL[action] if getattr(grant, field) else PermissionLevel.NONE
 
-    if ctx.role == UserRole.EXECUTIVE:
-        # Non-owner, non-admin executive (e.g. executive B touching executive
-        # A's calendar). Deny-by-default today: Delegation rows only cover
-        # executive -> assistant, so there is no grant table to consult for
-        # executive -> executive yet. Phase 2 (BRD §32: multiple executives
-        # per EA / multiple EAs per executive) needs an executive-grant lookup
-        # here before denying; until then this explicit deny (rather than a
-        # fall-through) keeps the failure reason auditable as
-        # user_authority_denies.
+    if ctx.role == UserRole.ADMIN:
+        # Non-owner, non-bypassed admin (only reachable when is_admin is
+        # False, i.e. misconstructed contexts in tests). Deny-by-default:
+        # Delegation rows only cover owner -> delegate, so there is no
+        # grant table to consult for admin -> admin yet. Phase 2 (BRD §32:
+        # multiple owners) needs a grant lookup here before denying; until
+        # then this explicit deny (rather than a fall-through) keeps the
+        # failure reason auditable as user_authority_denies.
         return PermissionLevel.NONE
 
     return PermissionLevel.NONE
@@ -128,6 +127,34 @@ def _event_privacy_cap(event: Optional[UnifiedEvent], is_owner: bool) -> Permiss
     if event is not None and event.visibility == EventVisibility.PRIVATE and not is_owner:
         return PermissionLevel.FREE_BUSY
     return PermissionLevel.DELETE  # no cap
+
+
+_DENIAL_VERBS: dict[CalendarAction, str] = {
+    CalendarAction.VIEW_AVAILABILITY: "see availability for",
+    CalendarAction.VIEW_TITLE: "see event titles on",
+    CalendarAction.VIEW_FULL_DETAILS: "see full details on",
+    CalendarAction.CREATE: "create events on",
+    CalendarAction.EDIT: "edit events on",
+    CalendarAction.RESCHEDULE: "reschedule events on",
+    CalendarAction.DELETE: "delete events on",
+    CalendarAction.MANAGE_ATTENDEES: "manage attendees on",
+    CalendarAction.RESPOND_TO_INVITATION: "respond to invitations on",
+    CalendarAction.IMPORT_ICS: "import events into",
+    CalendarAction.MOVE_BETWEEN_CALENDARS: "move events between calendars involving",
+}
+
+
+def describe_denial(action: CalendarAction, reason: str) -> str:
+    """Human-readable denial for API/MCP/copilot surfaces.
+
+    The engine's machine reasons (`user_authority_denies`, …) are for audit
+    logs, not users — this renders the two cases a user can act on:
+    read-only at the provider vs. not granted to them.
+    """
+    verb = _DENIAL_VERBS.get(action, "change events on")
+    if reason == "source_calendar_does_not_permit":
+        return f"This calendar is read-only at the provider, so it can't be changed here."
+    return f"You don't have permission to {verb} this calendar."
 
 
 def resolve_permission(

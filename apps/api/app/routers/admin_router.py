@@ -1,7 +1,8 @@
-"""Admin-only configuration endpoints (BRD §12, §30).
+"""Calendar configuration endpoints (BRD §12, §30).
 
-Gated by `require_admin` — every route here 403s for a non-admin caller
-(the EA experience must never reach this surface, per BRD §4.2/§13).
+Gated per-route by RBAC (`require_permission`): reads need `calendars.view`,
+writes need `calendars.manage`. Delegates without grants never reach this
+surface.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,7 +14,7 @@ from chronarch_core.models.account import Account
 from chronarch_core.models.calendar import Calendar
 from chronarch_core.models.user import User
 
-from ..admin_guard import require_admin
+from ..admin_guard import require_permission
 from ..deps import get_db_session
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -53,7 +54,7 @@ class AdminCalendarUpdate(BaseModel):
 
 @router.get("/calendars", response_model=list[AdminCalendarOut])
 async def admin_list_calendars(
-    _admin: User = Depends(require_admin),
+    _user: User = Depends(require_permission("calendars.view")),
     session: AsyncSession = Depends(get_db_session),
 ):
     calendars = list((await session.execute(select(Calendar))).scalars())
@@ -77,7 +78,7 @@ async def admin_list_calendars(
 async def admin_update_calendar(
     calendar_id: str,
     body: AdminCalendarUpdate,
-    _admin: User = Depends(require_admin),
+    _user: User = Depends(require_permission("calendars.manage")),
     session: AsyncSession = Depends(get_db_session),
 ):
     calendar = await session.get(Calendar, calendar_id)

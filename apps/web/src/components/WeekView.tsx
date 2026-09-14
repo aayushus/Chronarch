@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 
 import { CalendarSummary, EventSummary } from "../api/calendar";
+import { useAppearance } from "../appearance";
 import { tint } from "../lib/color";
-import { WEEKDAY_SHORT, formatHour, sameDay, startOfDay, startOfWeek } from "../lib/dates";
+import { WEEKDAY_SHORT, formatHour, formatTimeRange, sameDay, startOfDay, startOfWeek } from "../lib/dates";
 import {
   SNAP_MINUTES,
   addDaysPreserveTime,
@@ -16,8 +17,8 @@ import {
 import { packOverlaps } from "../lib/layout";
 
 const HOUR_HEIGHT = 44;
-const START_HOUR = 6;
-const END_HOUR = 22;
+const START_HOUR = 0;
+const END_HOUR = 24;
 const GUTTER_WIDTH = 56;
 
 interface Props {
@@ -28,6 +29,8 @@ interface Props {
   onSelectDay: (d: Date) => void;
   onMoveEvent?: (eventId: string, newStart: Date, newEnd: Date, allDay?: boolean) => void;
   onCreateRange?: (start: Date, end: Date, allDay: boolean) => void;
+  /** Working-hours window [startHour, endHour] for background shading. */
+  workingHours?: [number, number];
 }
 
 type DragMode = "move" | "resize" | "lane-out";
@@ -61,7 +64,9 @@ function canCreate(cal: CalendarSummary[] | undefined): boolean {
   return (cal ?? []).some((c) => c.can_create ?? c.writable);
 }
 
-export default function WeekView({ weekAnchor, events, calendarById, onSelectEvent, onSelectDay, onMoveEvent, onCreateRange }: Props) {
+export default function WeekView({ weekAnchor, events, calendarById, onSelectEvent, onSelectDay, onMoveEvent, onCreateRange, workingHours = [9, 17] }: Props) {
+  const { hourHeight } = useAppearance();
+  const HOUR_H = hourHeight(HOUR_HEIGHT);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [creating, setCreating] = useState<CreateState | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -71,8 +76,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
     d.setDate(d.getDate() + i);
     return d;
   });
-  const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
-  const today = new Date();
+  const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
   const weekAllDay = events.filter((e) => e.all_day && days.some((d) => sameDay(new Date(e.start), d)));
 
   function dayIndexOf(date: Date): number {
@@ -89,7 +93,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
     // Column tops all align with the grid top (equal-height columns).
     const colTop = rect.top;
     const minutes = snap(
-      minutesFromY(clientY, colTop, HOUR_HEIGHT, START_HOUR, END_HOUR)
+      minutesFromY(clientY, colTop, HOUR_H, START_HOUR, END_HOUR)
     );
     return { dayIndex, minutes };
   }
@@ -103,14 +107,14 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
         if (!grid) return;
         const rect = grid.getBoundingClientRect();
         // Column tops align with grid top; creating stays in its origin column.
-        const mins = snap(minutesFromY(e.clientY, rect.top, HOUR_HEIGHT, START_HOUR, END_HOUR));
+        const mins = snap(minutesFromY(e.clientY, rect.top, HOUR_H, START_HOUR, END_HOUR));
         setCreating((prev) => (prev ? { ...prev, curMin: mins } : prev));
         return;
       }
       setDrag((prev) => {
         if (!prev) return prev;
         if (prev.mode === "resize") {
-          return { ...prev, deltaMinutes: snap(((e.clientY - prev.startY) / HOUR_HEIGHT) * 60) };
+          return { ...prev, deltaMinutes: snap(((e.clientY - prev.startY) / HOUR_H) * 60) };
         }
         if (prev.mode === "lane-out") {
           const grid = gridRef.current;
@@ -132,7 +136,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
         return {
           ...prev,
           deltaDays,
-          deltaMinutes: snap(((e.clientY - prev.startY) / HOUR_HEIGHT) * 60),
+          deltaMinutes: snap(((e.clientY - prev.startY) / HOUR_H) * 60),
         };
       });
     }
@@ -218,12 +222,18 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
     const grid = gridRef.current;
     if (!grid) return;
     const rect = grid.getBoundingClientRect();
-    const mins = snap(minutesFromY(e.clientY, rect.top, HOUR_HEIGHT, START_HOUR, END_HOUR));
+    const mins = snap(minutesFromY(e.clientY, rect.top, HOUR_H, START_HOUR, END_HOUR));
     setCreating({ dayIndex, startMin: mins, curMin: mins });
   }
 
+  const [whStart, whEnd] = workingHours;
+  const now = new Date();
+  const today = now;
+  const todayIndex = days.findIndex((d) => sameDay(d, now));
+  const nowOffset = ((now.getHours() * 60 + now.getMinutes() - START_HOUR * 60) / 60) * HOUR_H;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div className="cal-wash view-enter" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <div style={{ display: "grid", gridTemplateColumns: `${GUTTER_WIDTH}px repeat(7, 1fr)`, borderBottom: "1px solid var(--border-subtle)" }}>
         <div />
         {days.map((d) => (
@@ -326,14 +336,14 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
 
       <div style={{ flex: 1, overflowY: "auto" }}>
         <div ref={gridRef} style={{ display: "grid", gridTemplateColumns: `${GUTTER_WIDTH}px repeat(7, 1fr)`, position: "relative" }}>
-          <div style={{ position: "relative", height: hours.length * HOUR_HEIGHT }}>
+          <div style={{ position: "relative", height: hours.length * HOUR_H }}>
             {hours.map((h, i) => (
               <span
                 key={h}
                 className="tabular-nums"
                 style={{
                   position: "absolute",
-                  top: i * HOUR_HEIGHT - 6,
+                  top: i * HOUR_H - 6,
                   left: 8,
                   fontSize: 10,
                   color: "var(--text-tertiary)",
@@ -355,17 +365,30 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
               <div
                 key={day.toISOString()}
                 onMouseDown={(e) => beginCreate(dayIndex, e)}
-                style={{ position: "relative", height: hours.length * HOUR_HEIGHT, borderLeft: "1px solid var(--border-subtle)" }}
+                style={{ position: "relative", height: hours.length * HOUR_H, borderLeft: "1px solid var(--border-subtle)" }}
               >
                 {hours.map((h, i) => (
-                  <div key={h} style={{ position: "absolute", top: i * HOUR_HEIGHT, left: 0, right: 0, borderTop: "1px solid var(--border-subtle)" }} />
+                  <div key={h} style={{ position: "absolute", top: i * HOUR_H, left: 0, right: 0, borderTop: "1px solid var(--border-subtle)" }} />
                 ))}
+                <div
+                  className="offhours-shade"
+                  style={{ position: "absolute", top: 0, left: 0, right: 0, height: Math.max(0, (whStart - START_HOUR) * HOUR_H) }}
+                />
+                <div
+                  className="offhours-shade"
+                  style={{ position: "absolute", top: (whEnd - START_HOUR) * HOUR_H, left: 0, right: 0, bottom: 0 }}
+                />
+                {todayIndex === dayIndex && nowOffset >= 0 && nowOffset <= hours.length * HOUR_H && (
+                  <div style={{ position: "absolute", top: nowOffset, left: 0, right: 0, zIndex: 5, pointerEvents: "none" }}>
+                    <div className="now-glow" style={{ height: 2, background: "var(--danger)" }} />
+                  </div>
+                )}
                 {creating && creating.dayIndex === dayIndex && creating.curMin !== creating.startMin && (
                   <div
                     style={{
                       position: "absolute",
-                      top: yFromMinutes(Math.min(creating.startMin, creating.curMin), HOUR_HEIGHT, START_HOUR),
-                      height: Math.max(10, (Math.abs(creating.curMin - creating.startMin) / 60) * HOUR_HEIGHT),
+                      top: yFromMinutes(Math.min(creating.startMin, creating.curMin), HOUR_H, START_HOUR),
+                      height: Math.max(10, (Math.abs(creating.curMin - creating.startMin) / 60) * HOUR_H),
                       left: 1,
                       right: 1,
                       background: "var(--accent)",
@@ -380,14 +403,14 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                   drag.targetMinutes !== null &&
                   (() => {
                     const ghostStart = atMinutes(day, drag.targetMinutes!);
-                    const ghostTop = ((ghostStart.getHours() * 60 + ghostStart.getMinutes() - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+                    const ghostTop = ((ghostStart.getHours() * 60 + ghostStart.getMinutes() - START_HOUR * 60) / 60) * HOUR_H;
                     const laneEvent = weekAllDay.find((x) => x.id === drag.eventId);
                     return (
                       <div
                         style={{
                           position: "absolute",
                           top: ghostTop,
-                          height: HOUR_HEIGHT - 2,
+                          height: HOUR_H - 2,
                           left: 1,
                           right: 1,
                           background: "var(--accent)",
@@ -422,8 +445,8 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                       displayEnd = new Date(drag.originEnd.getTime() + drag.deltaMinutes * 60000);
                     }
                   }
-                  const top = ((displayStart.getHours() * 60 + displayStart.getMinutes() - START_HOUR * 60) / 60) * HOUR_HEIGHT;
-                  const height = Math.max(16, ((displayEnd.getTime() - displayStart.getTime()) / 60000 / 60) * HOUR_HEIGHT - 2);
+                  const top = ((displayStart.getHours() * 60 + displayStart.getMinutes() - START_HOUR * 60) / 60) * HOUR_H;
+                  const height = Math.max(16, ((displayEnd.getTime() - displayStart.getTime()) / 60000 / 60) * HOUR_H - 2);
                   const cal = calendarById[event.calendar_id];
                   const color = cal?.color ?? "var(--accent)";
                   const widthPct = 100 / columnCount;
@@ -457,7 +480,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                         height,
                         left: `calc(${column * widthPct}% + ${dayShift * 100}%)`,
                         width: `calc(${widthPct}% - 3px)`,
-                        background: tint(color.startsWith("#") ? color : "#0a84ff", 0.22),
+                        background: `linear-gradient(180deg, ${tint(color.startsWith("#") ? color : "#0a84ff", 0.32)}, ${tint(color.startsWith("#") ? color : "#0a84ff", 0.15)})`,
                         borderLeft: `3px solid ${color}`,
                         borderRadius: 4,
                         padding: "2px 5px",
@@ -470,6 +493,11 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                       }}
                     >
                       {event.title}
+                      {height > 30 && (
+                        <div className="tabular-nums" style={{ fontSize: 10, fontWeight: 400, opacity: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {formatTimeRange(displayStart, displayEnd)}
+                        </div>
+                      )}
                       {canDrag && (
                         <div
                           className="resize-handle"

@@ -3,10 +3,12 @@ node_modules/
 vendor/
 vendor/bundle/
 
-# Environment
+# Environment (never commit real values — .env.example is the template)
 .env
+!.env.example
 .env.local
 .env.*.local
+.envrc
 
 # Logs
 *.log
@@ -57,4 +59,17 @@ ENV/
 
 # Infra & Docker runtime data
 infra/volumes/
+infra/redis/
 litellm-dynamic/
+
+# Credentials & TLS material (OAuth client secrets, service accounts, certs)
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+service-account*.json
+secrets/
+
+# Agent / tooling state
+.opencode/

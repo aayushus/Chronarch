@@ -1,0 +1,1 @@
+Move/reschedule an existing event to a new start and end time. This is the ONLY tool that changes times — update_event cannot. Pass times with an explicit UTC offset; naive times resolve in the user's own zone. Use new_all_day for timed to all-day lane moves.

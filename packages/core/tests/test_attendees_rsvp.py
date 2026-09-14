@@ -17,14 +17,14 @@ async def _seed_data(session):
         email="exec@co.com",
         display_name="Exec",
         password_hash="x",
-        role=UserRole.EXECUTIVE,
+        role=UserRole.ADMIN,
     )
     ea_user = User(
         id="ea-att-1",
         email="ea@co.com",
         display_name="EA",
         password_hash="x",
-        role=UserRole.ASSISTANT,
+        role=UserRole.DELEGATE,
     )
     account = Account(
         id="acct-att-1",
@@ -50,7 +50,7 @@ async def _seed_data(session):
 
 async def test_add_and_remove_attendee_lifecycle(session):
     exec_user, _ea, cal = await _seed_data(session)
-    ctx = AuthContext(user_id=exec_user.id, role=UserRole.EXECUTIVE, actor_type=ActorType.EXECUTIVE_UI)
+    ctx = AuthContext(user_id=exec_user.id, role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
 
     start = datetime(2026, 9, 20, 10, 0, tzinfo=timezone.utc)
     event = await ai_tools.create_event(
@@ -90,7 +90,7 @@ async def test_add_and_remove_attendee_lifecycle(session):
 
 async def test_respond_to_event_writes_audit(session):
     exec_user, _ea, cal = await _seed_data(session)
-    ctx = AuthContext(user_id=exec_user.id, role=UserRole.EXECUTIVE, actor_type=ActorType.EXECUTIVE_UI)
+    ctx = AuthContext(user_id=exec_user.id, role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
 
     start = datetime(2026, 9, 20, 14, 0, tzinfo=timezone.utc)
     event = await ai_tools.create_event(
@@ -128,8 +128,8 @@ async def test_respond_to_event_writes_audit(session):
 
 async def test_ea_without_grant_denied_attendee_management(session):
     _exec_user, ea_user, cal = await _seed_data(session)
-    owner_ctx = AuthContext(user_id="exec-att-1", role=UserRole.EXECUTIVE, actor_type=ActorType.EXECUTIVE_UI)
-    ea_ctx = AuthContext(user_id=ea_user.id, role=UserRole.ASSISTANT, actor_type=ActorType.EA_UI)
+    owner_ctx = AuthContext(user_id="exec-att-1", role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
+    ea_ctx = AuthContext(user_id=ea_user.id, role=UserRole.DELEGATE, actor_type=ActorType.DELEGATE_UI)
 
     start = datetime(2026, 9, 20, 15, 0, tzinfo=timezone.utc)
     event = await ai_tools.create_event(

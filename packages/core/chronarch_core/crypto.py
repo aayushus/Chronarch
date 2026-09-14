@@ -89,14 +89,16 @@ async def rotate_all_encrypted_data(
         if changed:
             counts["accounts_tokens"] += 1
 
-    # 2. AI Settings
+    # 2. AI Settings (one encrypted key per provider)
     ai_settings = list((await session.execute(select(AILiteLLMSettings))).scalars())
     for setting in ai_settings:
-        if setting.encrypted_openrouter_api_key:
-            setting.encrypted_openrouter_api_key = reencrypt(
-                setting.encrypted_openrouter_api_key, old_cipher, new_cipher
-            )
-            counts["ai_settings_keys"] += 1
+        for field in ("encrypted_openrouter_api_key", "encrypted_groq_api_key",
+                      "encrypted_gemini_api_key"):
+            if getattr(setting, field, None):
+                setattr(setting, field, reencrypt(
+                    getattr(setting, field), old_cipher, new_cipher
+                ))
+                counts["ai_settings_keys"] += 1
 
     # 3. OAuth Provider Configs
     oauth_configs = list((await session.execute(select(OAuthProviderConfig))).scalars())

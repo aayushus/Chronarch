@@ -18,8 +18,8 @@ from chronarch_core.permissions import AuthContext
 
 
 async def _seed(session):
-    exec_user = User(id="exec-1", email="exec@co.com", display_name="Exec", password_hash="x", role=UserRole.EXECUTIVE)
-    ea_user = User(id="ea-1", email="ea@co.com", display_name="EA", password_hash="x", role=UserRole.ASSISTANT)
+    exec_user = User(id="exec-1", email="exec@co.com", display_name="Exec", password_hash="x", role=UserRole.ADMIN)
+    ea_user = User(id="ea-1", email="ea@co.com", display_name="EA", password_hash="x", role=UserRole.DELEGATE)
     account = Account(
         id="acct-1", owner_user_id="exec-1", provider=ProviderType.GOOGLE,
         provider_account_email="exec@co.com", provider_account_id="g-1",
@@ -35,7 +35,7 @@ async def _seed(session):
 
 async def test_create_event_by_owner_succeeds_and_writes_audit(session):
     exec_user, _ea_user, calendar = await _seed(session)
-    ctx = AuthContext(user_id=exec_user.id, role=UserRole.EXECUTIVE, actor_type=ActorType.EXECUTIVE_UI)
+    ctx = AuthContext(user_id=exec_user.id, role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
     start = datetime(2026, 9, 17, 10, 0, tzinfo=timezone.utc)
 
     event = await ai_tools.create_event(
@@ -49,7 +49,7 @@ async def test_create_event_by_owner_succeeds_and_writes_audit(session):
 
 async def test_ea_without_grant_cannot_create_event(session):
     _exec_user, ea_user, calendar = await _seed(session)
-    ctx = AuthContext(user_id=ea_user.id, role=UserRole.ASSISTANT, actor_type=ActorType.EA_UI)
+    ctx = AuthContext(user_id=ea_user.id, role=UserRole.DELEGATE, actor_type=ActorType.DELEGATE_UI)
     start = datetime(2026, 9, 17, 10, 0, tzinfo=timezone.utc)
 
     with pytest.raises(ai_tools.PermissionDenied):
@@ -61,7 +61,7 @@ async def test_ea_without_grant_cannot_create_event(session):
 async def test_ea_with_grant_can_move_writable_event_brd_section38(session):
     """Mirrors BRD §38: writable Company #2 event dragged Tue 2PM -> Wed 4PM."""
     exec_user, ea_user, calendar = await _seed(session)
-    owner_ctx = AuthContext(user_id=exec_user.id, role=UserRole.EXECUTIVE, actor_type=ActorType.EXECUTIVE_UI)
+    owner_ctx = AuthContext(user_id=exec_user.id, role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
     tue_2pm = datetime(2026, 9, 15, 14, 0, tzinfo=timezone.utc)
     event = await ai_tools.create_event(
         session, owner_ctx, calendar_id=calendar.id, title="Sync", start=tue_2pm, end=tue_2pm + timedelta(hours=1),
@@ -71,7 +71,7 @@ async def test_ea_with_grant_can_move_writable_event_brd_section38(session):
     grant = DelegationCalendarGrant(
         id="grant-1", delegation_id="del-1", calendar_id=calendar.id, can_reschedule=True,
     )
-    ea_ctx = AuthContext(user_id=ea_user.id, role=UserRole.ASSISTANT, actor_type=ActorType.EA_UI)
+    ea_ctx = AuthContext(user_id=ea_user.id, role=UserRole.DELEGATE, actor_type=ActorType.DELEGATE_UI)
     wed_4pm = datetime(2026, 9, 16, 16, 0, tzinfo=timezone.utc)
 
     moved = await ai_tools.move_event(
@@ -84,7 +84,7 @@ async def test_ea_with_grant_can_move_writable_event_brd_section38(session):
 
 async def test_get_conflicts_finds_overlap_and_excludes_moved_event(session):
     exec_user, _ea_user, calendar = await _seed(session)
-    ctx = AuthContext(user_id=exec_user.id, role=UserRole.EXECUTIVE, actor_type=ActorType.EXECUTIVE_UI)
+    ctx = AuthContext(user_id=exec_user.id, role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
     tue_2pm = datetime(2026, 9, 15, 14, 0, tzinfo=timezone.utc)
     blocker = await ai_tools.create_event(
         session, ctx, calendar_id=calendar.id, title="Corporate sync",
@@ -117,7 +117,7 @@ async def test_get_conflicts_finds_overlap_and_excludes_moved_event(session):
 
 async def test_get_conflicts_redacts_title_without_view_permission(session):
     exec_user, _ea_user, calendar = await _seed(session)
-    owner_ctx = AuthContext(user_id=exec_user.id, role=UserRole.EXECUTIVE, actor_type=ActorType.EXECUTIVE_UI)
+    owner_ctx = AuthContext(user_id=exec_user.id, role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
     start = datetime(2026, 9, 15, 14, 0, tzinfo=timezone.utc)
     await ai_tools.create_event(
         session, owner_ctx, calendar_id=calendar.id, title="Secret merger talk",
@@ -129,7 +129,7 @@ async def test_get_conflicts_redacts_title_without_view_permission(session):
         id="grant-1", delegation_id="del-1", calendar_id=calendar.id,
         can_view_availability=True, can_reschedule=True,
     )
-    ea_ctx = AuthContext(user_id="ea-1", role=UserRole.ASSISTANT, actor_type=ActorType.EA_UI)
+    ea_ctx = AuthContext(user_id="ea-1", role=UserRole.DELEGATE, actor_type=ActorType.DELEGATE_UI)
     hits = await ai_tools.get_conflicts(
         session, ea_ctx, window_start=start, window_end=start + timedelta(hours=1),
         grants_by_calendar={calendar.id: grant},
@@ -144,7 +144,7 @@ async def test_get_conflicts_redacts_title_without_view_permission(session):
 
 async def test_create_and_move_support_all_day_lane_conversions(session):
     exec_user, _ea_user, calendar = await _seed(session)
-    ctx = AuthContext(user_id=exec_user.id, role=UserRole.EXECUTIVE, actor_type=ActorType.EXECUTIVE_UI)
+    ctx = AuthContext(user_id=exec_user.id, role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
     day = datetime(2026, 9, 15, 0, 0, tzinfo=timezone.utc)
 
     alldayer = await ai_tools.create_event(
@@ -178,7 +178,7 @@ async def test_mcp_actor_respects_ai_can_write_flag(session):
     await session.flush()
 
     mcp_ctx = AuthContext(
-        user_id=exec_user.id, role=UserRole.EXECUTIVE, actor_type=ActorType.MCP,
+        user_id=exec_user.id, role=UserRole.ADMIN, actor_type=ActorType.MCP,
         scopes=frozenset({"calendar.read", "calendar.write", "availability.read"}),
     )
     start = datetime(2026, 9, 17, 10, 0, tzinfo=timezone.utc)

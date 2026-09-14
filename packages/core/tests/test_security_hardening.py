@@ -12,7 +12,7 @@ from chronarch_core.models.oauth_config import OAuthProviderConfig
 
 async def test_audit_entry_immutable_prevents_update(session):
     entry = AuditEntry(
-        actor_type=ActorType.EXECUTIVE_UI,
+        actor_type=ActorType.ADMIN_UI,
         action=AuditAction.CREATE_EVENT,
         detail={"title": "Original"},
     )
@@ -26,7 +26,7 @@ async def test_audit_entry_immutable_prevents_update(session):
 
 async def test_audit_entry_immutable_prevents_delete(session):
     entry = AuditEntry(
-        actor_type=ActorType.EXECUTIVE_UI,
+        actor_type=ActorType.ADMIN_UI,
         action=AuditAction.CREATE_EVENT,
         detail={"title": "To be preserved"},
     )

@@ -1,0 +1,1 @@
+Edit event fields. Time changes additionally require reschedule permission. WRITE-tier: callers should preview material changes. Naive `start`/`end` resolve in `timezone` (IANA), else the credential owner's home zone, else UTC.

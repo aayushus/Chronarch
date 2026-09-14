@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
+import { friendlyError } from "../../api/client";
 
 import { AdminCalendar, adminListCalendars, adminUpdateCalendar } from "../../api/admin";
+import EmptyState from "../EmptyState";
+import Icon from "../Icon";
 
 interface SettingItem {
   key: keyof AdminCalendar;
@@ -10,14 +13,14 @@ interface SettingItem {
 
 const DISPLAY_SETTINGS: SettingItem[] = [
   { key: "visible", label: "Visible in UI", desc: "Display in sidebar and calendar views" },
-  { key: "blocks_availability", label: "Blocks Availability", desc: "Events block executive free/busy slots" },
+  { key: "blocks_availability", label: "Blocks Availability", desc: "Events block owner free/busy slots" },
   { key: "is_default", label: "Default Calendar", desc: "Selected by default for new events" },
   { key: "privacy_mask", label: "Privacy Mask", desc: "Mask event details to external viewers" },
 ];
 
 const ACCESS_SETTINGS: SettingItem[] = [
-  { key: "ea_can_view", label: "EA Can View", desc: "Delegate assistants can view this calendar" },
-  { key: "ea_can_edit", label: "EA Can Edit", desc: "Delegate assistants can schedule on this calendar" },
+  { key: "ea_can_view", label: "Delegate Can View", desc: "Shared delegates can view this calendar" },
+  { key: "ea_can_edit", label: "Delegate Can Edit", desc: "Shared delegates can schedule on this calendar" },
   { key: "ai_can_read", label: "AI Copilot Read", desc: "Built-in AI and MCP tools can read events" },
   { key: "ai_can_write", label: "AI Copilot Write", desc: "Built-in AI and MCP tools can create/edit" },
 ];
@@ -36,7 +39,7 @@ export default function CalendarsSettings() {
         setCalendars(cals);
         if (cals.length > 0) setExpandedId(cals[0].id);
       })
-      .catch((e) => setError(String(e)))
+      .catch((e) => setError(friendlyError(e)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -48,7 +51,7 @@ export default function CalendarsSettings() {
       await adminUpdateCalendar(cal.id, { [field]: nextValue } as never);
     } catch (e) {
       setCalendars((prev) => prev.map((c) => (c.id === cal.id ? { ...c, [field]: !nextValue } : c)));
-      setError(String(e));
+      setError(friendlyError(e));
     } finally {
       setSavingId(null);
     }
@@ -60,7 +63,7 @@ export default function CalendarsSettings() {
       await adminUpdateCalendar(cal.id, { color });
       setBanner({ kind: "success", text: `Updated color for ${cal.name}.` });
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
     }
   }
 
@@ -104,23 +107,11 @@ export default function CalendarsSettings() {
       {error && <div style={{ color: "var(--danger)", fontSize: 13, marginBottom: 16 }}>{error}</div>}
 
       {calendars.length === 0 ? (
-        <div
-          style={{
-            background: "var(--bg-raised)",
-            borderRadius: "var(--radius-md)",
-            border: "1px dashed var(--border)",
-            padding: "36px 20px",
-            textAlign: "center",
-          }}
-        >
-          <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.8 }}>📅</div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
-            No calendars found
-          </div>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16 }}>
-            Connect a Google or Microsoft account or subscribe to an ICS feed under Accounts.
-          </div>
-        </div>
+        <EmptyState
+          icon="calendar"
+          title="No calendars found"
+          body="Connect a Google or Microsoft account or subscribe to an ICS feed under Accounts."
+        />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           {[...groups.entries()].map(([accountId, group]) => {
@@ -131,8 +122,14 @@ export default function CalendarsSettings() {
               <div key={accountId}>
                 {/* Account Group Header */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <span style={{ fontSize: 16 }}>
-                    {isGoogle ? "🇬" : isMicrosoft ? "🪟" : "📁"}
+                  <span style={{ display: "inline-flex", color: "var(--text-secondary)", alignItems: "center" }}>
+                    {isGoogle || isMicrosoft ? (
+                      <span style={{ fontWeight: 800, fontSize: 15, color: "var(--accent)" }}>
+                        {isGoogle ? "G" : "M"}
+                      </span>
+                    ) : (
+                      <Icon name="calendar" size={15} />
+                    )}
                   </span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
                     {group.label}

@@ -14,8 +14,8 @@ class Delegation(Base, TimestampMixin):
     __tablename__ = "delegations"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_uuid)
-    executive_user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False, index=True)
-    assistant_user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False, index=True)
+    owner_user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False, index=True)
+    delegate_user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False, index=True)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 

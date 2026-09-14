@@ -1,6 +1,7 @@
 import React from "react";
 
 import { CalendarSummary, EventSummary } from "../api/calendar";
+import Icon from "./Icon";
 import { formatTimeRange } from "../lib/dates";
 
 interface Props {
@@ -20,21 +21,16 @@ const RSVP_ICON: Record<string, string> = {
 };
 
 export default function EventDetailPanel({ event, calendar, onClose, onDelete, canDelete }: Props) {
+  // The panel only exists while an event is selected — no placeholder chrome.
   if (!event) {
-    return (
-      <aside className="vibrancy" style={panelStyle}>
-        <div style={{ padding: 24, color: "var(--text-tertiary)", fontSize: 13, textAlign: "center", marginTop: 60 }}>
-          Select an event to see details
-        </div>
-      </aside>
-    );
+    return null;
   }
 
   const start = new Date(event.start);
   const end = new Date(event.end);
 
   return (
-    <aside className="vibrancy" style={panelStyle}>
+    <aside className="vibrancy mount-rise" style={panelStyle}>
       <div style={{ padding: 20, borderLeft: `3px solid ${calendar?.color ?? "var(--accent)"}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>{event.title}</div>
@@ -49,7 +45,9 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
           {formatTimeRange(start, end)}
         </div>
         {event.location && (
-          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4 }}>📍 {event.location}</div>
+          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
+            <Icon name="mapPin" size={13} /> {event.location}
+          </div>
         )}
       </div>
 

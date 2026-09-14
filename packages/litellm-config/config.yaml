@@ -7,17 +7,17 @@
 model_list:
   - model_name: primary
     litellm_params:
-      model: openrouter/meta-llama/llama-3.1-8b-instruct:free
-      api_key: os.environ/OPENROUTER_API_KEY
+      model: groq/openai/gpt-oss-20b
+      api_key: os.environ/GROQ_API_KEY
 
   - model_name: fallback
     litellm_params:
-      model: openrouter/google/gemma-2-9b-it:free
-      api_key: os.environ/OPENROUTER_API_KEY
+      model: gemini/gemini-2.5-flash
+      api_key: os.environ/GEMINI_API_KEY
 
   - model_name: emergency-fallback
     litellm_params:
-      model: openrouter/nousresearch/hermes-3-llama-3.1-405b:free
+      model: openrouter/nvidia/nemotron-3.5-lightning:free
       api_key: os.environ/OPENROUTER_API_KEY
 
 router_settings:

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 
 import { CalendarSummary, EventSummary } from "../api/calendar";
+import { useAppearance } from "../appearance";
 import { formatHour, formatTimeRange, sameDay, startOfDay } from "../lib/dates";
 import { contrastText, tint } from "../lib/color";
 import {
@@ -14,8 +15,8 @@ import {
 import { packOverlaps } from "../lib/layout";
 
 const HOUR_HEIGHT = 56;
-const START_HOUR = 6;
-const END_HOUR = 22;
+const START_HOUR = 0;
+const END_HOUR = 24;
 
 interface Props {
   day: Date;
@@ -25,6 +26,8 @@ interface Props {
   selectedEventId?: string;
   onMoveEvent?: (eventId: string, newStart: Date, newEnd: Date, allDay?: boolean) => void;
   onCreateRange?: (start: Date, end: Date, allDay: boolean) => void;
+  /** Working-hours window [startHour, endHour] for background shading. */
+  workingHours?: [number, number];
 }
 
 type DragMode = "move" | "resize" | "lane-out";
@@ -49,7 +52,9 @@ function canWrite(cal: CalendarSummary | undefined): boolean {
   return !!(cal?.can_reschedule ?? cal?.writable);
 }
 
-export default function DayView({ day, events, calendarById, onSelectEvent, selectedEventId, onMoveEvent, onCreateRange }: Props) {
+export default function DayView({ day, events, calendarById, onSelectEvent, selectedEventId, onMoveEvent, onCreateRange, workingHours = [9, 17] }: Props) {
+  const { hourHeight } = useAppearance();
+  const HOUR_H = hourHeight(HOUR_HEIGHT);
   const scrollRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -63,10 +68,10 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
     (e) => new Date(e.end)
   );
 
-  const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
+  const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
   const now = new Date();
   const showNowLine = sameDay(now, day);
-  const nowOffset = ((now.getHours() * 60 + now.getMinutes() - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+  const nowOffset = ((now.getHours() * 60 + now.getMinutes() - START_HOUR * 60) / 60) * HOUR_H;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -87,7 +92,7 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
       if (creating) {
         const top = gridTop();
         if (top === null) return;
-        const mins = snap(minutesFromY(e.clientY, top, HOUR_HEIGHT, START_HOUR, END_HOUR));
+        const mins = snap(minutesFromY(e.clientY, top, HOUR_H, START_HOUR, END_HOUR));
         setCreating((prev) => (prev ? { ...prev, curMin: mins } : prev));
         return;
       }
@@ -100,10 +105,10 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
           const inside =
             e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
           if (!inside) return { ...prev, targetMinutes: null };
-          return { ...prev, targetMinutes: snap(minutesFromY(e.clientY, rect.top, HOUR_HEIGHT, START_HOUR, END_HOUR)) };
+          return { ...prev, targetMinutes: snap(minutesFromY(e.clientY, rect.top, HOUR_H, START_HOUR, END_HOUR)) };
         }
         const deltaPx = e.clientY - prev.startY;
-        const rawMinutes = (deltaPx / HOUR_HEIGHT) * 60;
+        const rawMinutes = (deltaPx / HOUR_H) * 60;
         return { ...prev, deltaMinutes: snap(rawMinutes) };
       });
     }
@@ -187,12 +192,16 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
     const grid = gridRef.current;
     if (!grid) return;
     const rect = grid.getBoundingClientRect();
-    const mins = snap(minutesFromY(e.clientY, rect.top, HOUR_HEIGHT, START_HOUR, END_HOUR));
+    const mins = snap(minutesFromY(e.clientY, rect.top, HOUR_H, START_HOUR, END_HOUR));
     setCreating({ startMin: mins, curMin: mins });
   }
 
+  const [whStart, whEnd] = workingHours;
+  const whTop = ((whStart - START_HOUR) / 1) * HOUR_H;
+  const whBottom = ((whEnd - START_HOUR) / 1) * HOUR_H;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div className="cal-wash view-enter" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <div
         className="all-day-lane"
         style={{
@@ -254,16 +263,21 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
       </div>
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", position: "relative" }}>
-        <div ref={gridRef} onMouseDown={beginCreate} style={{ position: "relative", height: hours.length * HOUR_HEIGHT }}>
+        <div ref={gridRef} onMouseDown={beginCreate} style={{ position: "relative", height: hours.length * HOUR_H }}>
+          <div className="offhours-shade" style={{ position: "absolute", top: 0, left: 0, right: 0, height: Math.max(0, whTop) }} />
+          <div
+            className="offhours-shade"
+            style={{ position: "absolute", top: whBottom, left: 0, right: 0, bottom: 0 }}
+          />
           {hours.map((h, i) => (
             <div
               key={h}
               style={{
                 position: "absolute",
-                top: i * HOUR_HEIGHT,
+                top: i * HOUR_H,
                 left: 0,
                 right: 0,
-                height: HOUR_HEIGHT,
+                height: HOUR_H,
                 borderTop: "1px solid var(--border-subtle)",
               }}
             >
@@ -288,8 +302,8 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
             <div
               style={{
                 position: "absolute",
-                top: yFromMinutes(Math.min(creating.startMin, creating.curMin), HOUR_HEIGHT, START_HOUR),
-                height: Math.max(10, (Math.abs(creating.curMin - creating.startMin) / 60) * HOUR_HEIGHT),
+                top: yFromMinutes(Math.min(creating.startMin, creating.curMin), HOUR_H, START_HOUR),
+                height: Math.max(10, (Math.abs(creating.curMin - creating.startMin) / 60) * HOUR_H),
                 left: 58,
                 right: 8,
                 background: "var(--accent)",
@@ -300,11 +314,11 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
             />
           )}
 
-          {showNowLine && nowOffset >= 0 && nowOffset <= hours.length * HOUR_HEIGHT && (
+          {showNowLine && nowOffset >= 0 && nowOffset <= hours.length * HOUR_H && (
             <div style={{ position: "absolute", top: nowOffset, left: 56, right: 0, zIndex: 5 }}>
               <div style={{ position: "relative" }}>
                 <span
-                  className="tabular-nums"
+                  className="tabular-nums now-glow"
                   style={{
                     position: "absolute",
                     left: -56,
@@ -319,21 +333,21 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                 >
                   {now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
                 </span>
-                <div style={{ height: 1, background: "var(--danger)" }} />
+                <div className="now-glow" style={{ height: 2, background: "var(--danger)" }} />
               </div>
             </div>
           )}
 
           {drag?.mode === "lane-out" && drag.targetMinutes !== null && (() => {
             const ghostStart = atMinutes(day, drag.targetMinutes!);
-            const ghostTop = ((ghostStart.getHours() * 60 + ghostStart.getMinutes() - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+            const ghostTop = ((ghostStart.getHours() * 60 + ghostStart.getMinutes() - START_HOUR * 60) / 60) * HOUR_H;
             const laneEvent = allDayEvents.find((x) => x.id === drag.eventId);
             return (
               <div
                 style={{
                   position: "absolute",
                   top: ghostTop,
-                  height: HOUR_HEIGHT - 2,
+                  height: HOUR_H - 2,
                   left: 58,
                   right: 8,
                   background: "var(--accent)",
@@ -365,8 +379,8 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                 displayEnd = new Date(drag.originEnd.getTime() + drag.deltaMinutes * 60000);
               }
             }
-            const top = ((displayStart.getHours() * 60 + displayStart.getMinutes() - START_HOUR * 60) / 60) * HOUR_HEIGHT;
-            const height = Math.max(20, ((displayEnd.getTime() - displayStart.getTime()) / 60000 / 60) * HOUR_HEIGHT - 2);
+            const top = ((displayStart.getHours() * 60 + displayStart.getMinutes() - START_HOUR * 60) / 60) * HOUR_H;
+            const height = Math.max(20, ((displayEnd.getTime() - displayStart.getTime()) / 60000 / 60) * HOUR_H - 2);
             const cal = calendarById[event.calendar_id];
             const color = cal?.color ?? "var(--accent)";
             const widthPct = 100 / columnCount;
@@ -390,7 +404,7 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                   height,
                   left: `calc(58px + ${column * widthPct}%)`,
                   width: `calc(${widthPct}% - 10px)`,
-                  background: tint(color.startsWith("#") ? color : "#0a84ff", 0.22),
+                  background: `linear-gradient(180deg, ${tint(color.startsWith("#") ? color : "#0a84ff", 0.32)}, ${tint(color.startsWith("#") ? color : "#0a84ff", 0.15)})`,
                   borderLeft: `3px solid ${color}`,
                   borderRadius: 6,
                   padding: "4px 8px",

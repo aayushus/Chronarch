@@ -10,6 +10,7 @@ from .enums import (
     AuditAction,
 )
 from .user import User
+from .rbac import Role, RolePermission, RoleAssignment
 from .account import Account
 from .calendar import Calendar
 from .event import UnifiedEvent
@@ -30,6 +31,9 @@ __all__ = [
     "ActorType",
     "AuditAction",
     "User",
+    "Role",
+    "RolePermission",
+    "RoleAssignment",
     "Account",
     "Calendar",
     "UnifiedEvent",

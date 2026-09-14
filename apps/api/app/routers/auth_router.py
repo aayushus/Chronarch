@@ -46,6 +46,7 @@ password_rate_limiter = RateLimiter(
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    remember_me: bool = True
 
 
 class LoginResponse(BaseModel):
@@ -62,7 +63,7 @@ async def login(body: LoginRequest, session: AsyncSession = Depends(get_db_sessi
     user = (await session.execute(select(User).where(User.email == body.email))).scalar_one_or_none()
     if user is None or not user.is_active or not verify_password(body.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid email or password")
-    return LoginResponse(access_token=create_access_token(user.id))
+    return LoginResponse(access_token=create_access_token(user.id, remember_me=body.remember_me))
 
 
 @router.post("/logout", response_model=LogoutResponse)
@@ -82,17 +83,45 @@ class MeResponse(BaseModel):
     email: str
     display_name: str
     role: str
-    is_admin: bool
+    permissions: list[str] = []
+    roles: list[str] = []
+    working_hours_start: str = "09:00"
+    working_hours_end: str = "17:00"
+    home_timezone: str = "UTC"
+
+
+def _me_response(user: User, *, permissions=None, roles=None) -> MeResponse:
+    return MeResponse(
+        id=user.id,
+        email=user.email,
+        display_name=user.display_name,
+        role=user.role.value,
+        permissions=list(permissions or []),
+        roles=list(roles or []),
+        working_hours_start=user.working_hours_start or "09:00",
+        working_hours_end=user.working_hours_end or "17:00",
+        home_timezone=user.home_timezone or "UTC",
+    )
 
 
 @router.get("/me", response_model=MeResponse)
-async def me(user: User = Depends(get_current_user)):
-    return MeResponse(id=user.id, email=user.email, display_name=user.display_name, role=user.role.value, is_admin=user.is_admin)
+async def me(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    from chronarch_core import rbac as _rbac
+
+    return _me_response(
+        user,
+        permissions=sorted(await _rbac.get_user_permissions(session, user)),
+        roles=sorted(await _rbac.get_user_role_names(session, user.id)),
+    )
 
 
 class MeUpdate(BaseModel):
     display_name: str | None = None
     email: EmailStr | None = None
+    home_timezone: str | None = None
 
 
 @router.patch("/me", response_model=MeResponse)
@@ -104,6 +133,8 @@ async def update_me(
     """Self-service profile edit — any logged-in user (executive, assistant,
     admin) can update their own display name and email. Role/admin changes
     stay admin-only via /api/v1/admin/users."""
+    from chronarch_core.timezones import validate_timezone
+
     if body.display_name is not None:
         name = body.display_name.strip()
         if not name:
@@ -114,8 +145,19 @@ async def update_me(
         if existing is not None:
             raise HTTPException(status.HTTP_409_CONFLICT, "A user with that email already exists")
         user.email = body.email
+    if body.home_timezone is not None:
+        try:
+            user.home_timezone = validate_timezone(body.home_timezone)
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
     await session.flush()
-    return MeResponse(id=user.id, email=user.email, display_name=user.display_name, role=user.role.value, is_admin=user.is_admin)
+    from chronarch_core import rbac as _rbac_me
+
+    return _me_response(
+        user,
+        permissions=sorted(await _rbac_me.get_user_permissions(session, user)),
+        roles=sorted(await _rbac_me.get_user_role_names(session, user.id)),
+    )
 
 
 class PasswordChange(BaseModel):
@@ -140,4 +182,4 @@ async def change_my_password(
         )
     user.password_hash = hash_password(body.new_password)
     await session.flush()
-    return MeResponse(id=user.id, email=user.email, display_name=user.display_name, role=user.role.value, is_admin=user.is_admin)
+    return _me_response(user)

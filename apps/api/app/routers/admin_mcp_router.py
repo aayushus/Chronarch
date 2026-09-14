@@ -17,7 +17,7 @@ from chronarch_core.crypto import hash_mcp_key
 from chronarch_core.models.mcp_credential import MCPCredential
 from chronarch_core.models.user import User
 
-from ..admin_guard import require_admin
+from ..admin_guard import require_permission
 from ..deps import get_db_session
 
 router = APIRouter(prefix="/api/v1/admin/mcp-credentials", tags=["admin"])
@@ -47,7 +47,10 @@ class MCPCredentialCreated(MCPCredentialOut):
 
 
 @router.get("", response_model=list[MCPCredentialOut])
-async def list_credentials(_admin: User = Depends(require_admin), session: AsyncSession = Depends(get_db_session)):
+async def list_credentials(
+    _user: User = Depends(require_permission("mcp.view")),
+    session: AsyncSession = Depends(get_db_session),
+):
     creds = list((await session.execute(select(MCPCredential))).scalars())
     out = []
     for c in creds:
@@ -64,7 +67,7 @@ async def list_credentials(_admin: User = Depends(require_admin), session: Async
 @router.post("", response_model=MCPCredentialCreated, status_code=status.HTTP_201_CREATED)
 async def create_credential(
     body: MCPCredentialCreate,
-    _admin: User = Depends(require_admin),
+    _user: User = Depends(require_permission("mcp.manage")),
     session: AsyncSession = Depends(get_db_session),
 ):
     invalid = set(body.scopes) - VALID_SCOPES
@@ -88,7 +91,7 @@ async def create_credential(
 @router.delete("/{credential_id}", response_model=MCPCredentialOut)
 async def revoke_credential(
     credential_id: str,
-    _admin: User = Depends(require_admin),
+    _user: User = Depends(require_permission("mcp.manage")),
     session: AsyncSession = Depends(get_db_session),
 ):
     cred = await session.get(MCPCredential, credential_id)

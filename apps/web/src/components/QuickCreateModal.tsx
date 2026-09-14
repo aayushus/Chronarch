@@ -8,6 +8,8 @@ export interface CreateDraft {
   start: string;
   end: string;
   all_day: boolean;
+  description?: string | null;
+  location?: string | null;
 }
 
 interface Props {
@@ -66,7 +68,7 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <form
-        className="modal-card"
+        className="modal-card mount-rise"
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
         style={{

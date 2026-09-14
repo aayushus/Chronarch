@@ -11,7 +11,7 @@ from chronarch_core.models.audit import AuditEntry
 from chronarch_core.models.calendar import Calendar
 from chronarch_core.models.user import User
 
-from ..admin_guard import require_admin
+from ..admin_guard import require_permission
 from ..deps import get_db_session
 
 router = APIRouter(prefix="/api/v1/admin/audit-log", tags=["admin"])
@@ -31,7 +31,7 @@ class AuditEntryOut(BaseModel):
 @router.get("", response_model=list[AuditEntryOut])
 async def list_audit_log(
     limit: int = 100,
-    _admin: User = Depends(require_admin),
+    _user: User = Depends(require_permission("audit.view")),
     session: AsyncSession = Depends(get_db_session),
 ):
     entries = list(

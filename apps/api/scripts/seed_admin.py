@@ -1,7 +1,7 @@
-"""Seed the first executive/admin user for a fresh deployment.
+"""Seed the first admin user for a fresh deployment.
 
 Usage (inside the api container or with DATABASE_URL pointed at the DB):
-    python scripts/seed_admin.py exec@example.com "Jane Executive" <password>
+    python scripts/seed_admin.py admin@example.com "Jane Admin" <password>
 """
 
 import asyncio
@@ -11,8 +11,10 @@ sys.path.insert(0, ".")
 
 from sqlalchemy import select
 
+from chronarch_core import rbac as _rbac
 from chronarch_core.db import SessionLocal
 from chronarch_core.models.enums import UserRole
+from chronarch_core.models.rbac import Role, RoleAssignment
 from chronarch_core.models.user import User
 
 from app.auth import hash_password
@@ -29,12 +31,17 @@ async def main(email: str, display_name: str, password: str) -> None:
             email=email,
             display_name=display_name,
             password_hash=hash_password(password),
-            role=UserRole.EXECUTIVE,
-            is_admin=True,
+            role=UserRole.ADMIN,
         )
         session.add(user)
+        await session.flush()
+        admin_role = (
+            await session.execute(select(Role).where(Role.name == _rbac.ADMIN_ROLE_NAME))
+        ).scalar_one_or_none()
+        if admin_role is not None:
+            session.add(RoleAssignment(user_id=user.id, role_id=admin_role.id))
         await session.commit()
-        print(f"Created executive/admin user {email} (id={user.id})")
+        print(f"Created admin user {email} (id={user.id})")
 
 
 if __name__ == "__main__":

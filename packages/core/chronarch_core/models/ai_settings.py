@@ -18,14 +18,19 @@ class AILiteLLMSettings(Base, TimestampMixin):
 
     Applying to the proxy: the admin router renders these into the shared
     litellm-dynamic volume (see `chronarch_core.ai_config`); the litellm
-    container picks them up on (re)start.
+    container watches that volume and reloads itself within seconds.
     """
 
     __tablename__ = "ai_litellm_settings"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default="default")
 
+    # One encrypted key per provider (BRD §29, same cipher as Account
+    # tokens). Providers are independent free tiers — the proxy falls back
+    # across them, so exhausting one never takes the copilot down.
     encrypted_openrouter_api_key: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
+    encrypted_groq_api_key: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
+    encrypted_gemini_api_key: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
 
     primary_model: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     fallback_model: Mapped[Optional[str]] = mapped_column(String, nullable=True)

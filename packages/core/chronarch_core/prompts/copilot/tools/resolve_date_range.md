@@ -1,0 +1,1 @@
+Resolve a relative period (today, tomorrow, this_week, next_month, etc.) into exact start/end boundaries in the user's timezone. Call this before get_events, get_conflicts, find_free_slots, or get_availability whenever the user's request is phrased relatively — never compute the window yourself.

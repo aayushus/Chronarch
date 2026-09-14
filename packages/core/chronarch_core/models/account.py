@@ -28,6 +28,14 @@ class Account(Base, TimestampMixin):
     encrypted_refresh_token: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
     token_expires_at: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
+    # CalDAV basic-auth connection (BR-CAL-003). OAuth token columns above
+    # stay OAuth-only; CalDAV stores its server URL + username in the clear
+    # (same sensitivity as provider_account_email) and the password
+    # encrypted with the same envelope cipher (BRD §29).
+    caldav_server_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    caldav_username: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    encrypted_caldav_password: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
+
     sync_status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
     last_synced_at: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     last_sync_error: Mapped[Optional[str]] = mapped_column(String, nullable=True)

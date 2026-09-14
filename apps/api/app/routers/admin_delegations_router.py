@@ -10,7 +10,7 @@ from chronarch_core.models.delegation import Delegation, DelegationCalendarGrant
 from chronarch_core.models.enums import UserRole
 from chronarch_core.models.user import User
 
-from ..admin_guard import require_admin
+from ..admin_guard import require_permission
 from ..deps import get_db_session
 
 router = APIRouter(prefix="/api/v1/admin/delegations", tags=["admin"])
@@ -40,17 +40,17 @@ class GrantOut(BaseModel):
 
 class DelegationOut(BaseModel):
     id: str
-    executive_user_id: str
-    executive_email: str
-    assistant_user_id: str
-    assistant_email: str
+    owner_user_id: str
+    owner_email: str
+    delegate_user_id: str
+    delegate_email: str
     active: bool
     grants: list[GrantOut]
 
 
 class DelegationCreate(BaseModel):
-    executive_user_id: str
-    assistant_user_id: str
+    owner_user_id: str
+    delegate_user_id: str
 
 
 class GrantUpdate(BaseModel):
@@ -68,8 +68,8 @@ class GrantUpdate(BaseModel):
 
 
 async def _to_out(session: AsyncSession, deleg: Delegation) -> DelegationOut:
-    exec_user = await session.get(User, deleg.executive_user_id)
-    assistant = await session.get(User, deleg.assistant_user_id)
+    owner_user = await session.get(User, deleg.owner_user_id)
+    delegate = await session.get(User, deleg.delegate_user_id)
     grants = list(
         (await session.execute(
             select(DelegationCalendarGrant).where(DelegationCalendarGrant.delegation_id == deleg.id)
@@ -85,16 +85,16 @@ async def _to_out(session: AsyncSession, deleg: Delegation) -> DelegationOut:
             )
         )
     return DelegationOut(
-        id=deleg.id, executive_user_id=deleg.executive_user_id,
-        executive_email=exec_user.email if exec_user else "Unknown",
-        assistant_user_id=deleg.assistant_user_id,
-        assistant_email=assistant.email if assistant else "Unknown",
+        id=deleg.id, owner_user_id=deleg.owner_user_id,
+        owner_email=owner_user.email if owner_user else "Unknown",
+        delegate_user_id=deleg.delegate_user_id,
+        delegate_email=delegate.email if delegate else "Unknown",
         active=deleg.active, grants=grant_outs,
     )
 
 
 @router.get("", response_model=list[DelegationOut])
-async def list_delegations(_admin: User = Depends(require_admin), session: AsyncSession = Depends(get_db_session)):
+async def list_delegations(_admin: User = Depends(require_permission("delegations.view")), session: AsyncSession = Depends(get_db_session)):
     delegations = list((await session.execute(select(Delegation))).scalars())
     return [await _to_out(session, d) for d in delegations]
 
@@ -102,17 +102,17 @@ async def list_delegations(_admin: User = Depends(require_admin), session: Async
 @router.post("", response_model=DelegationOut, status_code=status.HTTP_201_CREATED)
 async def create_delegation(
     body: DelegationCreate,
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("delegations.manage")),
     session: AsyncSession = Depends(get_db_session),
 ):
-    executive = await session.get(User, body.executive_user_id)
-    assistant = await session.get(User, body.assistant_user_id)
-    if executive is None or assistant is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Executive or assistant user not found")
-    if assistant.role != UserRole.ASSISTANT:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Assistant user must have the assistant role")
+    owner = await session.get(User, body.owner_user_id)
+    delegate = await session.get(User, body.delegate_user_id)
+    if owner is None or delegate is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Owner or delegate user not found")
+    if delegate.role != UserRole.DELEGATE:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Delegate user must have the delegate role")
 
-    deleg = Delegation(executive_user_id=body.executive_user_id, assistant_user_id=body.assistant_user_id)
+    deleg = Delegation(owner_user_id=body.owner_user_id, delegate_user_id=body.delegate_user_id)
     session.add(deleg)
     await session.flush()
     return await _to_out(session, deleg)
@@ -122,7 +122,7 @@ async def create_delegation(
 async def set_delegation_active(
     delegation_id: str,
     active: bool,
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("delegations.manage")),
     session: AsyncSession = Depends(get_db_session),
 ):
     deleg = await session.get(Delegation, delegation_id)
@@ -136,7 +136,7 @@ async def set_delegation_active(
 @router.delete("/{delegation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_delegation(
     delegation_id: str,
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("delegations.manage")),
     session: AsyncSession = Depends(get_db_session),
 ):
     deleg = await session.get(Delegation, delegation_id)
@@ -153,7 +153,7 @@ async def upsert_grant(
     delegation_id: str,
     calendar_id: str,
     body: GrantUpdate,
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("delegations.manage")),
     session: AsyncSession = Depends(get_db_session),
 ):
     deleg = await session.get(Delegation, delegation_id)
@@ -186,7 +186,7 @@ async def upsert_grant(
 async def remove_grant(
     delegation_id: str,
     calendar_id: str,
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission("delegations.manage")),
     session: AsyncSession = Depends(get_db_session),
 ):
     deleg = await session.get(Delegation, delegation_id)

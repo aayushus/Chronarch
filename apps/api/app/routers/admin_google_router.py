@@ -19,12 +19,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from chronarch_core.connectors.google import build_consent_url, exchange_code, fetch_userinfo
 from chronarch_core.crypto import get_cipher
 from chronarch_core.models.account import Account
-from chronarch_core.models.enums import ProviderType
+from chronarch_core.models.enums import ProviderType, UserRole
 from chronarch_core.models.user import User
 from chronarch_core.oauth import resolve_google_credentials
 from chronarch_core.sync import sync_google_account
 
-from ..admin_guard import require_admin
+from ..admin_guard import require_permission
 from ..config import APP_BASE_URL
 from ..deps import get_db_session
 from ..oauth_state import sign_oauth_state, verify_oauth_state
@@ -41,7 +41,7 @@ class ConnectUrlOut(BaseModel):
 
 @router.get("/connect-url", response_model=ConnectUrlOut)
 async def get_connect_url(
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_permission("oauth.view")),
     session: AsyncSession = Depends(get_db_session),
 ):
     try:
@@ -72,7 +72,7 @@ async def callback(
         return RedirectResponse(f"{settings_url}?accounts_error=invalid_state")
 
     admin = await session.get(User, admin_user_id)
-    if admin is None or not admin.is_admin:
+    if admin is None or admin.role != UserRole.ADMIN:
         return RedirectResponse(f"{settings_url}?accounts_error=unauthorized")
 
     try:

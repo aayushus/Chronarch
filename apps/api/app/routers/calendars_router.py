@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/v1/calendars", tags=["calendars"])
 
 
 def actor_type_for(user: User) -> ActorType:
-    return ActorType.EA_UI if user.role == UserRole.ASSISTANT else ActorType.EXECUTIVE_UI
+    return ActorType.DELEGATE_UI if user.role == UserRole.DELEGATE else ActorType.ADMIN_UI
 
 
 class CalendarOut(BaseModel):
@@ -52,7 +52,7 @@ async def list_calendars(
     owner_ids = await get_owned_calendar_ids(session, user)
     grants = (
         await get_delegation_grants(session, user.id)
-        if user.role == UserRole.ASSISTANT
+        if user.role == UserRole.DELEGATE
         else None
     )
     calendars = await ai_tools.list_calendars(
@@ -70,7 +70,7 @@ async def list_calendars(
     for c in calendars:
         is_owner = await is_calendar_owner(session, user, c)
         grant = None
-        if not is_owner and user.role == UserRole.ASSISTANT:
+        if not is_owner and user.role == UserRole.DELEGATE:
             grant = await get_delegation_grant(session, user.id, c.id)
 
         def _allowed(action: CalendarAction) -> bool:
@@ -119,7 +119,7 @@ async def get_sync_status(
             select(DelegationCalendarGrant.calendar_id)
             .join(Delegation, Delegation.id == DelegationCalendarGrant.delegation_id)
             .where(
-                Delegation.assistant_user_id == user.id,
+                Delegation.delegate_user_id == user.id,
                 Delegation.active.is_(True),
             )
         )
@@ -159,6 +159,7 @@ async def trigger_user_sync(
     from chronarch_core.models.enums import ProviderType
     from chronarch_core.sync.google_sync import sync_google_account
     from chronarch_core.sync.microsoft_sync import sync_microsoft_account
+    from chronarch_core.sync.caldav_sync import sync_caldav_account
     from chronarch_core.sync.ics_sync import sync_ics_subscription_calendar
 
     accounts = list(
@@ -175,6 +176,9 @@ async def trigger_user_sync(
                 total_synced += s.get("events_synced", 0)
             elif account.provider == ProviderType.MICROSOFT:
                 s = await sync_microsoft_account(session, account)
+                total_synced += s.get("events_synced", 0)
+            elif account.provider == ProviderType.CALDAV:
+                s = await sync_caldav_account(session, account)
                 total_synced += s.get("events_synced", 0)
             elif account.provider == ProviderType.ICS:
                 sub_cals = list(

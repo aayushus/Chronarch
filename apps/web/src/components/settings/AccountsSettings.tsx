@@ -1,16 +1,20 @@
 import React, { useEffect, useState } from "react";
+import { friendlyError } from "../../api/client";
+import EmptyState from "../EmptyState";
 
 import {
   AdminAccount,
   OAuthProviderConfig,
   adminAddIcsSubscription,
   adminClearOAuthConfig,
+  adminConnectCaldav,
   adminDisconnectAccount,
   adminGetGoogleConnectUrl,
   adminGetMicrosoftConnectUrl,
   adminListAccounts,
   adminListOAuthConfigs,
   adminSaveOAuthConfig,
+  adminTestCaldav,
 } from "../../api/admin";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -21,7 +25,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   connect_failed: "Couldn't finish connecting that account. Verify the redirect URI and that the Calendar API is enabled, then try again.",
 };
 
-type WizardProvider = "google" | "microsoft" | "ics" | null;
+type WizardProvider = "google" | "microsoft" | "caldav" | "ics" | null;
 
 export default function AccountsSettings() {
   const [accounts, setAccounts] = useState<AdminAccount[]>([]);
@@ -39,7 +43,7 @@ export default function AccountsSettings() {
   function load() {
     adminListAccounts()
       .then(setAccounts)
-      .catch((e) => setError(String(e)))
+      .catch((e) => setError(friendlyError(e)))
       .finally(() => setLoading(false));
     adminListOAuthConfigs()
       .then((list) => setOauth(Object.fromEntries(list.map((c) => [c.provider, c]))))
@@ -112,7 +116,7 @@ export default function AccountsSettings() {
       setAccounts((prev) => prev.filter((x) => x.id !== a.id));
       setBanner({ kind: "success", text: `Disconnected ${a.provider_account_email}.` });
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
     }
   }
 
@@ -131,7 +135,7 @@ export default function AccountsSettings() {
         text: `Reconciliation sync completed for ${a.provider_account_email}.`,
       });
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
     } finally {
       setSyncingAccountId(null);
     }
@@ -146,7 +150,7 @@ export default function AccountsSettings() {
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Accounts</h2>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5, maxWidth: 640 }}>
-            Connected Google, Microsoft, and ICS calendars. Synchronizes multi-organization schedules, backfilling the last 90 days and the next 365 days of events.
+            Connected Google, Microsoft, CalDAV, and ICS calendars. Synchronizes multi-organization schedules, backfilling the last 90 days and the next 365 days of events.
           </p>
         </div>
         <button
@@ -207,35 +211,19 @@ export default function AccountsSettings() {
         </div>
 
         {accounts.length === 0 ? (
-          <div
-            style={{
-              background: "var(--bg-raised)",
-              borderRadius: "var(--radius-md)",
-              border: "1px dashed var(--border)",
-              padding: "36px 20px",
-              textAlign: "center",
-            }}
-          >
-            <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.8 }}>📅</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
-              No accounts connected yet
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16 }}>
-              Connect your Google, Microsoft, or external ICS calendar to begin syncing events.
-            </div>
-            <button
-              onClick={() => setWizardOpen(true)}
-              className="btn-primary hoverable"
-              style={{ padding: "7px 16px", fontSize: 12, fontWeight: 600 }}
-            >
-              + Connect First Account
-            </button>
-          </div>
+          <EmptyState
+            icon="calendar"
+            title="No accounts connected yet"
+            body="Connect your Google, Microsoft, CalDAV, or external ICS calendar to begin syncing events."
+            actionLabel="Connect First Account"
+            onAction={() => setWizardOpen(true)}
+          />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {accounts.map((a) => {
               const isGoogle = a.provider === "google";
               const isMicrosoft = a.provider === "microsoft";
+              const isCaldav = a.provider === "caldav";
 
               return (
                 <div
@@ -268,7 +256,7 @@ export default function AccountsSettings() {
                         fontSize: 18,
                       }}
                     >
-                      {isGoogle ? "G" : isMicrosoft ? "🪟" : "📁"}
+                      {isGoogle ? "G" : isMicrosoft ? "🪟" : isCaldav ? "📅" : "📁"}
                     </div>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
@@ -474,6 +462,16 @@ function ConnectAccountWizardModal({
   const [icsSaving, setIcsSaving] = useState(false);
   const [icsError, setIcsError] = useState<string | null>(null);
 
+  // Form states for CalDAV account (BR-CAL-003)
+  const [caldavUrl, setCaldavUrl] = useState("");
+  const [caldavUsername, setCaldavUsername] = useState("");
+  const [caldavPassword, setCaldavPassword] = useState("");
+  const [caldavLabel, setCaldavLabel] = useState("");
+  const [caldavSaving, setCaldavSaving] = useState(false);
+  const [caldavTesting, setCaldavTesting] = useState(false);
+  const [caldavError, setCaldavError] = useState<string | null>(null);
+  const [caldavTestOk, setCaldavTestOk] = useState<string | null>(null);
+
   const origin = window.location.origin;
   const googleRedirectUri = `${origin}/api/v1/admin/accounts/google/callback`;
   const microsoftRedirectUri = `${origin}/api/v1/admin/accounts/microsoft/callback`;
@@ -569,6 +567,49 @@ function ConnectAccountWizardModal({
     }
   }
 
+  async function handleTestCaldav() {
+    if (!caldavUrl.trim() || !caldavUsername.trim() || !caldavPassword) {
+      setCaldavError("Please enter server URL, username, and password.");
+      return;
+    }
+    setCaldavTesting(true);
+    setCaldavError(null);
+    setCaldavTestOk(null);
+    try {
+      const res = await adminTestCaldav({
+        server_url: caldavUrl.trim(),
+        username: caldavUsername.trim(),
+        password: caldavPassword,
+      });
+      setCaldavTestOk(`Connection OK — found ${res.calendars_found} calendar(s).`);
+    } catch (e) {
+      setCaldavError(String(e));
+    } finally {
+      setCaldavTesting(false);
+    }
+  }
+
+  async function handleConnectCaldav() {
+    if (!caldavUrl.trim() || !caldavUsername.trim() || !caldavPassword) {
+      setCaldavError("Please enter server URL, username, and password.");
+      return;
+    }
+    setCaldavSaving(true);
+    setCaldavError(null);
+    try {
+      await adminConnectCaldav({
+        server_url: caldavUrl.trim(),
+        username: caldavUsername.trim(),
+        password: caldavPassword,
+        email_label: caldavLabel.trim() || undefined,
+      });
+      onAccountAdded();
+    } catch (e) {
+      setCaldavError(String(e));
+      setCaldavSaving(false);
+    }
+  }
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
@@ -604,6 +645,8 @@ function ConnectAccountWizardModal({
                 ? "Connect Google Calendar"
                 : selectedProvider === "microsoft"
                 ? "Connect Microsoft 365"
+                : selectedProvider === "caldav"
+                ? "Connect CalDAV Account"
                 : selectedProvider === "ics"
                 ? "Subscribe to ICS Calendar"
                 : "Add an Account"}
@@ -747,6 +790,48 @@ function ConnectAccountWizardModal({
                   </span>
                   <span style={{ color: "var(--text-tertiary)", fontSize: 14 }}>→</span>
                 </div>
+              </button>
+
+              {/* CalDAV option */}
+              <button
+                onClick={() => setSelectedProvider("caldav")}
+                className="hoverable"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  background: "var(--bg-raised)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "14px 18px",
+                  color: "var(--text-primary)",
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 8,
+                      background: "rgba(94, 92, 230, 0.15)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 18,
+                    }}
+                  >
+                    📅
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>CalDAV Account</div>
+                    <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                      iCloud, Fastmail, Nextcloud, or any standard CalDAV server
+                    </div>
+                  </div>
+                </div>
+                <span style={{ color: "var(--text-tertiary)", fontSize: 14 }}>→</span>
               </button>
 
               {/* ICS Feed option */}
@@ -1164,6 +1249,122 @@ function ConnectAccountWizardModal({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* STEP 2: CalDAV Flow */}
+        {selectedProvider === "caldav" && (
+          <div>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}>
+              Connect a standard CalDAV account with its server URL, username, and password (BR-CAL-003).
+              Calendars are discovered automatically and synced like Google/Microsoft accounts.
+            </p>
+
+            {caldavError && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--danger)",
+                  background: "rgba(255, 69, 58, 0.1)",
+                  padding: "10px 12px",
+                  borderRadius: "var(--radius-sm)",
+                  marginBottom: 16,
+                }}
+              >
+                {caldavError}
+              </div>
+            )}
+            {caldavTestOk && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--success)",
+                  background: "rgba(48, 209, 88, 0.1)",
+                  padding: "10px 12px",
+                  borderRadius: "var(--radius-sm)",
+                  marginBottom: 16,
+                }}
+              >
+                {caldavTestOk}
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                  CalDAV Server URL
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://caldav.example.com/remote.php/dav"
+                  value={caldavUrl}
+                  onChange={(e) => setCaldavUrl(e.target.value)}
+                  className="input-standard"
+                  style={{ width: "100%" }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  placeholder="you@example.com"
+                  value={caldavUsername}
+                  onChange={(e) => setCaldavUsername(e.target.value)}
+                  className="input-standard"
+                  style={{ width: "100%" }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                  Password (stored encrypted)
+                </label>
+                <input
+                  type="password"
+                  placeholder="App-specific password recommended"
+                  value={caldavPassword}
+                  onChange={(e) => setCaldavPassword(e.target.value)}
+                  className="input-standard"
+                  style={{ width: "100%" }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                  Display Label (optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Fastmail"
+                  value={caldavLabel}
+                  onChange={(e) => setCaldavLabel(e.target.value)}
+                  className="input-standard"
+                  style={{ width: "100%" }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button onClick={onClose} className="btn-secondary hoverable">
+                Cancel
+              </button>
+              <button
+                onClick={handleTestCaldav}
+                disabled={caldavTesting || caldavSaving}
+                className="btn-secondary hoverable"
+                style={{ padding: "8px 20px" }}
+              >
+                {caldavTesting ? "Testing…" : "Test Connection"}
+              </button>
+              <button
+                onClick={handleConnectCaldav}
+                disabled={caldavSaving}
+                className="btn-primary hoverable"
+                style={{ padding: "8px 20px" }}
+              >
+                {caldavSaving ? "Connecting…" : "Connect CalDAV"}
+              </button>
+            </div>
           </div>
         )}
 

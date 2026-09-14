@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 
 import { CalendarSummary } from "../api/calendar";
+import Icon from "./Icon";
 import MiniMonth from "./MiniMonth";
 
 interface Props {
@@ -13,8 +14,7 @@ interface Props {
   onSelectDate: (d: Date) => void;
   onMonthShift: (delta: number) => void;
   userDisplayName: string;
-  onLogout: () => void;
-  isAdmin: boolean;
+  canManageAccounts: boolean;
   onOpenCopilot: () => void;
   onOpenIcsImport: () => void;
 }
@@ -28,8 +28,7 @@ export default function Sidebar({
   onSelectDate,
   onMonthShift,
   userDisplayName,
-  onLogout,
-  isAdmin,
+  canManageAccounts,
   onOpenCopilot,
   onOpenIcsImport,
 }: Props) {
@@ -90,7 +89,7 @@ export default function Sidebar({
             textAlign: "left",
           }}
         >
-          <span style={{ fontSize: 14 }}>✨</span>
+          <Icon name="sparkles" size={14} />
           <span>Ask Copilot</span>
         </button>
 
@@ -113,7 +112,9 @@ export default function Sidebar({
             textAlign: "left",
           }}
         >
-          <span style={{ fontSize: 13, opacity: 0.8 }}>📁</span>
+          <span style={{ opacity: 0.8, display: "inline-flex" }}>
+            <Icon name="upload" size={13} />
+          </span>
           <span>Import .ics</span>
         </button>
       </div>
@@ -122,8 +123,43 @@ export default function Sidebar({
 
       <div style={{ flex: 1, overflowY: "auto", padding: "4px 8px" }}>
         {groups.size === 0 && (
-          <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "12px 8px" }}>
-            No calendars connected yet.
+          <div style={{ textAlign: "center", padding: "20px 8px" }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: "rgba(10, 132, 255, 0.12)",
+                color: "var(--accent)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 8,
+              }}
+            >
+              <Icon name="calendar" size={18} />
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 3 }}>No calendars yet</div>
+            <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 10, lineHeight: 1.45 }}>
+              {canManageAccounts ? "Connect Google, Microsoft, CalDAV, or an ICS feed to begin." : "Ask your admin to connect a calendar."}
+            </div>
+            {canManageAccounts && (
+              <Link
+                to="/settings"
+                style={{
+                  display: "inline-block",
+                  background: "var(--accent)",
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  borderRadius: 6,
+                  padding: "6px 12px",
+                  textDecoration: "none",
+                }}
+              >
+                Connect first account
+              </Link>
+            )}
           </div>
         )}
         {[...groups.entries()].map(([accountId, group]) => (
@@ -171,8 +207,8 @@ export default function Sidebar({
                   {cal.name}
                 </span>
                 {!(cal.can_reschedule ?? cal.writable) && !(cal.can_create ?? cal.writable) && (
-                  <span style={{ fontSize: 9, color: "var(--text-tertiary)" }} title="Read-only">
-                    🔒
+                  <span style={{ color: "var(--text-tertiary)", display: "inline-flex" }} title="Read-only">
+                    <Icon name="lock" size={11} />
                   </span>
                 )}
               </label>
@@ -199,46 +235,40 @@ export default function Sidebar({
           borderTop: "1px solid var(--border-subtle)",
         }}
       >
-        {isAdmin ? (
-          <Link
-            to="/settings"
-            className="hoverable"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              color: "var(--text-secondary)",
-              textDecoration: "none",
-              fontSize: 12,
-              borderRadius: 6,
-              padding: "5px 8px",
-              marginLeft: -8,
-            }}
-          >
-            <span aria-hidden style={{ fontSize: 13 }}>
-              ⚙
-            </span>
-            Settings
-          </Link>
-        ) : (
-          <span />
-        )}
-        <button
-          onClick={onLogout}
-          title={`Sign out (${userDisplayName})`}
-          className="hoverable"
+        <span
           style={{
-            background: "none",
-            border: "none",
-            borderRadius: 4,
-            color: "var(--text-tertiary)",
-            fontSize: 11,
-            cursor: "pointer",
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--text-secondary)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          title={userDisplayName}
+        >
+          {userDisplayName}
+        </span>
+        <Link
+          to="/settings"
+          className="hoverable"
+          title="Account & settings"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            color: "var(--text-secondary)",
+            textDecoration: "none",
+            fontSize: 12,
+            borderRadius: 6,
             padding: "5px 8px",
+            marginRight: -8,
           }}
         >
-          Sign out
-        </button>
+          <span aria-hidden style={{ display: "inline-flex" }}>
+            <Icon name="settings" size={13} />
+          </span>
+          Settings
+        </Link>
       </div>
     </aside>
   );

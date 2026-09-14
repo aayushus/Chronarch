@@ -33,9 +33,8 @@ class CalendarKind(str, Enum):
 
 
 class UserRole(str, Enum):
-    EXECUTIVE = "executive"
-    ASSISTANT = "assistant"
     ADMIN = "admin"
+    DELEGATE = "delegate"
 
 
 class EventVisibility(str, Enum):
@@ -52,8 +51,8 @@ class BusyStatus(str, Enum):
 
 
 class ActorType(str, Enum):
-    EXECUTIVE_UI = "executive_ui"
-    EA_UI = "ea_ui"
+    ADMIN_UI = "admin_ui"
+    DELEGATE_UI = "delegate_ui"
     ICS_IMPORT = "ics_import"
     COPILOT = "copilot"
     MCP = "mcp"
@@ -77,3 +76,8 @@ class AuditAction(str, Enum):
     UPDATE_CALENDAR_SETTINGS = "update_calendar_settings"
     GRANT_DELEGATION = "grant_delegation"
     REVOKE_DELEGATION = "revoke_delegation"
+    CREATE_ROLE = "create_role"
+    UPDATE_ROLE = "update_role"
+    DELETE_ROLE = "delete_role"
+    ASSIGN_ROLE = "assign_role"
+    REVOKE_ROLE = "revoke_role"

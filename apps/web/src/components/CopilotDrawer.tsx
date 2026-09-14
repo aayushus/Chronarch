@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CopilotMessage, copilotChat } from "../api/calendar";
+import { friendlyError } from "../api/client";
+import { CopilotMessage, copilotChatStream } from "../api/calendar";
+import Icon from "./Icon";
+import Markdown from "./Markdown";
 
 interface Props {
   isOpen: boolean;
@@ -53,11 +56,15 @@ export default function CopilotDrawer({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Live reasoning trace for the in-flight turn.
+  const [steps, setSteps] = useState<{ text: string; summary?: string; done: boolean }[]>([]);
+  const [status, setStatus] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
   const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, steps, draft, status]);
 
   if (!isOpen) return null;
 
@@ -70,21 +77,59 @@ export default function CopilotDrawer({
     setInput("");
     setLoading(true);
     setError(null);
+    setSteps([]);
+    setStatus(null);
+    setDraft("");
+
+    const runSteps: { text: string; summary?: string; done: boolean }[] = [];
+    let runDraft = "";
+
+    const pushSteps = () => setSteps([...runSteps]);
 
     try {
-      const res = await copilotChat(nextMessages, {
-        userTime: new Date().toISOString(),
-        viewedDate: viewedDate.toISOString().split("T")[0],
-        viewMode,
-      });
-      setMessages([...nextMessages, res.message]);
-      if (onRefreshEvents) {
-        onRefreshEvents();
-      }
+      await copilotChatStream(
+        nextMessages,
+        {
+          viewedDate: viewedDate.toISOString().split("T")[0],
+          viewMode,
+        },
+        (e) => {
+          if (e.type === "status") {
+            if (runSteps.length === 0 && !runDraft) setStatus(e.text);
+          } else if (e.type === "tool") {
+            setStatus(null);
+            runSteps.push({ text: e.text, done: false });
+            pushSteps();
+          } else if (e.type === "result") {
+            setStatus(null);
+            const open = [...runSteps].reverse().find((s) => !s.done);
+            if (open) {
+              open.done = true;
+              open.summary = e.summary;
+            }
+            pushSteps();
+          } else if (e.type === "token") {
+            setStatus(null);
+            runDraft += e.text;
+            setDraft(runDraft);
+          } else if (e.type === "done") {
+            const content = e.content || runDraft;
+            const trace = runSteps.map((s) => ({ text: s.text, summary: s.summary }));
+            setMessages([...nextMessages, { role: "assistant", content, trace }]);
+            if (onRefreshEvents) onRefreshEvents();
+          } else if (e.type === "error") {
+            // Server sends an already-friendly message — show it verbatim.
+            setError(e.message);
+          }
+        }
+      );
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
+      setSteps([]);
+      setStatus(null);
+      setDraft("");
     }
   }
 
@@ -100,7 +145,7 @@ export default function CopilotDrawer({
 
   return (
     <aside
-      className="vibrancy"
+      className="vibrancy mount-rise"
       style={{
         position: "fixed",
         right: 0,
@@ -141,7 +186,7 @@ export default function CopilotDrawer({
               fontSize: 16,
             }}
           >
-            ✨
+            <Icon name="sparkles" size={16} />
           </div>
           <div>
             <div style={{ fontWeight: 700, fontSize: 14 }}>Calendar Copilot</div>
@@ -241,7 +286,33 @@ export default function CopilotDrawer({
               boxShadow: m.role === "user" ? "0 2px 8px rgba(10, 132, 255, 0.3)" : "none",
             }}
           >
-            {m.content}
+            {m.trace && m.trace.length > 0 && (
+              <details style={{ marginBottom: 8 }}>
+                <summary
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-tertiary)",
+                    cursor: "pointer",
+                    listStyle: "none",
+                  }}
+                >
+                  {m.trace.length} step{m.trace.length === 1 ? "" : "s"} ▸
+                </summary>
+                <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 3 }}>
+                  {m.trace.map((t, i) => (
+                    <div key={i} style={{ fontSize: 11.5, color: "var(--text-secondary)" }}>
+                      ✓ {t.text}
+                      {t.summary ? <span style={{ color: "var(--text-tertiary)" }}> — {t.summary}</span> : null}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+            {m.role === "user" ? (
+              m.content
+            ) : (
+              <Markdown text={m.content ?? ""} />
+            )}
           </div>
         ))}
 
@@ -249,20 +320,39 @@ export default function CopilotDrawer({
           <div
             style={{
               alignSelf: "flex-start",
+              maxWidth: "88%",
               padding: "10px 14px",
               borderRadius: "var(--radius-md)",
               background: "var(--bg-raised)",
-              color: "var(--text-secondary)",
+              color: "var(--text-primary)",
               fontSize: 13,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
               border: "1px solid var(--border-subtle)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
             }}
           >
-            <span style={{ display: "inline-block", animation: "pulse 1.5s infinite" }}>
-              ✨ Querying calendars…
-            </span>
+            {status && steps.length === 0 && !draft && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--text-secondary)" }}>
+                <Icon name="refresh" size={13} /> {status}
+              </span>
+            )}
+            {steps.map((s, i) => (
+              <div
+                key={i}
+                style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text-secondary)" }}
+              >
+                <span style={{ color: s.done ? "var(--success)" : "var(--warning)" }}>
+                  {s.done ? "✓" : <Icon name="refresh" size={12} />}
+                </span>
+                <span>
+                  {s.text}
+                  {s.done && s.summary ? <span style={{ color: "var(--text-tertiary)" }}> — {s.summary}</span> : null}
+                  {!s.done ? "…" : null}
+                </span>
+              </div>
+            ))}
+            {draft && <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.45 }}>{draft}</div>}
           </div>
         )}
 

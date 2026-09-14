@@ -1,6 +1,7 @@
 import React from "react";
 
 import { WEEKDAY_SHORT, sameDay, startOfMonth } from "../lib/dates";
+import Icon from "./Icon";
 
 interface Props {
   viewedDate: Date;
@@ -26,14 +27,14 @@ export default function MiniMonth({ viewedDate, selectedDate, onSelect, onMonthS
   return (
     <div style={{ padding: "12px 12px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-        <button onClick={() => onMonthShift(-1)} className="icon-btn" style={navBtnStyle}>
-          ‹
+        <button onClick={() => onMonthShift(-1)} className="icon-btn" style={navBtnStyle} aria-label="Previous month">
+          <Icon name="chevronLeft" size={13} />
         </button>
         <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
           {monthStart.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
         </span>
-        <button onClick={() => onMonthShift(1)} className="icon-btn" style={navBtnStyle}>
-          ›
+        <button onClick={() => onMonthShift(1)} className="icon-btn" style={navBtnStyle} aria-label="Next month">
+          <Icon name="chevronRight" size={13} />
         </button>
       </div>
 

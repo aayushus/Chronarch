@@ -21,6 +21,9 @@ if JWT_SECRET in _INSECURE_JWT_VALUES:
     JWT_SECRET = "dev-secret-change-me"
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = int(os.environ.get("JWT_EXPIRE_MINUTES", "480"))
+# "Remember me" sessions: long-lived JWTs for users who opt in at login.
+# Revocable via the same Redis jti blocklist as short sessions.
+REMEMBER_ME_DAYS = int(os.environ.get("REMEMBER_ME_DAYS", "30"))
 
 # Public origin the browser uses to reach this deployment — used to build
 # OAuth redirect URIs (must exactly match what's registered with the

@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { friendlyError } from "../api/client";
 
 import {
   CalendarSummary,
@@ -10,13 +11,17 @@ import {
   listCalendars,
   moveEvent,
 } from "../api/calendar";
-import { useAuth } from "../api/auth";
+import { useNavigate } from "react-router-dom";
+
+import { canSeeSettings, useAuth, workingHoursOf } from "../api/auth";
 import ConflictConfirmModal from "../components/ConflictConfirmModal";
+import Palette, { PaletteAction } from "../components/Palette";
 import CopilotDrawer from "../components/CopilotDrawer";
 import EventDetailPanel from "../components/EventDetailPanel";
 import IcsImportModal from "../components/IcsImportModal";
 import QuickCreateModal, { CreateDraft } from "../components/QuickCreateModal";
 import Sidebar from "../components/Sidebar";
+import { useToast } from "../components/Toast";
 import TopBar, { CalendarViewMode } from "../components/TopBar";
 import { addDays, startOfDay, startOfMonth, startOfWeek } from "../lib/dates";
 import { fetchEventsLazy, invalidateEventsCache } from "../lib/eventsCache";
@@ -26,9 +31,13 @@ import { fetchEventsLazy, invalidateEventsCache } from "../lib/eventsCache";
 const DayView = lazy(() => import("../components/DayView"));
 const WeekView = lazy(() => import("../components/WeekView"));
 const MonthView = lazy(() => import("../components/MonthView"));
+const YearView = lazy(() => import("../components/YearView"));
 
 export default function CalendarPage() {
-  const { logout, user } = useAuth();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const workingHours = useMemo(() => workingHoursOf(user), [user]);
   const [calendars, setCalendars] = useState<CalendarSummary[]>([]);
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [viewMode, setViewMode] = useState<CalendarViewMode>("day");
@@ -50,15 +59,67 @@ export default function CalendarPage() {
   const [eventsLoading, setEventsLoading] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [tzPrompt, setTzPrompt] = useState<{ browserTz: string; homeTz: string } | null>(null);
+  const [tzSwitching, setTzSwitching] = useState(false);
 
   useEffect(() => {
-    listCalendars().then(setCalendars).catch((e) => setError(String(e)));
+    listCalendars().then(setCalendars).catch((e) => setError(friendlyError(e)));
     import("../api/calendar").then(({ getSyncStatus }) => {
       getSyncStatus()
         .then((s) => setLastSyncedAt(s.last_synced_at))
         .catch(() => {});
     });
   }, []);
+
+  // Browser-vs-home timezone check (BRD §27): if this device is in a
+  // different zone than the stored home zone, ask once whether to switch.
+  // The answer is remembered per zone pair, so travel re-prompts but
+  // dismissing never nags.
+  useEffect(() => {
+    if (!user) return;
+    let browserTz = "UTC";
+    try {
+      browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    } catch {
+      /* ignore */
+    }
+    const homeTz = user.home_timezone || "UTC";
+    if (browserTz === homeTz) return;
+    let dismissed = null;
+    try {
+      dismissed = localStorage.getItem("chronarch_tz_declined");
+    } catch {
+      /* private mode */
+    }
+    if (dismissed === `${browserTz}|${homeTz}`) return;
+    setTzPrompt({ browserTz, homeTz });
+  }, [user]);
+
+  async function handleTimezoneSwitch() {
+    if (!tzPrompt) return;
+    setTzSwitching(true);
+    try {
+      const { apiFetch } = await import("../api/client");
+      await apiFetch("/auth/me", {
+        method: "PATCH",
+        body: JSON.stringify({ home_timezone: tzPrompt.browserTz }),
+      });
+      window.location.reload();
+    } catch (e) {
+      setError(friendlyError(e));
+      setTzSwitching(false);
+    }
+  }
+
+  function handleTimezoneKeep() {
+    if (!tzPrompt) return;
+    try {
+      localStorage.setItem("chronarch_tz_declined", `${tzPrompt.browserTz}|${tzPrompt.homeTz}`);
+    } catch {
+      /* private mode */
+    }
+    setTzPrompt(null);
+  }
 
   async function handleSyncNow() {
     setIsSyncing(true);
@@ -70,7 +131,7 @@ export default function CalendarPage() {
       const fresh = await fetchEventsLazy(rangeStart, rangeEnd);
       setEvents(fresh);
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
     } finally {
       setIsSyncing(false);
     }
@@ -82,7 +143,11 @@ export default function CalendarPage() {
       const s = startOfWeek(viewedDate);
       return [s, addDays(s, 7)];
     }
-    // month + year both fetch a month-sized window for MVP
+    // month fetches a padded month; year fetches the whole year for density dots
+    if (viewMode === "year") {
+      const s = new Date(viewedDate.getFullYear(), 0, 1);
+      return [s, new Date(viewedDate.getFullYear() + 1, 0, 1)];
+    }
     const s = startOfMonth(viewedDate);
     return [addDays(s, -7), addDays(s, 49)];
   }, [viewMode, viewedDate]);
@@ -95,7 +160,7 @@ export default function CalendarPage() {
         if (!cancelled) setEvents(fresh);
       })
       .catch((e) => {
-        if (!cancelled) setError(String(e));
+        if (!cancelled) setError(friendlyError(e));
       })
       .finally(() => {
         if (!cancelled) setEventsLoading(false);
@@ -147,18 +212,44 @@ export default function CalendarPage() {
       }
       await commitCreate(body);
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
     }
   }
 
   async function handleDelete(eventId: string) {
+    const doomed = events.find((e) => e.id === eventId) ?? selectedEvent;
     try {
       await deleteEvent(eventId);
       invalidateEventsCache();
       setSelectedEvent(null);
       setEvents((prev) => prev.filter((e) => e.id !== eventId));
+      if (doomed) {
+        // Undo re-creates the event from the stashed snapshot (design
+        // philosophy: every destructive action is undoable).
+        const snapshot = doomed;
+        toast(`Deleted “${snapshot.title}”`, {
+          actionLabel: "Undo",
+          onAction: async () => {
+            try {
+              await createEvent({
+                calendar_id: snapshot.calendar_id,
+                title: snapshot.title,
+                start: snapshot.start,
+                end: snapshot.end,
+                all_day: snapshot.all_day,
+                description: snapshot.description,
+                location: snapshot.location,
+              });
+              invalidateEventsCache();
+              setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
+            } catch (e) {
+              setError(friendlyError(e));
+            }
+          },
+        });
+      }
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
     }
   }
 
@@ -192,7 +283,7 @@ export default function CalendarPage() {
     } catch (e) {
       setEvents(previous);
       setSelectedEvent(prevSelected);
-      setError(String(e));
+      setError(friendlyError(e));
     }
   }
 
@@ -207,7 +298,7 @@ export default function CalendarPage() {
       }
       await commitMove(eventId, newStart, newEnd, allDay);
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
     }
   }
 
@@ -222,7 +313,7 @@ export default function CalendarPage() {
         await commitMove(pending.eventId, pending.start, pending.end, pending.allDay);
       }
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
     }
   }
 
@@ -241,6 +332,45 @@ export default function CalendarPage() {
     }
   }
 
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  const paletteActions: PaletteAction[] = useMemo(
+    () => [
+      {
+        id: "new-event",
+        title: "New event",
+        hint: "quick-create",
+        icon: "plus",
+        run: () => {
+          const s = new Date(viewedDate);
+          s.setHours(9, 0, 0, 0);
+          setCreateDraft({ start: s, end: new Date(s.getTime() + 30 * 60000), allDay: false });
+        },
+      },
+      { id: "today", title: "Go to today", hint: "navigate", icon: "calendar", run: () => setViewedDate(new Date()) },
+      { id: "view-day", title: "Switch to Day view", hint: "view", icon: "grid", run: () => setViewMode("day") },
+      { id: "view-week", title: "Switch to Week view", hint: "view", icon: "grid", run: () => setViewMode("week") },
+      { id: "view-month", title: "Switch to Month view", hint: "view", icon: "grid", run: () => setViewMode("month") },
+      { id: "sync", title: "Sync all accounts now", hint: "sync", icon: "refresh", run: () => handleSyncNow() },
+      { id: "copilot", title: "Ask Copilot", hint: "AI", icon: "sparkles", run: () => setCopilotOpen(true) },
+      {
+        id: "import-ics",
+        title: "Import .ics file",
+        hint: "import",
+        icon: "upload",
+        run: () => {
+          setDroppedIcsContent(undefined);
+          setShowIcsModal(true);
+        },
+      },
+      ...(canSeeSettings(user)
+        ? [{ id: "settings", title: "Open Settings", hint: "admin", icon: "settings" as const, run: () => navigate("/settings") }]
+        : []),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [viewedDate, user?.permissions, user?.role]
+  );
+
   // Keyboard shortcuts (BRD §9.14): T/D/W/M jump views, arrows navigate,
   // N opens quick-create, Esc closes whatever's open. Ignored while typing
   // in a form field so they don't fight with normal text entry.
@@ -251,6 +381,14 @@ export default function CalendarPage() {
     }
 
     function handleKeyDown(e: KeyboardEvent) {
+      // ⌘K toggles the palette from anywhere (design philosophy).
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+        return;
+      }
+      // Let the palette own Escape while it's open.
+      if ((e.target as HTMLElement)?.closest?.(".palette-card")) return;
       // Escape must work even while a form field has focus (e.g. the quick-create
       // modal's title input) — every other shortcut stays suppressed while typing.
       if (e.key !== "Escape" && isTypingTarget(e.target)) return;
@@ -336,8 +474,7 @@ export default function CalendarPage() {
         }}
         onMonthShift={(delta) => setViewedDate((d) => new Date(d.getFullYear(), d.getMonth() + delta, 1))}
         userDisplayName={user?.display_name ?? ""}
-        onLogout={logout}
-        isAdmin={!!user?.is_admin}
+        canManageAccounts={(user?.permissions ?? []).includes("accounts.manage") || user?.role === "admin"}
         onOpenCopilot={() => setCopilotOpen(true)}
         onOpenIcsImport={() => {
           setDroppedIcsContent(undefined);
@@ -345,7 +482,7 @@ export default function CalendarPage() {
         }}
       />
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
         <TopBar
           viewedDate={viewedDate}
           viewMode={viewMode}
@@ -368,7 +505,7 @@ export default function CalendarPage() {
           <div style={{ color: "var(--danger)", fontSize: 12, padding: "6px 24px" }}>{error}</div>
         )}
 
-        <div style={{ flex: 1, minHeight: 0 }}>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
           <Suspense fallback={<ViewLoadingFallback />}>
             {viewMode === "day" && (
               <DayView
@@ -379,6 +516,7 @@ export default function CalendarPage() {
                 selectedEventId={selectedEvent?.id}
                 onMoveEvent={handleMoveEvent}
                 onCreateRange={handleCreateRange}
+                workingHours={workingHours}
               />
             )}
             {viewMode === "week" && (
@@ -393,9 +531,10 @@ export default function CalendarPage() {
                 }}
                 onMoveEvent={handleMoveEvent}
                 onCreateRange={handleCreateRange}
+                workingHours={workingHours}
               />
             )}
-            {(viewMode === "month" || viewMode === "year") && (
+            {viewMode === "month" && (
               <MonthView
                 monthAnchor={viewedDate}
                 events={visibleEvents}
@@ -404,6 +543,22 @@ export default function CalendarPage() {
                 onSelectDay={(d) => {
                   setViewedDate(d);
                   setViewMode("day");
+                }}
+              />
+            )}
+            {viewMode === "year" && (
+              <YearView
+                year={viewedDate.getFullYear()}
+                events={visibleEvents}
+                calendarById={calendarById}
+                selectedDate={viewedDate}
+                onSelectDay={(d) => {
+                  setViewedDate(d);
+                  setViewMode("day");
+                }}
+                onSelectMonth={(d) => {
+                  setViewedDate(d);
+                  setViewMode("month");
                 }}
               />
             )}
@@ -418,6 +573,42 @@ export default function CalendarPage() {
         onDelete={handleDelete}
         canDelete={!!(selectedCalendar?.can_delete ?? selectedCalendar?.writable)}
       />
+
+      {tzPrompt && (
+        <div className="modal-backdrop" onClick={handleTimezoneKeep}>
+          <div
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 440, maxWidth: "92vw", padding: 24 }}
+          >
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 8px" }}>
+              Timezone mismatch
+            </h3>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 6px", lineHeight: 1.5 }}>
+              This browser is in{" "}
+              <strong style={{ color: "var(--text-primary)" }}>{tzPrompt.browserTz}</strong>,
+              but your calendar is set to{" "}
+              <strong style={{ color: "var(--text-primary)" }}>{tzPrompt.homeTz}</strong>.
+            </p>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px", lineHeight: 1.5 }}>
+              Switch to the browser timezone? The page reloads to re-render everything.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button onClick={handleTimezoneKeep} className="btn-secondary hoverable" disabled={tzSwitching}>
+                Keep {tzPrompt.homeTz}
+              </button>
+              <button
+                onClick={handleTimezoneSwitch}
+                disabled={tzSwitching}
+                className="btn-primary hoverable"
+                style={{ padding: "8px 18px" }}
+              >
+                {tzSwitching ? "Switching…" : `Switch to ${tzPrompt.browserTz}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {createDraft && (
         <QuickCreateModal
@@ -474,6 +665,8 @@ export default function CalendarPage() {
           fetchEventsLazy(rangeStart, rangeEnd).then(setEvents);
         }}
       />
+
+      <Palette open={paletteOpen} actions={paletteActions} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }

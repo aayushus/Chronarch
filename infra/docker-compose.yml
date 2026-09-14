@@ -49,6 +49,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    volumes:
+      - ./redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -99,6 +101,11 @@ services:
         condition: service_healthy
     ports:
       - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/healthz')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   worker:
     build:
@@ -112,6 +119,11 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.celery_app.celery_app inspect ping | grep -q pong"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   scheduler:
     build:
@@ -121,21 +133,32 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os; me=str(os.getpid()); assert any('app.beat' in open('/proc/'+p+'/cmdline','rb').read().decode(errors='ignore') for p in os.listdir('/proc') if p.isdigit() and p != me), 'beat not running'\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   litellm:
     build:
       context: ../packages/litellm-config
     environment:
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      # Provider keys are NOT taken from .env — Settings > AI & Copilot stores
+      # them encrypted in the DB and the API renders them into the watched
+      # /app/dynamic/litellm.env. Only the proxy master key lives here.
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-litellm-dev}
     volumes:
       # UI-managed config from the API (Settings > AI / LiteLLM). Read-only
-      # here; the entrypoint prefers /app/dynamic/config.yaml + litellm.env
-      # when present, else the baked default. Restart litellm after saving
-      # settings: docker compose restart litellm
+      # here; the entrypoint watches /app/dynamic/config.yaml + litellm.env
+      # and reloads itself within seconds of a save — no manual restart.
       - litellm-dynamic:/app/dynamic:ro
     ports:
       - "4000:4000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   web:
     build:
@@ -148,3 +171,8 @@ services:
       # Host port configurable when 3000 is taken: WEB_HOST_PORT=3100.
       # Keep APP_BASE_URL in sync — it builds the OAuth redirect URI.
       - "${WEB_HOST_PORT:-3000}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5

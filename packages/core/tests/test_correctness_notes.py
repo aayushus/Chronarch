@@ -30,7 +30,7 @@ from chronarch_core.permissions import (
 async def _seed_owner_calendar(session):
     owner = User(
         id="exec-1", email="exec@co.com", display_name="Exec",
-        password_hash="x", role=UserRole.EXECUTIVE,
+        password_hash="x", role=UserRole.ADMIN,
     )
     account = Account(
         id="acct-1", owner_user_id="exec-1", provider=ProviderType.GOOGLE,
@@ -46,7 +46,7 @@ async def _seed_owner_calendar(session):
 
 
 def _owner_ctx(user_id="exec-1"):
-    return AuthContext(user_id=user_id, role=UserRole.EXECUTIVE, actor_type=ActorType.EXECUTIVE_UI)
+    return AuthContext(user_id=user_id, role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
 
 
 # --- end > start validation -------------------------------------------------
@@ -95,7 +95,7 @@ async def test_validation_fires_before_permission_check(session):
     """Bad windows raise ValueError even for callers who would also be
     denied — invalid input is not a permission question."""
     _owner, calendar = await _seed_owner_calendar(session)
-    ea_ctx = AuthContext(user_id="ea-1", role=UserRole.ASSISTANT, actor_type=ActorType.EA_UI)
+    ea_ctx = AuthContext(user_id="ea-1", role=UserRole.DELEGATE, actor_type=ActorType.DELEGATE_UI)
     start = datetime(2026, 9, 17, 11, 0, tzinfo=timezone.utc)
 
     with pytest.raises(ValueError, match="must be after start"):
@@ -188,10 +188,10 @@ def test_non_owner_executive_is_denied_explicitly():
     Phase 2 adds executive-to-executive grants (BRD §32).
 
     ea_can_* are set permissive so the denial lands in user_authority (the
-    explicit EXECUTIVE branch), isolating it from calendar_authority.
+    explicit ADMIN-deny branch), isolating it from calendar_authority.
     """
     calendar = _calendar(ea_can_view=True, ea_can_edit=True)
-    ctx = AuthContext(user_id="exec-b", role=UserRole.EXECUTIVE, actor_type=ActorType.EXECUTIVE_UI)
+    ctx = AuthContext(user_id="exec-b", role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
 
     decision = resolve_permission(ctx, calendar, CalendarAction.CREATE, is_owner=False)
 
@@ -205,7 +205,7 @@ def test_mcp_owner_credential_still_gated_by_ai_flags():
     scopes. Deny-by-default is intentional (see apps/mcp/app/auth.py)."""
     calendar = _calendar(ai_can_read=False, ai_can_write=False)
     ctx = AuthContext(
-        user_id="exec-1", role=UserRole.EXECUTIVE, actor_type=ActorType.MCP,
+        user_id="exec-1", role=UserRole.ADMIN, actor_type=ActorType.MCP,
         scopes=frozenset({"calendar.read", "calendar.write", "calendar.delete", "availability.read"}),
     )
 
@@ -218,7 +218,7 @@ def test_mcp_owner_credential_still_gated_by_ai_flags():
 def test_mcp_write_scope_without_ai_write_flag_is_denied():
     calendar = _calendar(ai_can_read=True, ai_can_write=False)
     ctx = AuthContext(
-        user_id="exec-1", role=UserRole.EXECUTIVE, actor_type=ActorType.MCP,
+        user_id="exec-1", role=UserRole.ADMIN, actor_type=ActorType.MCP,
         scopes=frozenset({"calendar.read", "calendar.write", "availability.read"}),
     )
 

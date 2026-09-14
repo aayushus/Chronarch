@@ -53,7 +53,7 @@ export interface AdminUser {
   email: string;
   display_name: string;
   role: string;
-  is_admin: boolean;
+  roles: string[];
   is_active: boolean;
 }
 
@@ -66,16 +66,65 @@ export function adminCreateUser(body: {
   display_name: string;
   password: string;
   role: string;
-  is_admin: boolean;
+  roles?: string[];
 }): Promise<AdminUser> {
   return apiFetch<AdminUser>("/admin/users", { method: "POST", body: JSON.stringify(body) });
 }
 
 export function adminUpdateUser(
   id: string,
-  patch: Partial<Pick<AdminUser, "display_name" | "role" | "is_admin" | "is_active">>
+  patch: Partial<Pick<AdminUser, "display_name" | "role" | "is_active">> & { roles?: string[] }
 ): Promise<AdminUser> {
   return apiFetch<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+// --- Roles ---
+
+export interface RoleInfo {
+  id: string;
+  name: string;
+  description: string;
+  is_system: boolean;
+  permissions: string[];
+  members: { id: string; email: string }[];
+}
+
+export interface PermissionCatalog {
+  [group: string]: { permission: string; description: string }[];
+}
+
+export function adminListRoles(): Promise<RoleInfo[]> {
+  return apiFetch<RoleInfo[]>("/admin/roles");
+}
+
+export function adminGetPermissionCatalog(): Promise<PermissionCatalog> {
+  return apiFetch<PermissionCatalog>("/admin/roles/catalog");
+}
+
+export function adminCreateRole(body: { name: string; description?: string; permissions?: string[] }): Promise<RoleInfo> {
+  return apiFetch<RoleInfo>("/admin/roles", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function adminUpdateRole(
+  id: string,
+  patch: { description?: string; permissions?: string[] }
+): Promise<RoleInfo> {
+  return apiFetch<RoleInfo>(`/admin/roles/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function adminDeleteRole(id: string): Promise<void> {
+  return apiFetch<void>(`/admin/roles/${id}`, { method: "DELETE" });
+}
+
+export function adminAddRoleMember(roleId: string, userId: string): Promise<RoleInfo> {
+  return apiFetch<RoleInfo>(`/admin/roles/${roleId}/members`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+export function adminRemoveRoleMember(roleId: string, userId: string): Promise<void> {
+  return apiFetch<void>(`/admin/roles/${roleId}/members/${userId}`, { method: "DELETE" });
 }
 
 // --- Delegations ---
@@ -98,10 +147,10 @@ export interface DelegationGrant {
 
 export interface Delegation {
   id: string;
-  executive_user_id: string;
-  executive_email: string;
-  assistant_user_id: string;
-  assistant_email: string;
+  owner_user_id: string;
+  owner_email: string;
+  delegate_user_id: string;
+  delegate_email: string;
   active: boolean;
   grants: DelegationGrant[];
 }
@@ -110,10 +159,10 @@ export function adminListDelegations(): Promise<Delegation[]> {
   return apiFetch<Delegation[]>("/admin/delegations");
 }
 
-export function adminCreateDelegation(executiveUserId: string, assistantUserId: string): Promise<Delegation> {
+export function adminCreateDelegation(ownerUserId: string, delegateUserId: string): Promise<Delegation> {
   return apiFetch<Delegation>("/admin/delegations", {
     method: "POST",
-    body: JSON.stringify({ executive_user_id: executiveUserId, assistant_user_id: assistantUserId }),
+    body: JSON.stringify({ owner_user_id: ownerUserId, delegate_user_id: delegateUserId }),
   });
 }
 
@@ -168,6 +217,26 @@ export function adminRevokeMcpCredential(id: string): Promise<MCPCredential> {
   return apiFetch<MCPCredential>(`/admin/mcp-credentials/${id}`, { method: "DELETE" });
 }
 
+// --- Own MCP keys (delegates with mcp_keys.create_self) ---
+
+export function myListMcpCredentials(): Promise<MCPCredential[]> {
+  return apiFetch<MCPCredential[]>("/mcp-keys/self");
+}
+
+export function myCreateMcpCredential(
+  name: string,
+  scopes: string[]
+): Promise<MCPCredential & { api_key: string }> {
+  return apiFetch<MCPCredential & { api_key: string }>("/mcp-keys/self", {
+    method: "POST",
+    body: JSON.stringify({ name, scopes }),
+  });
+}
+
+export function myRevokeMcpCredential(id: string): Promise<MCPCredential> {
+  return apiFetch<MCPCredential>(`/mcp-keys/self/${id}`, { method: "DELETE" });
+}
+
 // --- Accounts ---
 
 export interface AdminAccount {
@@ -211,6 +280,23 @@ export function adminAddIcsSubscription(body: { name: string; url: string; color
   );
 }
 
+export function adminTestCaldav(body: { server_url: string; username: string; password: string }): Promise<{
+  ok: boolean;
+  calendars_found: number;
+  names: string[];
+}> {
+  return apiFetch("/admin/accounts/caldav/test", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function adminConnectCaldav(body: {
+  server_url: string;
+  username: string;
+  password: string;
+  email_label?: string;
+}): Promise<{ account_id: string; email_label: string; sync_stats: Record<string, unknown> }> {
+  return apiFetch("/admin/accounts/caldav/connect", { method: "POST", body: JSON.stringify(body) });
+}
+
 
 
 // --- OAuth provider credentials ---
@@ -244,6 +330,8 @@ export function adminClearOAuthConfig(provider: string): Promise<OAuthProviderCo
 
 export interface AISettings {
   openrouter_key_configured: boolean;
+  groq_key_configured: boolean;
+  gemini_key_configured: boolean;
   primary_model: string;
   fallback_model: string;
   emergency_model: string;
@@ -251,6 +339,7 @@ export interface AISettings {
   timeout_seconds: number;
   sources: Record<string, string>;
   litellm_endpoint: string;
+  key_check: string | Record<string, string> | null;
 }
 
 export function adminGetAISettings(): Promise<AISettings> {
@@ -259,6 +348,8 @@ export function adminGetAISettings(): Promise<AISettings> {
 
 export function adminSaveAISettings(body: {
   openrouter_api_key?: string;
+  groq_api_key?: string;
+  gemini_api_key?: string;
   primary_model?: string | null;
   fallback_model?: string | null;
   emergency_model?: string | null;
@@ -270,6 +361,15 @@ export function adminSaveAISettings(body: {
 
 export function adminClearAISettings(): Promise<AISettings> {
   return apiFetch<AISettings>("/admin/ai/settings", { method: "DELETE" });
+}
+
+export interface ProviderModel {
+  id: string;
+  label: string;
+}
+
+export function adminListProviderModels(provider: string): Promise<{ provider: string; models: ProviderModel[] }> {
+  return apiFetch<{ provider: string; models: ProviderModel[] }>(`/admin/ai/models/${provider}`);
 }
 
 // --- Audit log ---

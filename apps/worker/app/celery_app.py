@@ -28,6 +28,10 @@ async def _reconcile_single(session, account: Account) -> dict:
             return await sync_microsoft_account(session, account)
         except ImportError:
             return {"status": "microsoft_sync_pending"}
+    elif account.provider == ProviderType.CALDAV:
+        from chronarch_core.sync.caldav_sync import sync_caldav_account
+
+        return await sync_caldav_account(session, account)
     elif account.provider == ProviderType.ICS:
         from chronarch_core.models.calendar import Calendar
         from chronarch_core.sync.ics_sync import sync_ics_subscription_calendar

@@ -1,0 +1,1 @@
+Create a new event on a calendar. When the user gave a title, time, and target (or an obvious default), book it directly — do not ask for confirmation first. Pass start/end with an explicit UTC offset; if the time has no offset, also pass timezone (IANA, e.g. America/Los_Angeles) — never convert zones yourself, never assume UTC.

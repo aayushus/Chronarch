@@ -1,0 +1,1 @@
+Create an event. WRITE-tier: callers should preview before committing. `start`/`end` are ISO 8601; include an offset (or pass `timezone`, an IANA zone like America/Los_Angeles) so the time lands in the caller's zone. Naive datetimes fall back to the credential owner's home zone, then UTC.

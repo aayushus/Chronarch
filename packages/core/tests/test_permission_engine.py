@@ -31,7 +31,7 @@ def _calendar(**overrides) -> Calendar:
 
 
 def _ea_ctx() -> AuthContext:
-    return AuthContext(user_id="ea-1", role=UserRole.ASSISTANT, actor_type=ActorType.EA_UI)
+    return AuthContext(user_id="ea-1", role=UserRole.DELEGATE, actor_type=ActorType.DELEGATE_UI)
 
 
 def _full_grant() -> DelegationCalendarGrant:
@@ -114,7 +114,7 @@ def test_ea_without_delegation_grant_is_denied():
 
 def test_executive_owner_has_full_access_regardless_of_ea_settings():
     calendar = _calendar(ea_can_view=False, ea_can_edit=False)
-    owner_ctx = AuthContext(user_id="exec-1", role=UserRole.EXECUTIVE, actor_type=ActorType.EXECUTIVE_UI)
+    owner_ctx = AuthContext(user_id="exec-1", role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
 
     decision = resolve_permission(owner_ctx, calendar, CalendarAction.DELETE, is_owner=True)
 
@@ -125,7 +125,7 @@ def test_mcp_client_without_write_scope_cannot_create_event():
     calendar = _calendar(ai_can_read=True, ai_can_write=True)
     ctx = AuthContext(
         user_id="exec-1",
-        role=UserRole.EXECUTIVE,
+        role=UserRole.ADMIN,
         actor_type=ActorType.MCP,
         scopes=frozenset({"calendar.read", "availability.read"}),
     )
@@ -140,7 +140,7 @@ def test_mcp_client_denied_when_calendar_not_ai_readable():
     calendar = _calendar(ai_can_read=False, ai_can_write=False)
     ctx = AuthContext(
         user_id="exec-1",
-        role=UserRole.EXECUTIVE,
+        role=UserRole.ADMIN,
         actor_type=ActorType.MCP,
         scopes=frozenset({"calendar.read", "calendar.write", "availability.read"}),
     )
@@ -149,3 +149,25 @@ def test_mcp_client_denied_when_calendar_not_ai_readable():
 
     assert decision.allowed is False
     assert decision.reason == "calendar_authority_denies"
+
+
+def test_describe_denial_never_leaks_machine_reasons():
+    from chronarch_core.permissions import CalendarAction, describe_denial
+
+    for action in CalendarAction:
+        for reason in (
+            "source_calendar_does_not_permit",
+            "calendar_authority_denies",
+            "user_authority_denies",
+        ):
+            msg = describe_denial(action, reason)
+            assert reason not in msg
+            assert "denied:" not in msg
+            assert len(msg) < 120
+
+
+def test_describe_denial_distinguishes_readonly_provider():
+    from chronarch_core.permissions import CalendarAction, describe_denial
+
+    assert "read-only" in describe_denial(CalendarAction.CREATE, "source_calendar_does_not_permit")
+    assert "permission" in describe_denial(CalendarAction.DELETE, "user_authority_denies")

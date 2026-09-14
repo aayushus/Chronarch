@@ -1,5 +1,7 @@
 import React from "react";
 
+import Icon from "./Icon";
+
 export type CalendarViewMode = "day" | "week" | "month" | "year";
 
 interface Props {
@@ -25,7 +27,10 @@ export default function TopBar({
   isSyncing,
   onSyncNow,
 }: Props) {
-  const dateLabel = viewedDate.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+  const dateLabel =
+    viewMode === "year"
+      ? String(viewedDate.getFullYear())
+      : viewedDate.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
   const weekdayLabel = viewedDate.toLocaleDateString(undefined, { weekday: "long" });
 
   const syncLabel = lastSyncedAt ? formatTimeAgo(new Date(lastSyncedAt)) : "Ready";
@@ -36,28 +41,46 @@ export default function TopBar({
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "14px 24px",
+        flexWrap: "wrap",
+        gap: "8px 16px",
+        rowGap: 8,
+        padding: "12px 24px",
         borderBottom: "1px solid var(--border-subtle)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        <button onClick={onCreateEvent} title="New event (N)" className="icon-btn hoverable" style={circleBtnStyle}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0, flexShrink: 1 }}>
+        <button onClick={onCreateEvent} title="New event (N)" className="icon-btn hoverable" style={{ ...circleBtnStyle, flexShrink: 0 }}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <line x1="7" y1="2" x2="7" y2="12" />
             <line x1="2" y1="7" x2="12" y2="7" />
           </svg>
         </button>
-        <div>
-          <div className="date-header tabular-nums" style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.1 }}>
+        <div style={{ minWidth: 0 }}>
+          <div
+            className="date-header tabular-nums"
+            style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+          >
             {dateLabel}
           </div>
           {viewMode === "day" && (
-            <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>{weekdayLabel}</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{weekdayLabel}</div>
           )}
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 4, background: "var(--bg-raised)", borderRadius: 8, padding: 3 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          background: "var(--bg-raised)",
+          borderRadius: 8,
+          padding: 3,
+          flexShrink: 0,
+          maxWidth: "100%",
+          overflowX: "auto",
+        }}
+      >
         {(["day", "week", "month", "year"] as CalendarViewMode[]).map((mode) => (
           <button
             key={mode}
@@ -66,10 +89,11 @@ export default function TopBar({
             style={{
               border: "none",
               borderRadius: 6,
-              padding: "6px 14px",
+              padding: "6px 12px",
               fontSize: 13,
               cursor: "pointer",
               fontWeight: 500,
+              whiteSpace: "nowrap",
               background: viewMode === mode ? "var(--accent)" : "transparent",
               color: viewMode === mode ? "#fff" : "var(--text-secondary)",
               transition: "var(--transition-fast)",
@@ -80,7 +104,7 @@ export default function TopBar({
         ))}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
         {/* Sync status & trigger */}
         {onSyncNow && (
           <button
@@ -104,13 +128,13 @@ export default function TopBar({
           >
             <span
               style={{
-                display: "inline-block",
+                display: "inline-flex",
                 transform: isSyncing ? "rotate(360deg)" : "none",
                 transition: isSyncing ? "transform 1s linear infinite" : "none",
                 fontSize: 13,
               }}
             >
-              ↻
+              <Icon name="refresh" size={13} />
             </span>
             <span>{isSyncing ? "Syncing…" : `Synced ${syncLabel}`}</span>
           </button>
@@ -119,11 +143,11 @@ export default function TopBar({
         <button onClick={onToday} className="hoverable" style={navBtnStyle}>
           Today
         </button>
-        <button onClick={() => onShift(-1)} className="hoverable" style={navBtnStyle} title="Previous">
-          ‹
+        <button onClick={() => onShift(-1)} className="hoverable" style={navBtnStyle} title="Previous" aria-label="Previous">
+          <Icon name="chevronLeft" size={14} />
         </button>
-        <button onClick={() => onShift(1)} className="hoverable" style={navBtnStyle} title="Next">
-          ›
+        <button onClick={() => onShift(1)} className="hoverable" style={navBtnStyle} title="Next" aria-label="Next">
+          <Icon name="chevronRight" size={14} />
         </button>
       </div>
     </div>
@@ -163,4 +187,7 @@ const navBtnStyle: React.CSSProperties = {
   fontSize: 14,
   cursor: "pointer",
   padding: "6px 10px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
 };

@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
+import { friendlyError } from "../../api/client";
+import EmptyState from "../EmptyState";
 
+import { useAuth } from "../../api/auth";
 import {
   AdminUser,
   MCPCredential,
@@ -7,6 +10,9 @@ import {
   adminListMcpCredentials,
   adminListUsers,
   adminRevokeMcpCredential,
+  myCreateMcpCredential,
+  myListMcpCredentials,
+  myRevokeMcpCredential,
 } from "../../api/admin";
 
 interface ScopeDefinition {
@@ -20,7 +26,7 @@ const SCOPE_DEFINITIONS: ScopeDefinition[] = [
   {
     key: "availability.read",
     label: "Availability (Free/Busy)",
-    desc: "Inspect executive busy blocks without seeing meeting titles or details",
+    desc: "Inspect owner busy blocks without seeing meeting titles or details",
     category: "read",
   },
   {
@@ -65,6 +71,10 @@ const SCOPE_PRESETS: { id: string; name: string; desc: string; scopes: string[] 
 ];
 
 export default function McpSettings() {
+  const { user } = useAuth();
+  // Delegates with only mcp_keys.create_self get a self-service view of
+  // their own keys; full management needs mcp.view / mcp.manage.
+  const adminView = (user?.permissions ?? []).includes("mcp.view") || user?.role === "admin";
   const [creds, setCreds] = useState<MCPCredential[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,13 +86,20 @@ export default function McpSettings() {
   const [showGuide, setShowGuide] = useState(false);
 
   function load() {
-    Promise.all([adminListMcpCredentials(), adminListUsers()])
-      .then(([c, u]) => {
-        setCreds(c);
-        setUsers(u);
-      })
-      .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false));
+    if (adminView) {
+      Promise.all([adminListMcpCredentials(), adminListUsers()])
+        .then(([c, u]) => {
+          setCreds(c);
+          setUsers(u);
+        })
+        .catch((e) => setError(friendlyError(e)))
+        .finally(() => setLoading(false));
+    } else {
+      myListMcpCredentials()
+        .then(setCreds)
+        .catch((e) => setError(friendlyError(e)))
+        .finally(() => setLoading(false));
+    }
   }
 
   useEffect(load, []);
@@ -92,11 +109,11 @@ export default function McpSettings() {
       return;
     }
     try {
-      const updated = await adminRevokeMcpCredential(c.id);
+      const updated = adminView ? await adminRevokeMcpCredential(c.id) : await myRevokeMcpCredential(c.id);
       setCreds((prev) => prev.map((x) => (x.id === c.id ? updated : x)));
       setBanner({ kind: "success", text: `Credential "${c.name}" has been revoked.` });
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
     }
   }
 
@@ -308,30 +325,13 @@ export default function McpSettings() {
 
       {/* Credentials List */}
       {creds.length === 0 ? (
-        <div
-          style={{
-            background: "var(--bg-raised)",
-            borderRadius: 12,
-            border: "1px dashed var(--border)",
-            padding: "40px 20px",
-            textAlign: "center",
-          }}
-        >
-          <div style={{ fontSize: 36, marginBottom: 10, opacity: 0.8 }}>🔑</div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
-            No MCP credentials yet
-          </div>
-          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 18, maxWidth: 460, margin: "0 auto 18px" }}>
-            Create an API key to allow external tools like Claude Desktop or ChatGPT to access calendar tools with strict scope isolation.
-          </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="btn-primary hoverable"
-            style={{ padding: "8px 18px", fontSize: 13, fontWeight: 600 }}
-          >
-            + Create First Credential
-          </button>
-        </div>
+        <EmptyState
+          icon="command"
+          title="No MCP credentials yet"
+          body="Create an API key to allow external tools like Claude Desktop or ChatGPT to access calendar tools with strict scope isolation."
+          actionLabel="Create First Credential"
+          onAction={() => setShowCreate(true)}
+        />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {creds.map((c) => {
@@ -442,6 +442,7 @@ export default function McpSettings() {
       {showCreate && (
         <CreateCredentialModal
           users={users}
+          selfServe={!adminView}
           onClose={() => setShowCreate(false)}
           onCreated={(key) => {
             setShowCreate(false);
@@ -559,10 +560,12 @@ export default function McpSettings() {
 
 function CreateCredentialModal({
   users,
+  selfServe,
   onClose,
   onCreated,
 }: {
   users: AdminUser[];
+  selfServe: boolean;
   onClose: () => void;
   onCreated: (key: string) => void;
 }) {
@@ -597,10 +600,12 @@ function CreateCredentialModal({
     setSaving(true);
     setError(null);
     try {
-      const cred = await adminCreateMcpCredential(name.trim(), userId, [...scopes]);
+      const cred = selfServe
+        ? await myCreateMcpCredential(name.trim(), [...scopes])
+        : await adminCreateMcpCredential(name.trim(), userId, [...scopes]);
       onCreated(cred.api_key);
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
       setSaving(false);
     }
   }
@@ -672,23 +677,25 @@ function CreateCredentialModal({
             />
           </div>
 
-          {/* User selection */}
-          <div>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
-              Authorized User Identity
-            </label>
-            <select
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              style={modalInputStyle}
-            >
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.display_name ? `${u.display_name} (${u.email})` : u.email}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* User selection (admin only — self-service keys act as you) */}
+          {!selfServe && (
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+                Authorized User Identity
+              </label>
+              <select
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                style={modalInputStyle}
+              >
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.display_name ? `${u.display_name} (${u.email})` : u.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Scope Presets */}
           <div>

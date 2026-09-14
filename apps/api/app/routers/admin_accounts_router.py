@@ -14,10 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from chronarch_core.models.account import Account
 from chronarch_core.models.calendar import Calendar
+from chronarch_core.models.enums import UserRole
 from chronarch_core.models.event import UnifiedEvent
 from chronarch_core.models.user import User
 
-from ..admin_guard import require_admin
+from ..admin_guard import require_permission
 from ..deps import get_db_session
 
 router = APIRouter(prefix="/api/v1/admin/accounts", tags=["admin"])
@@ -36,7 +37,7 @@ class AdminAccountOut(BaseModel):
 
 
 @router.get("", response_model=list[AdminAccountOut])
-async def list_accounts(_admin: User = Depends(require_admin), session: AsyncSession = Depends(get_db_session)):
+async def list_accounts(_user: User = Depends(require_permission("accounts.view")), session: AsyncSession = Depends(get_db_session)):
     accounts = list((await session.execute(select(Account))).scalars())
     out = []
     for a in accounts:
@@ -58,9 +59,14 @@ async def list_accounts(_admin: User = Depends(require_admin), session: AsyncSes
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def disconnect_account(
     account_id: str,
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_permission("accounts.manage")),
     session: AsyncSession = Depends(get_db_session),
 ):
+    from chronarch_core.audit import write_audit_entry
+    from chronarch_core.models.delegation import DelegationCalendarGrant
+    from chronarch_core.models.enums import ActorType, AuditAction
+    from chronarch_core.permissions import AuthContext
+
     account = await session.get(Account, account_id)
     if account is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Account not found")
@@ -69,7 +75,34 @@ async def disconnect_account(
         (await session.execute(select(Calendar.id).where(Calendar.account_id == account_id))).scalars()
     )
     if calendar_ids:
+        # Grants on deleted calendars are meaningless — revoke them first
+        # (their own FK would otherwise block the calendar delete). Each
+        # revocation is audited so the trail shows why access disappeared.
+        grants = list(
+            (
+                await session.execute(
+                    select(DelegationCalendarGrant).where(
+                        DelegationCalendarGrant.calendar_id.in_(calendar_ids)
+                    )
+                )
+            ).scalars()
+        )
+        admin_ctx = AuthContext(
+            user_id=admin.id, role=admin.role, actor_type=ActorType.API,
+            is_admin=admin.role == UserRole.ADMIN,
+        )
+        for grant in grants:
+            await write_audit_entry(
+                session,
+                ctx=admin_ctx,
+                action=AuditAction.REVOKE_DELEGATION,
+                calendar_id=grant.calendar_id,
+                detail={"delegation_id": grant.delegation_id, "reason": "account disconnected"},
+            )
+            await session.delete(grant)
         await session.execute(delete(UnifiedEvent).where(UnifiedEvent.calendar_id.in_(calendar_ids)))
+        # Audit entries referencing these calendars are preserved with their
+        # calendar link cleared (ON DELETE SET NULL, migration 0005).
         await session.execute(delete(Calendar).where(Calendar.account_id == account_id))
     await session.delete(account)
     await session.flush()
@@ -84,7 +117,7 @@ class IcsSubscriptionCreate(BaseModel):
 @router.post("/ics-subscription", status_code=status.HTTP_201_CREATED)
 async def create_ics_subscription(
     body: IcsSubscriptionCreate,
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_permission("accounts.manage")),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Add an external ICS calendar subscription feed (BR-CAL-004)."""
@@ -140,7 +173,7 @@ async def create_ics_subscription(
 @router.post("/{account_id}/sync")
 async def sync_account(
     account_id: str,
-    _admin: User = Depends(require_admin),
+    _user: User = Depends(require_permission("accounts.manage")),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Trigger an on-demand reconciliation sync for a connected provider account."""
@@ -148,6 +181,7 @@ async def sync_account(
     from chronarch_core.models.enums import ProviderType
     from chronarch_core.sync.google_sync import sync_google_account
     from chronarch_core.sync.microsoft_sync import sync_microsoft_account
+    from chronarch_core.sync.caldav_sync import sync_caldav_account
     from chronarch_core.sync.ics_sync import sync_ics_subscription_calendar
 
     account = await session.get(Account, account_id)
@@ -161,6 +195,8 @@ async def sync_account(
             stats = await sync_google_account(session, account)
         elif account.provider == ProviderType.MICROSOFT:
             stats = await sync_microsoft_account(session, account)
+        elif account.provider == ProviderType.CALDAV:
+            stats = await sync_caldav_account(session, account)
         elif account.provider == ProviderType.ICS:
             # Sync all subscription calendars belonging to this ICS account
             sub_cals = list(

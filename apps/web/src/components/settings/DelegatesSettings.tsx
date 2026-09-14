@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { friendlyError } from "../../api/client";
+import EmptyState from "../EmptyState";
 
 import {
   AdminCalendar,
@@ -43,9 +45,9 @@ const GRANT_CATEGORIES: GrantCategory[] = [
     title: "Collaboration & Advanced",
     fields: [
       { key: "can_manage_attendees", label: "Manage attendees", desc: "Add or remove participants from invites" },
-      { key: "can_respond_to_invitations", label: "Respond to invitations", desc: "Accept, decline, or mark tentative for executive" },
+      { key: "can_respond_to_invitations", label: "Respond to invitations", desc: "Accept, decline, or mark tentative for calendar owner" },
       { key: "can_import_ics", label: "Import ICS", desc: "Upload and import iCalendar files" },
-      { key: "can_move_between_calendars", label: "Move across calendars", desc: "Shift events between executive calendars" },
+      { key: "can_move_between_calendars", label: "Move across calendars", desc: "Shift events between owner calendars" },
     ],
   },
 ];
@@ -141,7 +143,7 @@ export default function DelegatesSettings() {
           setExpandedId(d[0].id);
         }
       })
-      .catch((e) => setError(String(e)))
+      .catch((e) => setError(friendlyError(e)))
       .finally(() => setLoading(false));
   }
 
@@ -151,21 +153,21 @@ export default function DelegatesSettings() {
     setDelegations((prev) => prev.map((x) => (x.id === d.id ? { ...x, active: !x.active } : x)));
     try {
       await adminSetDelegationActive(d.id, !d.active);
-      setBanner({ kind: "success", text: `Updated delegation status for ${d.assistant_email}.` });
+      setBanner({ kind: "success", text: `Updated sharing status for ${d.delegate_email}.` });
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
       load();
     }
   }
 
   async function handleDeleteDelegation(d: Delegation) {
-    if (!confirm(`Delete pairing between ${d.assistant_email} and ${d.executive_email}?`)) return;
+    if (!confirm(`Delete sharing between ${d.delegate_email} and ${d.owner_email}?`)) return;
     try {
       await adminDeleteDelegation(d.id);
       setDelegations((prev) => prev.filter((x) => x.id !== d.id));
       setBanner({ kind: "success", text: "Pairing deleted." });
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
     }
   }
 
@@ -179,7 +181,7 @@ export default function DelegatesSettings() {
       }
       setDelegations((prev) => prev.map((x) => (x.id === delegation.id ? updated : x)));
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
     }
   }
 
@@ -190,7 +192,7 @@ export default function DelegatesSettings() {
       setDelegations((prev) => prev.map((x) => (x.id === delegation.id ? updated : x)));
       setBanner({ kind: "success", text: "Applied permission preset." });
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
     }
   }
 
@@ -200,7 +202,7 @@ export default function DelegatesSettings() {
       const updated = await adminUpsertGrant(delegation.id, grant.calendar_id, next);
       setDelegations((prev) => prev.map((x) => (x.id === delegation.id ? updated : x)));
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
     }
   }
 
@@ -255,30 +257,13 @@ export default function DelegatesSettings() {
 
       {/* Empty State */}
       {delegations.length === 0 ? (
-        <div
-          style={{
-            background: "var(--bg-raised)",
-            borderRadius: "var(--radius-md)",
-            border: "1px dashed var(--border)",
-            padding: "36px 20px",
-            textAlign: "center",
-          }}
-        >
-          <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.8 }}>👥</div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
-            No delegate pairings configured
-          </div>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16 }}>
-            Pair an Executive with an Assistant to grant delegated scheduling authority over specific calendars.
-          </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="btn-primary hoverable"
-            style={{ padding: "7px 16px", fontSize: 12, fontWeight: 600 }}
-          >
-            + Create First Pairing
-          </button>
-        </div>
+        <EmptyState
+          icon="users"
+          title="No delegate pairings configured"
+          body="Pair an Executive with an Assistant to grant delegated scheduling authority over specific calendars."
+          actionLabel="Create First Pairing"
+          onAction={() => setShowCreate(true)}
+        />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {delegations.map((d) => {
@@ -326,7 +311,7 @@ export default function DelegatesSettings() {
                     </div>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
-                        <span>{d.assistant_email}</span>
+                        <span>{d.delegate_email}</span>
                         <span
                           style={{
                             fontSize: 11,
@@ -339,7 +324,7 @@ export default function DelegatesSettings() {
                         >
                           assists
                         </span>
-                        <span>{d.executive_email}</span>
+                        <span>{d.owner_email}</span>
                       </div>
                       <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 3 }}>
                         <span style={{ fontWeight: 600, color: d.grants.length > 0 ? "var(--text-primary)" : "var(--text-tertiary)" }}>
@@ -612,10 +597,10 @@ function CreateDelegationModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const executives = users.filter((u) => u.role === "executive");
-  const assistants = users.filter((u) => u.role === "assistant");
-  const [executiveId, setExecutiveId] = useState(executives[0]?.id ?? "");
-  const [assistantId, setAssistantId] = useState(assistants[0]?.id ?? "");
+  const owners = users.filter((u) => u.role === "admin");
+  const delegates = users.filter((u) => u.role === "delegate");
+  const [ownerId, setOwnerId] = useState(owners[0]?.id ?? "");
+  const [delegateId, setDelegateId] = useState(delegates[0]?.id ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -624,10 +609,10 @@ function CreateDelegationModal({
     setSaving(true);
     setError(null);
     try {
-      await adminCreateDelegation(executiveId, assistantId);
+      await adminCreateDelegation(ownerId, delegateId);
       onCreated();
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
       setSaving(false);
     }
   }
@@ -661,7 +646,7 @@ function CreateDelegationModal({
           Authorize an Assistant to view, manage, and schedule events on behalf of an Executive.
         </p>
 
-        {executives.length === 0 || assistants.length === 0 ? (
+        {owners.length === 0 || delegates.length === 0 ? (
           <div
             style={{
               fontSize: 12,
@@ -682,12 +667,12 @@ function CreateDelegationModal({
                 Executive (Calendar Owner)
               </label>
               <select
-                value={executiveId}
-                onChange={(e) => setExecutiveId(e.target.value)}
+                value={ownerId}
+                onChange={(e) => setOwnerId(e.target.value)}
                 className="input-standard"
                 style={{ width: "100%", fontSize: 13 }}
               >
-                {executives.map((u) => (
+                {owners.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.display_name} ({u.email})
                   </option>
@@ -700,12 +685,12 @@ function CreateDelegationModal({
                 Assistant
               </label>
               <select
-                value={assistantId}
-                onChange={(e) => setAssistantId(e.target.value)}
+                value={delegateId}
+                onChange={(e) => setDelegateId(e.target.value)}
                 className="input-standard"
                 style={{ width: "100%", fontSize: 13 }}
               >
-                {assistants.map((u) => (
+                {delegates.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.display_name} ({u.email})
                   </option>
@@ -733,7 +718,7 @@ function CreateDelegationModal({
               </button>
               <button
                 type="submit"
-                disabled={saving || executives.length === 0 || assistants.length === 0}
+                disabled={saving || owners.length === 0 || delegates.length === 0}
                 className="btn-primary hoverable"
                 style={{ padding: "8px 18px" }}
               >

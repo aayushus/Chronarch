@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { friendlyError } from "../../api/client";
+import { useAuth } from "../../api/auth";
 import {
   AISettings,
   adminClearAISettings,
   adminGetAISettings,
+  adminListProviderModels,
   adminSaveAISettings,
 } from "../../api/admin";
 
@@ -18,11 +21,11 @@ interface ModelPreset {
 const PRESETS: ModelPreset[] = [
   {
     id: "free-tier",
-    name: "Free Open-Source Tier",
-    desc: "Default community models via OpenRouter (zero cost)",
-    primary: "openrouter/meta-llama/llama-3.1-8b-instruct:free",
-    fallback: "openrouter/google/gemma-2-9b-it:free",
-    emergency: "openrouter/nousresearch/hermes-3-llama-3.1-405b:free",
+    name: "Free Multi-Provider Tier",
+    desc: "Groq → Gemini → OpenRouter fallback chain (zero cost)",
+    primary: "groq/openai/gpt-oss-20b",
+    fallback: "gemini/gemini-2.5-flash",
+    emergency: "openrouter/nvidia/nemotron-3.5-lightning:free",
   },
   {
     id: "high-perf",
@@ -42,16 +45,147 @@ const PRESETS: ModelPreset[] = [
   },
 ];
 
+const MODEL_CATALOG: Record<string, { id: string; label: string }[]> = {
+  groq: [
+    { id: "groq/openai/gpt-oss-20b", label: "GPT-OSS 20B (fast, 1K/day free)" },
+    { id: "groq/openai/gpt-oss-120b", label: "GPT-OSS 120B (stronger, 1K/day free)" },
+    { id: "groq/llama-3.3-70b-versatile", label: "Llama 3.3 70B" },
+    { id: "groq/llama-3.1-8b-instant", label: "Llama 3.1 8B (fastest)" },
+    { id: "groq/qwen/qwen3-32b", label: "Qwen3 32B" },
+  ],
+  gemini: [
+    { id: "gemini/gemini-2.5-flash", label: "Gemini 2.5 Flash (~1.5K/day free)" },
+    { id: "gemini/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite" },
+    { id: "gemini/gemini-2.5-pro", label: "Gemini 2.5 Pro (tight free limits)" },
+  ],
+  openrouter: [
+    { id: "openrouter/nvidia/nemotron-3.5-lightning:free", label: "Nemotron Lightning (free)" },
+    { id: "openrouter/google/gemma-4-31b-it:free", label: "Gemma 4 31B (free)" },
+    { id: "openrouter/liquid/lfm-2.5-2.6b:free", label: "Liquid 2.5 (free)" },
+  ],
+};
+
+const PROVIDERS = [
+  { id: "groq", label: "Groq" },
+  { id: "gemini", label: "Gemini" },
+  { id: "openrouter", label: "OpenRouter" },
+  { id: "custom", label: "Custom…" },
+];
+
+/** Split a stored model id into provider + remainder for the dropdowns. */
+function parseModelId(value: string): { provider: string; model: string } {
+  const v = (value || "").trim();
+  for (const p of ["groq", "gemini", "openrouter"]) {
+    if (v === p || v.startsWith(p + "/")) return { provider: p, model: v };
+  }
+  return { provider: "custom", model: v };
+}
+
+function TierModelField({
+  label,
+  hint,
+  effective,
+  draft,
+  onChange,
+  liveCatalog,
+}: {
+  label: string;
+  hint: string;
+  effective: string | undefined;
+  draft: string;
+  onChange: (fullId: string) => void;
+  liveCatalog: Record<string, { id: string; label: string }[]>;
+}) {
+  // What the field shows: unsaved draft wins, else the active value.
+  const shown = draft || effective || "";
+  const { provider, model } = parseModelId(shown);
+  // Live provider catalog wins when fetched; curated fallback otherwise.
+  const catalogFor = (p: string) =>
+    liveCatalog[p]?.length ? liveCatalog[p] : MODEL_CATALOG[p] ?? [];
+  const options = catalogFor(provider);
+  const inList = options.some((o) => o.id === model);
+  const customMode = provider === "custom" || (model !== "" && !inList);
+
+  function pickProvider(next: string) {
+    if (next === "custom") {
+      onChange(shown.startsWith("custom/") ? shown : model || effective || "");
+      return;
+    }
+    const first = catalogFor(next)[0]?.id;
+    if (first) onChange(first);
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+          {label}
+        </label>
+        <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{hint}</span>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <select
+          value={customMode ? "custom" : provider}
+          onChange={(e) => pickProvider(e.target.value)}
+          className="input-standard"
+          style={{ flex: "0 0 150px", fontSize: 12 }}
+          aria-label={`${label} provider`}
+        >
+          {PROVIDERS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+        {customMode ? (
+          <input
+            placeholder="provider/model-id"
+            value={draft}
+            onChange={(e) => onChange(e.target.value)}
+            autoComplete="off"
+            className="input-standard"
+            style={{ flex: 1, fontSize: 12 }}
+          />
+        ) : (
+          <select
+            value={inList ? model : ""}
+            onChange={(e) => onChange(e.target.value)}
+            className="input-standard"
+            style={{ flex: 1, fontSize: 12 }}
+            aria-label={`${label} model`}
+          >
+            {!inList && <option value="">{model || effective}</option>}
+            {options.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+      {!draft && effective && (
+        <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
+          Active: <code style={{ fontFamily: "var(--font-mono, monospace)" }}>{effective}</code>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AiSettings() {
+  const { user } = useAuth();
+  const canManage = user?.role === "admin" || (user?.permissions ?? []).includes("ai.manage");
   const [settings, setSettings] = useState<AISettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // Form states
+  // Form states — one key input per provider (free tiers are independent)
+  const [groqKey, setGroqKey] = useState("");
+  const [geminiKey, setGeminiKey] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [showKeys, setShowKeys] = useState(false);
   const [primary, setPrimary] = useState("");
   const [fallback, setFallback] = useState("");
   const [emergency, setEmergency] = useState("");
@@ -61,11 +195,30 @@ export default function AiSettings() {
   // Advanced toggles
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // Live provider catalogs (fetched with stored keys; curated fallback).
+  const [liveCatalog, setLiveCatalog] = useState<Record<string, { id: string; label: string }[]>>({});
+  const [liveNote, setLiveNote] = useState<string | null>(null);
+
   useEffect(() => {
     adminGetAISettings()
       .then(setSettings)
-      .catch((e) => setError(String(e)))
+      .catch((e) => setError(friendlyError(e)))
       .finally(() => setLoading(false));
+    Promise.all(
+      ["groq", "gemini", "openrouter"].map((p) =>
+        adminListProviderModels(p)
+          .then((r) => ({ p, models: r.models }))
+          .catch(() => ({ p, models: [] as { id: string; label: string }[] }))
+      )
+    ).then((rows) => {
+      const live: Record<string, { id: string; label: string }[]> = {};
+      for (const row of rows) {
+        if (row.models.length > 0) live[row.p] = row.models;
+      }
+      setLiveCatalog(live);
+      const n = Object.keys(live).length;
+      setLiveNote(n === 3 ? "Live model lists loaded from all 3 providers." : n === 0 ? null : `Live model lists loaded (${Object.keys(live).join(", ")}); rest use the curated fallback.`);
+    });
   }, []);
 
   async function handleSave() {
@@ -74,6 +227,8 @@ export default function AiSettings() {
     setSaved(false);
     try {
       const updated = await adminSaveAISettings({
+        ...(groqKey.trim() ? { groq_api_key: groqKey.trim() } : {}),
+        ...(geminiKey.trim() ? { gemini_api_key: geminiKey.trim() } : {}),
         ...(apiKey.trim() ? { openrouter_api_key: apiKey.trim() } : {}),
         ...(primary.trim() ? { primary_model: primary.trim() } : {}),
         ...(fallback.trim() ? { fallback_model: fallback.trim() } : {}),
@@ -82,6 +237,8 @@ export default function AiSettings() {
         ...(timeout ? { timeout_seconds: Number(timeout) } : {}),
       });
       setSettings(updated);
+      setGroqKey("");
+      setGeminiKey("");
       setApiKey("");
       setPrimary("");
       setFallback("");
@@ -90,7 +247,7 @@ export default function AiSettings() {
       setTimeout("");
       setSaved(true);
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
     } finally {
       setSaving(false);
     }
@@ -99,7 +256,7 @@ export default function AiSettings() {
   async function handleClear() {
     if (
       !confirm(
-        "Reset AI routing settings to defaults and remove stored OpenRouter key?"
+        "Reset AI routing settings to defaults and remove all stored provider keys?"
       )
     )
       return;
@@ -107,6 +264,8 @@ export default function AiSettings() {
     try {
       setSettings(await adminClearAISettings());
       setSaved(false);
+      setGroqKey("");
+      setGeminiKey("");
       setApiKey("");
       setPrimary("");
       setFallback("");
@@ -114,7 +273,7 @@ export default function AiSettings() {
       setStrategy("");
       setTimeout("");
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
     } finally {
       setSaving(false);
     }
@@ -134,7 +293,16 @@ export default function AiSettings() {
     );
   }
 
-  const keyConfigured = settings?.openrouter_key_configured ?? false;
+  const anyKeyConfigured =
+    (settings?.openrouter_key_configured ?? false) ||
+    (settings?.groq_key_configured ?? false) ||
+    (settings?.gemini_key_configured ?? false);
+  const keyCheckUnknown =
+    saved &&
+    (settings?.key_check === "unknown" ||
+      (typeof settings?.key_check === "object" &&
+        settings?.key_check !== null &&
+        Object.values(settings.key_check).includes("unknown")));
   const dbFieldsCount = settings
     ? Object.values(settings.sources).filter((s) => s === "db").length
     : 0;
@@ -153,12 +321,12 @@ export default function AiSettings() {
               fontWeight: 600,
               padding: "2px 8px",
               borderRadius: 12,
-              background: keyConfigured ? "rgba(40, 200, 64, 0.15)" : "rgba(255, 159, 10, 0.15)",
-              color: keyConfigured ? "var(--success)" : "var(--warning)",
-              border: `1px solid ${keyConfigured ? "rgba(40, 200, 64, 0.3)" : "rgba(255, 159, 10, 0.3)"}`,
+              background: anyKeyConfigured ? "rgba(40, 200, 64, 0.15)" : "rgba(255, 159, 10, 0.15)",
+              color: anyKeyConfigured ? "var(--success)" : "var(--warning)",
+              border: `1px solid ${anyKeyConfigured ? "rgba(40, 200, 64, 0.3)" : "rgba(255, 159, 10, 0.3)"}`,
             }}
           >
-            {keyConfigured ? "OpenRouter Connected" : "API Key Required"}
+            {anyKeyConfigured ? "AI Connected" : "API Key Required"}
           </span>
         </div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
@@ -182,13 +350,30 @@ export default function AiSettings() {
             justifyContent: "space-between",
           }}
         >
-          <span>✓ Settings saved successfully. Changes take effect on next model invocation.</span>
+          <span>✓ Settings saved successfully. Applies automatically within a few seconds — no restart needed.</span>
           <button
             onClick={() => setSaved(false)}
             style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: 16 }}
           >
             ×
           </button>
+        </div>
+      )}
+
+      {keyCheckUnknown && (
+        <div
+          style={{
+            fontSize: 13,
+            borderRadius: 10,
+            padding: "12px 16px",
+            marginBottom: 20,
+            background: "rgba(255, 159, 10, 0.12)",
+            border: "1px solid rgba(255, 159, 10, 0.3)",
+            color: "var(--warning)",
+          }}
+        >
+          Saved, but OpenRouter couldn't be reached to verify the key (network issue?).
+          If the copilot reports an error, double-check the key and save again.
         </div>
       )}
 
@@ -208,7 +393,7 @@ export default function AiSettings() {
         </div>
       )}
 
-      {/* Card 1: API Key */}
+      {/* Card 1: Provider API Keys (independent free tiers, fallback across them) */}
       <div
         style={{
           background: "var(--bg-raised)",
@@ -219,82 +404,53 @@ export default function AiSettings() {
           boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
-              OpenRouter API Key
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
-              Stored securely with encryption. Used as gateway to access all configured models.
-            </div>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
+            Provider API Keys
           </div>
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              padding: "3px 8px",
-              borderRadius: 6,
-              background: keyConfigured ? "rgba(40, 200, 64, 0.15)" : "var(--bg-app)",
-              color: keyConfigured ? "var(--success)" : "var(--text-tertiary)",
-              border: `1px solid ${keyConfigured ? "rgba(40, 200, 64, 0.25)" : "var(--border)"}`,
-            }}
-          >
-            {keyConfigured ? "CONFIGURED" : "NOT CONFIGURED"}
-          </span>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+            Stored securely with encryption. Add any — the copilot falls back across
+            providers when one runs out. Groq and Gemini need no credit card.
+          </div>
         </div>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <div style={{ flex: 1, position: "relative" }}>
-            <input
-              placeholder={keyConfigured ? "•••••••••••••••••••••••••••••••• (Key saved — enter new to replace)" : "sk-or-v1-…"}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              type={showApiKey ? "text" : "password"}
-              autoComplete="new-password"
-              style={{
-                width: "100%",
-                background: "var(--bg-app)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                color: "var(--text-primary)",
-                padding: "8px 48px 8px 12px",
-                fontSize: 13,
-                boxSizing: "border-box",
-              }}
-            />
-            {apiKey && (
-              <button
-                type="button"
-                onClick={() => setShowApiKey(!showApiKey)}
-                style={{
-                  position: "absolute",
-                  right: 10,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "none",
-                  border: "none",
-                  color: "var(--text-tertiary)",
-                  cursor: "pointer",
-                  fontSize: 11,
-                  padding: 2,
-                }}
-              >
-                {showApiKey ? "Hide" : "Show"}
-              </button>
-            )}
-          </div>
-        </div>
-        <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 8 }}>
-          Need a key? Generate one in{" "}
-          <a
-            href="https://openrouter.ai/keys"
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: "var(--primary)", textDecoration: "none" }}
-          >
-            OpenRouter Dashboard ↗
-          </a>
-        </div>
+        <ProviderKeyRow
+          title="Groq"
+          hint="Fast open-weights models · ~14k requests/day free · console.groq.com → API Keys · starts with gsk_"
+          dashboardUrl="https://console.groq.com/keys"
+          dashboardLabel="Groq Console ↗"
+          placeholder="gsk_…"
+          configured={settings?.groq_key_configured ?? false}
+          value={groqKey}
+          onChange={setGroqKey}
+          show={showKeys}
+          onToggleShow={() => setShowKeys(!showKeys)}
+        />
+        <ProviderKeyRow
+          title="Gemini (Google AI Studio)"
+          hint="Quality frontier model · ~1.5k requests/day free · aistudio.google.com → Get API Key"
+          dashboardUrl="https://aistudio.google.com/apikey"
+          dashboardLabel="Google AI Studio ↗"
+          placeholder="AIza…"
+          configured={settings?.gemini_key_configured ?? false}
+          value={geminiKey}
+          onChange={setGeminiKey}
+          show={showKeys}
+          onToggleShow={() => setShowKeys(!showKeys)}
+        />
+        <ProviderKeyRow
+          title="OpenRouter"
+          hint="Aggregator safety net · 50 requests/day free · openrouter.ai → Keys · starts with sk-or-v1-"
+          dashboardUrl="https://openrouter.ai/keys"
+          dashboardLabel="OpenRouter Dashboard ↗"
+          placeholder="sk-or-v1-…"
+          configured={settings?.openrouter_key_configured ?? false}
+          value={apiKey}
+          onChange={setApiKey}
+          show={showKeys}
+          onToggleShow={() => setShowKeys(!showKeys)}
+          last
+        />
       </div>
 
       {/* Card 2: Model Routing & Tiers */}
@@ -316,6 +472,11 @@ export default function AiSettings() {
             <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
               Hierarchical fallback strategy ensures prompt responses even during provider outages.
             </div>
+            {liveNote && (
+              <div style={{ fontSize: 11, color: "var(--success)", marginTop: 4 }}>
+                ✓ {liveNote}
+              </div>
+            )}
           </div>
         </div>
 
@@ -348,56 +509,34 @@ export default function AiSettings() {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {/* Primary Model */}
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
-                Primary Model
-              </label>
-              <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>First choice for all requests</span>
-            </div>
-            <input
-              placeholder={settings?.primary_model}
-              value={primary}
-              onChange={(e) => setPrimary(e.target.value)}
-              autoComplete="off"
-              style={fieldInputStyle}
-            />
-          </div>
+          <TierModelField
+            label="Primary Model"
+            hint="First choice for all requests"
+            effective={settings?.primary_model}
+            draft={primary}
+            onChange={setPrimary}
+            liveCatalog={liveCatalog}
+          />
 
           {/* Fallback Model */}
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
-                Secondary Fallback Model
-              </label>
-              <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>Used on rate-limit or timeout</span>
-            </div>
-            <input
-              placeholder={settings?.fallback_model}
-              value={fallback}
-              onChange={(e) => setFallback(e.target.value)}
-              autoComplete="off"
-              style={fieldInputStyle}
-            />
-          </div>
+          <TierModelField
+            label="Secondary Fallback Model"
+            hint="Used on rate-limit or timeout"
+            effective={settings?.fallback_model}
+            draft={fallback}
+            onChange={setFallback}
+            liveCatalog={liveCatalog}
+          />
 
           {/* Emergency Fallback */}
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
-                Emergency Fallback Model
-              </label>
-              <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>High availability safety net</span>
-            </div>
-            <input
-              placeholder={settings?.emergency_model}
-              value={emergency}
-              onChange={(e) => setEmergency(e.target.value)}
-              autoComplete="off"
-              style={fieldInputStyle}
-            />
-          </div>
+          <TierModelField
+            label="Emergency Fallback Model"
+            hint="High availability safety net"
+            effective={settings?.emergency_model}
+            draft={emergency}
+            onChange={setEmergency}
+            liveCatalog={liveCatalog}
+          />
         </div>
 
         {/* Collapsible Advanced Parameters */}
@@ -460,10 +599,11 @@ export default function AiSettings() {
 
       {/* Action Buttons */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || !canManage}
+            title={canManage ? undefined : "Read-only — you have ai.view but not ai.manage"}
             className="btn-primary"
             style={{ padding: "8px 18px", fontSize: 13, fontWeight: 600 }}
           >
@@ -471,12 +611,17 @@ export default function AiSettings() {
           </button>
           <button
             onClick={handleClear}
-            disabled={saving}
+            disabled={saving || !canManage}
             className="btn-secondary"
             style={{ padding: "8px 16px", fontSize: 13 }}
           >
             Reset to Defaults
           </button>
+          {!canManage && (
+            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+              Read-only — ask an admin to change these.
+            </span>
+          )}
         </div>
 
         <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
@@ -541,6 +686,100 @@ export default function AiSettings() {
             last
           />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ProviderKeyRow({
+  title,
+  hint,
+  dashboardUrl,
+  dashboardLabel,
+  placeholder,
+  configured,
+  value,
+  onChange,
+  show,
+  onToggleShow,
+  last,
+}: {
+  title: string;
+  hint: string;
+  dashboardUrl: string;
+  dashboardLabel: string;
+  placeholder: string;
+  configured: boolean;
+  value: string;
+  onChange: (v: string) => void;
+  show: boolean;
+  onToggleShow: () => void;
+  last?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        borderTop: "1px solid var(--border-subtle)",
+        paddingTop: 14,
+        marginTop: 14,
+        ...(last ? { marginBottom: 0 } : {}),
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <span style={{ fontSize: 13, fontWeight: 700 }}>{title}</span>
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: 0.5,
+            padding: "2px 6px",
+            borderRadius: 4,
+            background: configured ? "rgba(48, 209, 88, 0.15)" : "rgba(255, 255, 255, 0.08)",
+            color: configured ? "var(--success)" : "var(--text-tertiary)",
+          }}
+        >
+          {configured ? "CONFIGURED" : "NOT CONFIGURED"}
+        </span>
+      </div>
+      <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "0 0 10px" }}>{hint}</p>
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div style={{ flex: 1, position: "relative" }}>
+          <input
+            type={show ? "text" : "password"}
+            placeholder={configured ? "•••••••• (saved — enter new to replace)" : placeholder}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            autoComplete="new-password"
+            className="input-standard"
+            style={{ width: "100%", paddingRight: 48 }}
+          />
+          {value && (
+            <button
+              type="button"
+              onClick={onToggleShow}
+              style={{
+                position: "absolute",
+                right: 10,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "none",
+                border: "none",
+                color: "var(--text-tertiary)",
+                cursor: "pointer",
+                fontSize: 11,
+                padding: 2,
+              }}
+            >
+              {show ? "Hide" : "Show"}
+            </button>
+          )}
+        </div>
+      </div>
+      <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 8 }}>
+        Need a key? Generate one in{" "}
+        <a href={dashboardUrl} target="_blank" rel="noreferrer" style={{ color: "var(--primary)", textDecoration: "none" }}>
+          {dashboardLabel}
+        </a>
       </div>
     </div>
   );

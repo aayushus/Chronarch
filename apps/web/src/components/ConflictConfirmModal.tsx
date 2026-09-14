@@ -1,6 +1,7 @@
 import React from "react";
 
 import { ConflictInfo } from "../api/calendar";
+import Icon from "./Icon";
 import { formatTimeRange } from "../lib/dates";
 
 interface Props {
@@ -28,7 +29,7 @@ export default function ConflictConfirmModal({
   return (
     <div className="modal-backdrop" onClick={onDiscard}>
       <div
-        className="modal-card"
+        className="modal-card mount-rise"
         onClick={(e) => e.stopPropagation()}
         style={{
           padding: 24,
@@ -37,7 +38,9 @@ export default function ConflictConfirmModal({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <span style={{ fontSize: 16 }}>⚠️</span>
+          <span style={{ color: "var(--warning)", display: "inline-flex" }}>
+            <Icon name="alert" size={16} />
+          </span>
           <div style={{ fontSize: 16, fontWeight: 700 }}>{title}</div>
         </div>
         <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 14, lineHeight: 1.4 }}>{summary}</div>

@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chronarch_core.crypto import hash_mcp_key
-from chronarch_core.models.enums import ActorType
+from chronarch_core.models.enums import ActorType, UserRole
 from chronarch_core.models.mcp_credential import MCPCredential
 from chronarch_core.models.user import User
 from chronarch_core.permissions import AuthContext
@@ -47,6 +47,6 @@ async def resolve_auth_context(session: AsyncSession, raw_api_key: str) -> AuthC
         user_id=user.id,
         role=user.role,
         actor_type=ActorType.MCP,
-        is_admin=user.is_admin,
+        is_admin=user.role == UserRole.ADMIN,
         scopes=frozenset(cred.scopes),
     )

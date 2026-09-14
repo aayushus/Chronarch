@@ -1,4 +1,4 @@
-"""Session auth for the human UI (Executive/EA). Admin/MCP-credential auth
+"""Session auth for the human UI (admin/delegate). Admin/MCP-credential auth
 is a separate concern (apps/mcp handles scoped API keys) — this module only
 issues/verifies JWTs for logged-in browser sessions.
 """
@@ -15,7 +15,7 @@ import redis.asyncio as aioredis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from chronarch_core.models.enums import ActorType
+from chronarch_core.models.enums import ActorType, UserRole
 from chronarch_core.models.user import User
 from chronarch_core.permissions import AuthContext
 
@@ -45,12 +45,18 @@ def verify_password(password: str, password_hash: str) -> bool:
     return _pwd_context.verify(password, password_hash)
 
 
-def create_access_token(user_id: str) -> str:
+def create_access_token(user_id: str, remember_me: bool = False) -> str:
+    """Issue a session JWT: short-lived by default, long-lived when the user
+    checked "Remember me" at login. Both carry a jti so logout/revocation
+    works identically through the Redis blocklist."""
+    from .config import REMEMBER_ME_DAYS
+
     now = datetime.now(timezone.utc)
-    expire = now + timedelta(minutes=JWT_EXPIRE_MINUTES)
+    lifetime = timedelta(days=REMEMBER_ME_DAYS) if remember_me else timedelta(minutes=JWT_EXPIRE_MINUTES)
+    expire = now + lifetime
     jti = str(uuid.uuid4())
     return jwt.encode(
-        {"sub": user_id, "exp": expire, "iat": now, "jti": jti},
+        {"sub": user_id, "exp": expire, "iat": now, "jti": jti, "rm": remember_me},
         JWT_SECRET,
         algorithm=JWT_ALGORITHM,
     )
@@ -108,5 +114,8 @@ async def get_current_user(
 
 
 def build_auth_context(user: User, actor_type: ActorType) -> AuthContext:
-    return AuthContext(user_id=user.id, role=user.role, actor_type=actor_type, is_admin=user.is_admin)
+    # ADMIN user-role short-circuits to full access inside the engine;
+    # delegates are gated per-calendar by their DelegationCalendarGrants.
+    return AuthContext(user_id=user.id, role=user.role, actor_type=actor_type,
+                       is_admin=user.role == UserRole.ADMIN)
 

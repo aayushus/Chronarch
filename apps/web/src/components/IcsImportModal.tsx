@@ -1,5 +1,7 @@
 import React, { useState } from "react";
+import { friendlyError } from "../api/client";
 import { CalendarSummary, IcsPreviewEvent, importIcsEvent, previewIcs } from "../api/calendar";
+import Icon from "./Icon";
 
 interface Props {
   calendars: CalendarSummary[];
@@ -45,7 +47,7 @@ export default function IcsImportModal({ calendars, initialContent, onClose, onI
         setPreviewEvents(res.events);
       }
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -87,7 +89,7 @@ export default function IcsImportModal({ calendars, initialContent, onClose, onI
       onImported();
       onClose();
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
       setImporting(false);
     }
   }
@@ -130,7 +132,21 @@ export default function IcsImportModal({ calendars, initialContent, onClose, onI
               style={{ display: "none" }}
               onChange={handleFileChange}
             />
-            <div style={{ fontSize: 32, marginBottom: 8 }}>📁</div>
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                background: "rgba(10, 132, 255, 0.12)",
+                color: "var(--accent)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 8,
+              }}
+            >
+              <Icon name="upload" size={20} />
+            </div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>Click to select or drag & drop an .ics file</div>
             <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 4 }}>
               Supports standard iCalendar exports (.ics)

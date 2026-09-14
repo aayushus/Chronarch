@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { friendlyError } from "../../api/client";
 import {
   AdminUser,
   adminCreateUser,
@@ -20,7 +21,7 @@ export default function UsersSettings() {
   function load() {
     adminListUsers()
       .then(setUsers)
-      .catch((e) => setError(String(e)))
+      .catch((e) => setError(friendlyError(e)))
       .finally(() => setLoading(false));
   }
 
@@ -36,7 +37,7 @@ export default function UsersSettings() {
         text: `Updated settings for ${u.display_name || u.email}.`,
       });
     } catch (e) {
-      setError(String(e));
+      setError(friendlyError(e));
       setUsers(originalUsers);
     }
   }
@@ -58,10 +59,9 @@ export default function UsersSettings() {
   }, [users, search, roleFilter]);
 
   const stats = useMemo(() => {
-    const executives = users.filter((u) => u.role === "executive").length;
-    const assistants = users.filter((u) => u.role === "assistant").length;
-    const admins = users.filter((u) => u.is_admin).length;
-    return { executives, assistants, admins, total: users.length };
+    const admins = users.filter((u) => u.role === "admin").length;
+    const delegates = users.filter((u) => u.role === "delegate").length;
+    return { admins, delegates, total: users.length };
   }, [users]);
 
   if (loading) {
@@ -96,8 +96,8 @@ export default function UsersSettings() {
             </span>
           </div>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
-            Manage executive calendar owners, assistants, and administrators.
-            Roles govern calendar ownership and delegate relationship eligibility.
+            Manage admins, delegates, and custom role memberships.
+            Roles govern settings access; calendar sharing lives on the Delegates page.
           </p>
         </div>
 
@@ -190,10 +190,10 @@ export default function UsersSettings() {
           </div>
           <div>
             <div style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", fontWeight: 600 }}>
-              Executives
+              Admins
             </div>
             <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
-              {stats.executives}
+              {stats.admins}
             </div>
           </div>
         </div>
@@ -226,10 +226,10 @@ export default function UsersSettings() {
           </div>
           <div>
             <div style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", fontWeight: 600 }}>
-              Assistants
+              Delegates
             </div>
             <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
-              {stats.assistants}
+              {stats.delegates}
             </div>
           </div>
         </div>
@@ -349,8 +349,8 @@ export default function UsersSettings() {
             }}
           >
             <option value="all">All Roles</option>
-            <option value="executive">Executives</option>
-            <option value="assistant">Assistants</option>
+            <option value="admin">Admins</option>
+            <option value="delegate">Delegates</option>
           </select>
         </div>
       </div>
@@ -359,7 +359,7 @@ export default function UsersSettings() {
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filteredUsers.map((u) => {
           const isMe = u.id === currentUser?.id;
-          const isExec = u.role === "executive";
+          const isAdminRole = u.role === "admin";
 
           return (
             <div
@@ -385,15 +385,15 @@ export default function UsersSettings() {
                     width: 42,
                     height: 42,
                     borderRadius: "50%",
-                    background: isExec ? "rgba(10, 132, 255, 0.15)" : "rgba(175, 82, 222, 0.15)",
-                    color: isExec ? "var(--primary)" : "#bf5af2",
+                    background: isAdminRole ? "rgba(10, 132, 255, 0.15)" : "rgba(175, 82, 222, 0.15)",
+                    color: isAdminRole ? "var(--primary)" : "#bf5af2",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     fontSize: 16,
                     fontWeight: 700,
                     flexShrink: 0,
-                    border: `1px solid ${isExec ? "rgba(10, 132, 255, 0.25)" : "rgba(175, 82, 222, 0.25)"}`,
+                    border: `1px solid ${isAdminRole ? "rgba(10, 132, 255, 0.25)" : "rgba(175, 82, 222, 0.25)"}`,
                   }}
                 >
                   {getInitials(u.display_name || u.email)}
@@ -418,7 +418,7 @@ export default function UsersSettings() {
                         YOU
                       </span>
                     )}
-                    {u.is_admin && (
+                    {u.role === "admin" && (
                       <span
                         style={{
                           fontSize: 9.5,
@@ -458,38 +458,32 @@ export default function UsersSettings() {
                       fontWeight: 600,
                     }}
                   >
-                    <option value="executive">Executive</option>
-                    <option value="assistant">Assistant</option>
+                    <option value="admin">Admin</option>
+                    <option value="delegate">Delegate</option>
                   </select>
                 </div>
 
-                {/* Admin Toggle */}
-                <label
-                  className="hoverable"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: 12,
-                    fontWeight: 500,
-                    cursor: isMe ? "not-allowed" : "pointer",
-                    padding: "5px 8px",
-                    borderRadius: 6,
-                    background: u.is_admin ? "rgba(255, 159, 10, 0.1)" : "transparent",
-                    color: u.is_admin ? "var(--warning)" : "var(--text-secondary)",
-                    opacity: isMe ? 0.7 : 1,
-                  }}
-                  title={isMe ? "You cannot remove your own admin access" : undefined}
-                >
-                  <input
-                    type="checkbox"
-                    checked={u.is_admin}
-                    disabled={isMe}
-                    onChange={(e) => handleUpdate(u, { is_admin: e.target.checked })}
-                    style={{ accentColor: "var(--warning)", width: 14, height: 14 }}
-                  />
-                  <span>Admin</span>
-                </label>
+                {/* Role memberships (custom roles managed on the Roles tab) */}
+                <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", maxWidth: 220 }}>
+                  {(u.roles ?? []).map((r) => (
+                    <span
+                      key={r}
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: "2px 7px",
+                        borderRadius: 4,
+                        background: r === "admin" ? "rgba(255, 159, 10, 0.15)" : "rgba(10, 132, 255, 0.12)",
+                        color: r === "admin" ? "var(--warning)" : "var(--primary)",
+                      }}
+                    >
+                      {r}
+                    </span>
+                  ))}
+                  {(u.roles ?? []).length === 0 && (
+                    <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>no roles</span>
+                  )}
+                </div>
 
                 {/* Active Toggle */}
                 <label
@@ -549,8 +543,7 @@ function CreateUserModal({
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("assistant");
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [role, setRole] = useState("delegate");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -564,11 +557,10 @@ function CreateUserModal({
         display_name: displayName.trim(),
         password,
         role,
-        is_admin: isAdmin,
       });
       onCreated();
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
       setSaving(false);
     }
   }
@@ -665,42 +657,18 @@ function CreateUserModal({
             />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
-                Primary Role
-              </label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                style={modalInputStyle}
-              >
-                <option value="assistant">Assistant</option>
-                <option value="executive">Executive</option>
-              </select>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", paddingBottom: 6 }}>
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  color: "var(--text-primary)",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={isAdmin}
-                  onChange={(e) => setIsAdmin(e.target.checked)}
-                  style={{ accentColor: "var(--warning)", width: 15, height: 15 }}
-                />
-                <span>Grant Admin Access</span>
-              </label>
-            </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+              Primary Role (admin sees everything; delegate sees calendar + copilot)
+            </label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              style={modalInputStyle}
+            >
+              <option value="delegate">Delegate</option>
+              <option value="admin">Admin</option>
+            </select>
           </div>
 
           {error && (

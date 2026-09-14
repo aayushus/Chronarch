@@ -1,6 +1,6 @@
 Business Requirements Document
 
-Unified Calendar, Executive Assistant & AI Scheduling Platform
+Unified Calendar, Delegate & AI Scheduling Platform
 
 Version: 1.1
 Date: September 11, 2026
@@ -11,7 +11,7 @@ Working Name: Chronarch
 
 1. Executive Summary
 
-UnifiedCal is a self-hosted, privacy-first calendar aggregation and management platform for professionals who maintain calendars across multiple organizations and providers.
+UnifiedCal is a self-hosted calendar aggregation and management platform for professionals who maintain calendars across multiple organizations and providers.
 
 The platform provides a single Apple Calendar–style interface across:
 
@@ -26,7 +26,7 @@ The platform provides a single Apple Calendar–style interface across:
 
 The platform preserves the underlying source calendars and their native permissions wherever possible.
 
-A primary use case is an executive with multiple personal and corporate calendars who needs an Executive Assistant to see the executive’s complete availability and manage permitted events without receiving credentials or access to administrative configuration.
+A primary use case is an executive with multiple personal and corporate calendars who needs a delegate to see the owner’s complete availability and manage permitted events without receiving credentials or access to administrative configuration.
 
 UnifiedCal also exposes calendar capabilities through MCP so external AI tools such as ChatGPT and Claude can query and manage calendars.
 
@@ -34,7 +34,7 @@ Additionally, UnifiedCal may include an optional built-in AI copilot directly in
 
 The product objective is to combine:
 
-Apple Calendar–quality usability + multi-provider aggregation + EA delegation + self-hosting + MCP + optional AI copilot.
+Apple Calendar–quality usability + multi-provider aggregation + delegate sharing + self-hosting + MCP + optional AI copilot.
 
 ⸻
 
@@ -61,9 +61,9 @@ Fragmented visibility
 
 Users cannot easily see their complete schedule across organizations.
 
-Executive Assistant access
+Delegate access
 
-An EA needs operational access to the executive’s calendar but should not have access to:
+A delegate needs operational access to the owner’s calendar but should not have access to:
 
 * OAuth credentials
 * provider configuration
@@ -149,7 +149,7 @@ These permissions are separate.
 For example:
 
 Source permits WRITE
-Executive permits EA READ ONLY
+Owner permits delegate READ ONLY
 Result:
 EA = READ ONLY
 
@@ -157,7 +157,7 @@ EA = READ ONLY
 
 4. Target Users
 
-4.1 Executive / Administrator
+4.1 Admin
 
 The executive is the primary owner of the UnifiedCal workspace.
 
@@ -177,7 +177,7 @@ This includes:
 * calendar connections
 * provider OAuth
 * user management
-* EA delegation
+* delegate sharing
 * AI provider settings
 * LiteLLM configuration
 * MCP configuration
@@ -187,13 +187,13 @@ This includes:
 
 ⸻
 
-4.2 Executive Assistant
+4.2 Delegate
 
-The EA is an operational calendar user.
+The delegate is an operational calendar user.
 
-The EA shall use the same high-quality calendar interface as the executive.
+The delegate shall use the same high-quality calendar interface as the admin/owner.
 
-The EA may:
+The delegate may:
 
 * view permitted calendars
 * view availability
@@ -205,9 +205,9 @@ The EA may:
 * import .ics events where permitted
 * use drag-and-drop calendar interactions
 
-The EA shall NOT see administrative configuration unless explicitly granted a separate administrator role.
+The delegate shall NOT see administrative configuration unless explicitly granted a role that permits it.
 
-By default, the EA shall not see:
+By default, the delegate shall not see:
 
 * connected account credentials
 * OAuth integrations
@@ -221,7 +221,7 @@ By default, the EA shall not see:
 * user administration
 * provider synchronization status pages intended for administrators
 
-The EA experience should feel like a calendar application rather than an administrative dashboard.
+The delegate experience should feel like a calendar application rather than an administrative dashboard.
 
 ⸻
 
@@ -364,7 +364,7 @@ The AI system does not receive special access.
 Whether an action originates from:
 
 * executive UI
-* EA UI
+* Delegate UI
 * built-in copilot
 * ChatGPT MCP
 * Claude MCP
@@ -407,7 +407,7 @@ it must pass through the same permission and calendar-authority engine.
    Calendar UI    MCP Server   Internal AI API
         │           │            │
         │           │            ▼
- Executive / EA  ChatGPT      LiteLLM
+ Admin / Delegate  ChatGPT      LiteLLM
                  Claude          │
                              OpenRouter /
                             other providers
@@ -880,9 +880,9 @@ These settings are available only to authorized administrators.
 
 ⸻
 
-13. Executive Assistant Experience
+13. Delegate Experience
 
-The EA should land directly in:
+The delegate should land directly in:
 
 Calendar View
 
@@ -901,7 +901,7 @@ Example:
 │            │                                │
 └────────────┴────────────────────────────────┘
 
-The EA should not need to understand:
+The delegate should not need to understand:
 
 * which OAuth connection exists
 * which Graph tenant is connected

@@ -26,7 +26,7 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
   const today = new Date();
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div className="cal-wash view-enter" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: "1px solid var(--border-subtle)" }}>
         {WEEKDAY_SHORT.map((w, i) => (
           <div key={i} style={{ padding: "8px 0", textAlign: "center", fontSize: 11, color: "var(--text-tertiary)" }}>

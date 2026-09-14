@@ -19,7 +19,13 @@ class AuditEntry(Base):
     actor_user_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("users.id"), nullable=True)
 
     action: Mapped[AuditAction] = mapped_column(SAEnum(AuditAction), nullable=False)
-    calendar_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("calendars.id"), nullable=True)
+    # Dereferenced (SET NULL) when the calendar is deleted — e.g. account
+    # disconnect. The entry itself is append-only and survives: `detail`
+    # keeps what happened, and the DB-level SET NULL (not an ORM update)
+    # never trips the immutability guard below.
+    calendar_id: Mapped[Optional[str]] = mapped_column(
+        String, ForeignKey("calendars.id", ondelete="SET NULL"), nullable=True
+    )
     event_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
