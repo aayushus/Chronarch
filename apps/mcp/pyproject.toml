@@ -5,7 +5,7 @@ requires-python = ">=3.11"
 dependencies = [
     "mcp>=1.2,<2",
     "chronarch-core",
-    "uvicorn[standard]>=0.30",
+    "uvicorn[standard]>=0.52.4",
 ]
 
 [build-system]
