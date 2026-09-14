@@ -7,7 +7,7 @@ dependencies = [
     "pydantic[email]>=2.6",
     "uvicorn[standard]>=0.30",
     "chronarch-core",
-    "python-jose[cryptography]>=3.3",
+    "python-jose[cryptography]>=3.5.0",
     "passlib[bcrypt]>=1.7",
     "bcrypt<4.1",
     "python-multipart>=0.0.9",
