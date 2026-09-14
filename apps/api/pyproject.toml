@@ -4,17 +4,17 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.111",
-    "pydantic[email]>=2.6",
+    "pydantic[email]>=2.13.5",
     "uvicorn[standard]>=0.30",
     "chronarch-core",
-    "python-jose[cryptography]>=3.3",
+    "python-jose[cryptography]>=3.5.0",
     "passlib[bcrypt]>=1.7",
     "bcrypt<4.1",
-    "python-multipart>=0.0.9",
+    "python-multipart>=0.0.32",
 ]
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=84"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

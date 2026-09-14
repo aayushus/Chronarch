@@ -23,7 +23,7 @@ dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "freezegun>=1.4", "aiosqlite>=0.20
 asyncio_mode = "auto"
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=84"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
