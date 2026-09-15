@@ -1,4 +1,6 @@
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["packages/core/tests", "/srv/packages/core/tests"]
-pythonpath = ["packages/core", "apps/api", "apps/mcp", "/srv/packages/core", "/srv/apps/api", "/srv/apps/mcp"]
+# Relative paths resolve from the repo root both locally and in containers
+# (run container tests from /srv, e.g. `cd /srv && python -m pytest -q`).
+testpaths = ["packages/core/tests"]
+pythonpath = ["packages/core", "apps/api", "apps/mcp"]

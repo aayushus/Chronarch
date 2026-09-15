@@ -52,19 +52,19 @@ docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compo
 
 ## Running the Test Suite
 
-Run core engine tests inside the API container:
+Run core engine tests inside the API container (from `/srv`, where the
+relative paths in the root `pyproject.toml` resolve):
 
 ```bash
-docker compose --env-file .env -f infra/docker-compose.yml exec api python -m pytest /srv/packages/core/tests -v
+docker compose --env-file .env -f infra/docker-compose.yml exec api sh -c "cd /srv && python -m pytest -q"
 ```
 
-Or locally in a Python virtual environment:
+Or locally in a Python virtual environment (repo root):
 
 ```bash
-cd packages/core
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-pytest -v
+pip install -e "packages/core[dev]"
+pytest -q
 ```
 
 ## Architecture
