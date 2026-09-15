@@ -29,6 +29,8 @@ interface Props {
   onSelectDay: (d: Date) => void;
   onMoveEvent?: (eventId: string, newStart: Date, newEnd: Date, allDay?: boolean) => void;
   onCreateRange?: (start: Date, end: Date, allDay: boolean) => void;
+  onEventMenu?: (e: React.MouseEvent, event: EventSummary) => void;
+  onEmptyMenu?: (e: React.MouseEvent, at: Date) => void;
   /** Working-hours window [startHour, endHour] for background shading. */
   workingHours?: [number, number];
 }
@@ -64,7 +66,7 @@ function canCreate(cal: CalendarSummary[] | undefined): boolean {
   return (cal ?? []).some((c) => c.can_create ?? c.writable);
 }
 
-export default function WeekView({ weekAnchor, events, calendarById, onSelectEvent, onSelectDay, onMoveEvent, onCreateRange, workingHours = [9, 17] }: Props) {
+export default function WeekView({ weekAnchor, events, calendarById, onSelectEvent, onSelectDay, onMoveEvent, onCreateRange, onEventMenu, onEmptyMenu, workingHours = [9, 17] }: Props) {
   const { hourHeight } = useAppearance();
   const HOUR_H = hourHeight(HOUR_HEIGHT);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -291,6 +293,11 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                     <div
                       key={e.id}
                       onClick={() => !dragging && onSelectEvent(e)}
+                      onContextMenu={(ev) => {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        onEventMenu?.(ev, e);
+                      }}
                       onMouseDown={(ev) => {
                         if (ev.button !== 0 || !canWrite(cal) || !onMoveEvent) return;
                         ev.preventDefault();
@@ -365,6 +372,13 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
               <div
                 key={day.toISOString()}
                 onMouseDown={(e) => beginCreate(dayIndex, e)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  if (!onEmptyMenu) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const mins = snap(minutesFromY(e.clientY, rect.top, HOUR_H, START_HOUR, END_HOUR));
+                  onEmptyMenu(e, atMinutes(days[dayIndex], mins));
+                }}
                 style={{ position: "relative", height: hours.length * HOUR_H, borderLeft: "1px solid var(--border-subtle)" }}
               >
                 {hours.map((h, i) => (
@@ -455,6 +469,11 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                     <div
                       key={event.id}
                       onClick={() => !isDragging && onSelectEvent(event)}
+                      onContextMenu={(ev) => {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        onEventMenu?.(ev, event);
+                      }}
                       onMouseDown={(ev) => {
                         if (!canDrag || ev.button !== 0) return;
                         ev.preventDefault();

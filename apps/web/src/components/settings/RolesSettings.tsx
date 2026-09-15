@@ -165,7 +165,7 @@ export default function RolesSettings() {
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ fontSize: 13, fontWeight: 700 }}>{r.name}</span>
                 {r.is_system && (
-                  <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: "rgba(255,255,255,0.08)", color: "var(--text-tertiary)" }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: "var(--wash-faint)", color: "var(--text-tertiary)" }}>
                     SYSTEM
                   </span>
                 )}

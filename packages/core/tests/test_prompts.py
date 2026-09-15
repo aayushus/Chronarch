@@ -53,7 +53,8 @@ def test_copilot_tool_files_cover_schema():
             if isinstance(v, ast.Constant):
                 names.append(v.value)
     # Every copilot tool must resolve to a prompt file.
-    assert len(names) == 15, names
+    assert len(names) == 16, names
+    assert "move_event_between_calendars" in names
     for name in names:
         text = tool_description("copilot", name)
         assert len(text) > 20, name

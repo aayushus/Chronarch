@@ -10,9 +10,11 @@ interface Props {
   calendarById: Record<string, CalendarSummary>;
   onSelectEvent: (e: EventSummary) => void;
   onSelectDay: (d: Date) => void;
+  onEventMenu?: (e: React.MouseEvent, event: EventSummary) => void;
+  onEmptyMenu?: (e: React.MouseEvent, at: Date) => void;
 }
 
-export default function MonthView({ monthAnchor, events, calendarById, onSelectEvent, onSelectDay }: Props) {
+export default function MonthView({ monthAnchor, events, calendarById, onSelectEvent, onSelectDay, onEventMenu, onEmptyMenu }: Props) {
   const monthStart = startOfMonth(monthAnchor);
   const gridStart = new Date(monthStart);
   const leadDays = (monthStart.getDay() + 6) % 7;
@@ -44,6 +46,13 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                 <div
                   key={d.toISOString()}
                   onClick={() => onSelectDay(d)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    if (!onEmptyMenu) return;
+                    const at = new Date(d);
+                    at.setHours(9, 0, 0, 0);
+                    onEmptyMenu(e, at);
+                  }}
                   className="hoverable"
                   style={{
                     borderLeft: "1px solid var(--border-subtle)",
@@ -73,6 +82,11 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                         onClick={(ev) => {
                           ev.stopPropagation();
                           onSelectEvent(e);
+                        }}
+                        onContextMenu={(ev) => {
+                          ev.preventDefault();
+                          ev.stopPropagation();
+                          onEventMenu?.(ev, e);
                         }}
                         className="event-block"
                         style={{

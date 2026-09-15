@@ -26,6 +26,8 @@ interface Props {
   selectedEventId?: string;
   onMoveEvent?: (eventId: string, newStart: Date, newEnd: Date, allDay?: boolean) => void;
   onCreateRange?: (start: Date, end: Date, allDay: boolean) => void;
+  onEventMenu?: (e: React.MouseEvent, event: EventSummary) => void;
+  onEmptyMenu?: (e: React.MouseEvent, at: Date) => void;
   /** Working-hours window [startHour, endHour] for background shading. */
   workingHours?: [number, number];
 }
@@ -52,7 +54,7 @@ function canWrite(cal: CalendarSummary | undefined): boolean {
   return !!(cal?.can_reschedule ?? cal?.writable);
 }
 
-export default function DayView({ day, events, calendarById, onSelectEvent, selectedEventId, onMoveEvent, onCreateRange, workingHours = [9, 17] }: Props) {
+export default function DayView({ day, events, calendarById, onSelectEvent, selectedEventId, onMoveEvent, onCreateRange, onEventMenu, onEmptyMenu, workingHours = [9, 17] }: Props) {
   const { hourHeight } = useAppearance();
   const HOUR_H = hourHeight(HOUR_HEIGHT);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -263,7 +265,18 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
       </div>
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", position: "relative" }}>
-        <div ref={gridRef} onMouseDown={beginCreate} style={{ position: "relative", height: hours.length * HOUR_H }}>
+        <div
+          ref={gridRef}
+          onMouseDown={beginCreate}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            if (!onEmptyMenu || !gridRef.current) return;
+            const rect = gridRef.current.getBoundingClientRect();
+            const mins = snap(minutesFromY(e.clientY, rect.top, HOUR_H, START_HOUR, END_HOUR));
+            onEmptyMenu(e, atMinutes(day, mins));
+          }}
+          style={{ position: "relative", height: hours.length * HOUR_H }}
+        >
           <div className="offhours-shade" style={{ position: "absolute", top: 0, left: 0, right: 0, height: Math.max(0, whTop) }} />
           <div
             className="offhours-shade"
@@ -391,6 +404,11 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
               <div
                 key={event.id}
                 onClick={() => !isDragging && onSelectEvent(event)}
+                onContextMenu={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  onEventMenu?.(ev, event);
+                }}
                 onMouseDown={(ev) => {
                   if (!draggable || ev.button !== 0) return;
                   ev.preventDefault();

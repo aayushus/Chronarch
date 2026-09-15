@@ -1,0 +1,1 @@
+Move an event to a different calendar. Use ONLY when the user names a different destination calendar — all time changes go through move_event. Requires move rights on the source and create rights on the destination.

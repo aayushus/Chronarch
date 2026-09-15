@@ -1094,17 +1094,9 @@ Emergency fallback model
 
 20.4 AI Cost Controls
 
-Administrators should be able to define:
-
-* AI enabled/disabled
-* allowed users
-* provider
-* model
-* daily request limits
-* per-user limits
-* maximum tokens
-* timeout
-* fallback behavior
+Not in scope: usage is governed by each provider's own plan and rate
+limits. Chronarch does not implement daily request limits, per-user
+quotas, or token budgets.
 
 ⸻
 

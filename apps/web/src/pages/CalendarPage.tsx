@@ -8,13 +8,16 @@ import {
   createEvent,
   deleteEvent,
   getConflicts,
+  getEvent,
   listCalendars,
   moveEvent,
+  updateEvent,
 } from "../api/calendar";
 import { useNavigate } from "react-router-dom";
 
 import { canSeeSettings, useAuth, workingHoursOf } from "../api/auth";
 import ConflictConfirmModal from "../components/ConflictConfirmModal";
+import EventContextMenu from "../components/EventContextMenu";
 import Palette, { PaletteAction } from "../components/Palette";
 import CopilotDrawer from "../components/CopilotDrawer";
 import EventDetailPanel from "../components/EventDetailPanel";
@@ -32,6 +35,7 @@ const DayView = lazy(() => import("../components/DayView"));
 const WeekView = lazy(() => import("../components/WeekView"));
 const MonthView = lazy(() => import("../components/MonthView"));
 const YearView = lazy(() => import("../components/YearView"));
+const AgendaView = lazy(() => import("../components/AgendaView"));
 
 export default function CalendarPage() {
   const { user } = useAuth();
@@ -61,6 +65,12 @@ export default function CalendarPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [tzPrompt, setTzPrompt] = useState<{ browserTz: string; homeTz: string } | null>(null);
   const [tzSwitching, setTzSwitching] = useState(false);
+  const [menu, setMenu] = useState<
+    | { x: number; y: number; event: EventSummary }
+    | { x: number; y: number; event: null; createAt: Date }
+    | null
+  >(null);
+  const [moveTarget, setMoveTarget] = useState<EventSummary | null>(null);
 
   useEffect(() => {
     listCalendars().then(setCalendars).catch((e) => setError(friendlyError(e)));
@@ -143,6 +153,10 @@ export default function CalendarPage() {
       const s = startOfWeek(viewedDate);
       return [s, addDays(s, 7)];
     }
+    if (viewMode === "agenda") {
+      const s = startOfDay(viewedDate);
+      return [s, addDays(s, 14)];
+    }
     // month fetches a padded month; year fetches the whole year for density dots
     if (viewMode === "year") {
       const s = new Date(viewedDate.getFullYear(), 0, 1);
@@ -186,6 +200,7 @@ export default function CalendarPage() {
     if (viewMode === "day") setViewedDate((d) => addDays(d, delta));
     else if (viewMode === "week") setViewedDate((d) => addDays(d, delta * 7));
     else if (viewMode === "month") setViewedDate((d) => new Date(d.getFullYear(), d.getMonth() + delta, 1));
+    else if (viewMode === "agenda") setViewedDate((d) => addDays(d, delta * 7));
     else setViewedDate((d) => new Date(d.getFullYear() + delta, d.getMonth(), 1));
   }
 
@@ -251,6 +266,162 @@ export default function CalendarPage() {
     } catch (e) {
       setError(friendlyError(e));
     }
+  }
+
+  // Deep link (?event=<id>): open the shared event on load.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const eventId = params.get("event");
+    if (!eventId) return;
+    getEvent(eventId)
+      .then((e) => {
+        setSelectedEvent(e);
+        setViewedDate(new Date(e.start));
+      })
+      .catch(() => {
+        /* stale/missing link — stay on the calendar */
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const writableCalendars = useMemo(
+    () => calendars.filter((c) => c.can_create ?? c.writable),
+    [calendars]
+  );
+
+  function openEventMenu(e: React.MouseEvent, event: EventSummary) {
+    setMoveTarget(null);
+    setMenu({ x: e.clientX, y: e.clientY, event });
+  }
+
+  function openEmptyMenu(e: React.MouseEvent, at: Date) {
+    setMoveTarget(null);
+    setMenu({ x: e.clientX, y: e.clientY, event: null, createAt: at });
+  }
+
+  async function refreshEvents() {
+    invalidateEventsCache();
+    setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
+  }
+
+  async function handleDuplicate(event: EventSummary) {
+    try {
+      const copy = await createEvent({
+        calendar_id: event.calendar_id,
+        title: `${event.title} (copy)`,
+        start: event.start,
+        end: event.end,
+        all_day: event.all_day,
+        description: event.description,
+        location: event.location,
+      });
+      await refreshEvents();
+      setSelectedEvent(copy);
+    } catch (e) {
+      setError(friendlyError(e));
+    }
+  }
+
+  async function handleMoveToCalendar(event: EventSummary, targetCalendarId: string) {
+    if (targetCalendarId === event.calendar_id) return;
+    try {
+      await createEvent({
+        calendar_id: targetCalendarId,
+        title: event.title,
+        start: event.start,
+        end: event.end,
+        all_day: event.all_day,
+        description: event.description,
+        location: event.location,
+      });
+      await deleteEvent(event.id);
+      setSelectedEvent(null);
+      await refreshEvents();
+      toast(`Moved “${event.title}” to the new calendar.`);
+    } catch (e) {
+      setError(friendlyError(e));
+    }
+  }
+
+  async function handleTogglePrivate(event: EventSummary) {
+    const next = event.visibility === "private" ? "standard" : "private";
+    try {
+      const updated = await updateEvent(event.id, { visibility: next });
+      setEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+      if (selectedEvent?.id === updated.id) setSelectedEvent(updated);
+      toast(next === "private" ? `“${event.title}” is now private.` : `“${event.title}” is no longer private.`);
+    } catch (e) {
+      setError(friendlyError(e));
+    }
+  }
+
+  function handleCopyLink(event: EventSummary) {
+    const url = `${window.location.origin}/?event=${event.id}`;
+    try {
+      navigator.clipboard.writeText(url);
+      toast("Event link copied.");
+    } catch {
+      setError("Couldn't access the clipboard.");
+    }
+  }
+
+  function pickMenuItem(id: string) {
+    if (!menu) return;
+    if (menu.event === null) {
+      // Empty-slot menu.
+      if (id === "new" && menu.createAt) {
+        const at = menu.createAt;
+        setCreateDraft({ start: at, end: new Date(at.getTime() + 30 * 60000), allDay: false });
+      }
+      setMenu(null);
+      return;
+    }
+    const event = menu.event;
+    const cal = calendarById[event.calendar_id];
+    const canWrite = !!(cal?.can_edit ?? cal?.can_reschedule ?? cal?.writable);
+    const canDelete = !!(cal?.can_delete ?? cal?.writable);
+    switch (id) {
+      case "details":
+        setSelectedEvent(event);
+        break;
+      case "duplicate":
+        if (canWrite) void handleDuplicate(event);
+        break;
+      case "move":
+        if (canWrite) setMoveTarget(event);
+        break;
+      case "private":
+        if (canWrite) void handleTogglePrivate(event);
+        break;
+      case "copy":
+        handleCopyLink(event);
+        break;
+      case "delete":
+        if (canDelete) void handleDelete(event.id);
+        break;
+    }
+    if (id !== "move") setMenu(null);
+  }
+
+  function menuItemsFor(event: EventSummary | null) {
+    if (event === null) {
+      return [{ id: "new", label: "New event here" }];
+    }
+    const cal = calendarById[event.calendar_id];
+    const canWrite = !!(cal?.can_edit ?? cal?.can_reschedule ?? cal?.writable);
+    const canDelete = !!(cal?.can_delete ?? cal?.writable);
+    return [
+      { id: "details", label: "View details" },
+      { id: "duplicate", label: "Duplicate", disabled: !canWrite },
+      { id: "move", label: "Move to calendar…", disabled: !canWrite || writableCalendars.length < 2 },
+      {
+        id: "private",
+        label: event.visibility === "private" ? "Make public" : "Mark private",
+        disabled: !canWrite,
+      },
+      { id: "copy", label: "Copy event link" },
+      { id: "delete", label: "Delete", danger: true, disabled: !canDelete },
+    ];
   }
 
   async function commitMove(eventId: string, newStart: Date, newEnd: Date, allDay?: boolean) {
@@ -407,6 +578,9 @@ export default function CalendarPage() {
         case "m":
           setViewMode("month");
           break;
+        case "a":
+          setViewMode("agenda");
+          break;
         case "n": {
           e.preventDefault();
           // Blank quick-create at the viewed date, 9:00–9:30 like before.
@@ -516,6 +690,8 @@ export default function CalendarPage() {
                 selectedEventId={selectedEvent?.id}
                 onMoveEvent={handleMoveEvent}
                 onCreateRange={handleCreateRange}
+                onEventMenu={openEventMenu}
+                onEmptyMenu={openEmptyMenu}
                 workingHours={workingHours}
               />
             )}
@@ -531,12 +707,28 @@ export default function CalendarPage() {
                 }}
                 onMoveEvent={handleMoveEvent}
                 onCreateRange={handleCreateRange}
+                onEventMenu={openEventMenu}
+                onEmptyMenu={openEmptyMenu}
                 workingHours={workingHours}
               />
             )}
             {viewMode === "month" && (
               <MonthView
                 monthAnchor={viewedDate}
+                events={visibleEvents}
+                calendarById={calendarById}
+                onSelectEvent={setSelectedEvent}
+                onSelectDay={(d) => {
+                  setViewedDate(d);
+                  setViewMode("day");
+                }}
+                onEventMenu={openEventMenu}
+                onEmptyMenu={openEmptyMenu}
+              />
+            )}
+            {viewMode === "agenda" && (
+              <AgendaView
+                days={Array.from({ length: 14 }, (_, i) => addDays(startOfDay(viewedDate), i))}
                 events={visibleEvents}
                 calendarById={calendarById}
                 onSelectEvent={setSelectedEvent}
@@ -608,6 +800,35 @@ export default function CalendarPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {menu && !moveTarget && (
+        <EventContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={menuItemsFor(menu.event)}
+          onPick={pickMenuItem}
+          onClose={() => setMenu(null)}
+        />
+      )}
+
+      {menu && moveTarget && (
+        <EventContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={writableCalendars
+            .filter((c) => c.id !== moveTarget.calendar_id)
+            .map((c) => ({ id: c.id, label: `→ ${c.name}` }))}
+          onPick={(id) => {
+            setMenu(null);
+            setMoveTarget(null);
+            void handleMoveToCalendar(moveTarget, id);
+          }}
+          onClose={() => {
+            setMenu(null);
+            setMoveTarget(null);
+          }}
+        />
       )}
 
       {createDraft && (

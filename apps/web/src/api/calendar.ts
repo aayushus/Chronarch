@@ -36,6 +36,7 @@ export interface EventSummary {
   organizer?: { name?: string; email?: string } | null;
   attendees: Attendee[];
   busy_status: string;
+  visibility?: string;
 }
 
 export function listCalendars(): Promise<CalendarSummary[]> {
@@ -100,6 +101,25 @@ export function getConflicts(
 
 export function deleteEvent(eventId: string): Promise<void> {
   return apiFetch<void>(`/events/${eventId}`, { method: "DELETE" });
+}
+
+export function getEvent(eventId: string): Promise<EventSummary> {
+  return apiFetch<EventSummary>(`/events/${eventId}`);
+}
+
+export function updateEvent(
+  eventId: string,
+  patch: Partial<Pick<EventSummary, "title" | "description" | "location" | "all_day">> & {
+    start?: string;
+    end?: string;
+    timezone?: string;
+    visibility?: string;
+  }
+): Promise<EventSummary> {
+  return apiFetch<EventSummary>(`/events/${eventId}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
 }
 
 export interface IcsPreviewEvent {

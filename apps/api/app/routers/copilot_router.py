@@ -336,6 +336,21 @@ COPILOT_TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "move_event_between_calendars",
+            "description": tool_description("copilot", "move_event_between_calendars"),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "event_id": {"type": "string", "description": "The event ID to move"},
+                    "destination_calendar_id": {"type": "string", "description": "Target calendar ID"},
+                },
+                "required": ["event_id", "destination_calendar_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "delete_event",
             "description": tool_description("copilot", "delete_event"),
             "parameters": {
@@ -601,6 +616,7 @@ async def _execute_tool(
         # 7am or already-past slots.
         working_hours: tuple[int, int] | None = None
         buffer = timedelta(0)
+        min_notice = timedelta(0)
         if ctx.user_id:
             from chronarch_core.models.user import User as _CopilotUser
 
@@ -617,6 +633,7 @@ async def _execute_tool(
                 if start_h < end_h:
                     working_hours = (start_h, end_h)
                 buffer = timedelta(minutes=_u.meeting_buffer_minutes or 0)
+                min_notice = timedelta(minutes=_u.min_meeting_notice_minutes or 0)
         slots = await ai_tools.find_free_slots(
             session,
             ctx,
@@ -625,6 +642,7 @@ async def _execute_tool(
             duration=dur,
             working_hours=working_hours,
             buffer=buffer,
+            min_notice=min_notice,
             now=now,
             owner_calendar_ids=owned_ids,
             grants_by_calendar=grants,
@@ -705,6 +723,34 @@ async def _execute_tool(
                 "end": ev.end.isoformat(),
                 "start_local": _local(ev.start),
                 "end_local": _local(ev.end),
+            },
+        }
+
+    elif name == "move_event_between_calendars":
+        from chronarch_core.models.event import UnifiedEvent
+
+        ev_id = args["event_id"]
+        existing = await session.get(UnifiedEvent, ev_id)
+        if not existing:
+            return {"error": f"Event {ev_id} not found"}
+        try:
+            ev = await ai_tools.move_event_between_calendars(
+                session, ctx, event_id=ev_id,
+                destination_calendar_id=args["destination_calendar_id"],
+                owner_calendar_ids=owned_ids, grants_by_calendar=grants,
+            )
+        except ai_tools.PermissionDenied as exc:
+            return {"error": f"{exc.action.value} denied: {exc.reason}"}
+        except ValueError as exc:
+            return {"error": str(exc)}
+        return {
+            "moved": True,
+            "event": {
+                "id": ev.id,
+                "title": ev.title,
+                "calendar_id": ev.calendar_id,
+                "start": ev.start.isoformat(),
+                "end": ev.end.isoformat(),
             },
         }
 

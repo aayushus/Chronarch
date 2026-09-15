@@ -35,6 +35,7 @@ class EventOut(BaseModel):
     attendees: list = []
     busy_status: str = "busy"
     timezone: str = "UTC"
+    visibility: str = "standard"
 
     model_config = {"from_attributes": True}
 
@@ -204,6 +205,43 @@ async def move_event(
     return event
 
 
+class EventMoveCalendar(BaseModel):
+    calendar_id: str
+
+
+@router.post("/{event_id}/move-to-calendar", response_model=EventOut)
+async def move_event_to_calendar(
+    event_id: str,
+    body: EventMoveCalendar,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Atomic cross-calendar move (BR-EVT-004): create on the destination
+    first, then delete from the source. The event keeps its id."""
+    from chronarch_core.models.event import UnifiedEvent
+
+    existing = await session.get(UnifiedEvent, event_id)
+    if existing is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Event not found")
+    ctx = build_auth_context(user, actor_type_for(user))
+    owner_ids = await get_owned_calendar_ids(session, user)
+    grants = (
+        await get_delegation_grants(session, user.id)
+        if user.role == UserRole.DELEGATE
+        else None
+    )
+    try:
+        event = await ai_tools.move_event_between_calendars(
+            session, ctx, event_id=event_id, destination_calendar_id=body.calendar_id,
+            owner_calendar_ids=owner_ids, grants_by_calendar=grants,
+        )
+    except ai_tools.PermissionDenied as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, describe_denial(exc.action, exc.reason))
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+    return event
+
+
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_event(
     event_id: str,
@@ -258,6 +296,7 @@ class EventUpdate(BaseModel):
     end: datetime | None = None
     timezone: str | None = None
     all_day: bool | None = None
+    visibility: str | None = None
 
 
 @router.patch("/{event_id}", response_model=EventOut)
@@ -273,7 +312,7 @@ async def update_event(
     existing = await session.get(UnifiedEvent, event_id)
     if existing is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Event not found")
-    if all(v is None for v in (body.title, body.description, body.location, body.start, body.end, body.timezone, body.all_day)):
+    if all(v is None for v in (body.title, body.description, body.location, body.start, body.end, body.timezone, body.all_day, body.visibility)):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "No fields to update")
     if (body.start is None) != (body.end is None):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "start and end must be provided together")
@@ -283,7 +322,7 @@ async def update_event(
         return await ai_tools.update_event(
             session, ctx, event_id=event_id, title=body.title, description=body.description,
             location=body.location, start=body.start, end=body.end,
-            timezone=body.timezone, all_day=body.all_day,
+            timezone=body.timezone, all_day=body.all_day, visibility=body.visibility,
             is_owner=is_owner, delegation_grant=grant,
         )
     except ai_tools.PermissionDenied as exc:

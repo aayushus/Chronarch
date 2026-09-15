@@ -106,3 +106,119 @@ async def test_update_event_denied_without_edit_grant(session):
     ea_ctx = AuthContext(user_id=ea.id, role=UserRole.DELEGATE, actor_type=AT.DELEGATE_UI)
     with pytest.raises(ai_tools.PermissionDenied):
         await ai_tools.update_event(session, ea_ctx, event_id=created.id, title="Sneaky", delegation_grant=grant)
+
+
+async def test_update_event_visibility_toggle(session):
+    from chronarch_core.models.enums import EventVisibility
+
+    exec_user, cal = await _seed(session)
+    ctx = _owner_ctx(exec_user)
+    start = datetime(2026, 9, 17, 10, 0, tzinfo=timezone.utc)
+    created = await ai_tools.create_event(
+        session, ctx, calendar_id=cal.id, title="T", start=start, end=start + timedelta(hours=1), is_owner=True,
+    )
+    assert created.visibility == EventVisibility.STANDARD
+    updated = await ai_tools.update_event(session, ctx, event_id=created.id, visibility="private", is_owner=True)
+    assert updated.visibility == EventVisibility.PRIVATE
+    back = await ai_tools.update_event(session, ctx, event_id=created.id, visibility="standard", is_owner=True)
+    assert back.visibility == EventVisibility.STANDARD
+    with pytest.raises(ValueError):
+        await ai_tools.update_event(session, ctx, event_id=created.id, visibility="secret", is_owner=True)
+
+
+async def _second_calendar(session, account_id="acct-1"):
+    dest = Calendar(
+        id="cal-dest", account_id=account_id, provider_calendar_id="p-2", name="Family",
+        provider_writable=True, blocks_availability=True,
+    )
+    session.add(dest)
+    await session.flush()
+    return dest
+
+
+async def test_move_between_calendars_atomic_owner(session):
+    exec_user, cal = await _seed(session)
+    dest = await _second_calendar(session)
+    ctx = _owner_ctx(exec_user)
+    start = datetime(2026, 9, 17, 10, 0, tzinfo=timezone.utc)
+    created = await ai_tools.create_event(
+        session, ctx, calendar_id=cal.id, title="Mover", start=start, end=start + timedelta(hours=1), is_owner=True,
+    )
+    moved = await ai_tools.move_event_between_calendars(
+        session, ctx, event_id=created.id, destination_calendar_id=dest.id,
+        owner_calendar_ids={cal.id, dest.id},
+    )
+    assert moved.id == created.id
+    assert moved.calendar_id == dest.id
+
+
+async def test_move_between_calendars_same_calendar_rejected(session):
+    exec_user, cal = await _seed(session)
+    ctx = _owner_ctx(exec_user)
+    start = datetime(2026, 9, 17, 10, 0, tzinfo=timezone.utc)
+    created = await ai_tools.create_event(
+        session, ctx, calendar_id=cal.id, title="Mover", start=start, end=start + timedelta(hours=1), is_owner=True,
+    )
+    with pytest.raises(ValueError):
+        await ai_tools.move_event_between_calendars(
+            session, ctx, event_id=created.id, destination_calendar_id=cal.id,
+            owner_calendar_ids={cal.id},
+        )
+
+
+async def test_move_between_calendars_ea_denied_without_grants(session):
+    from chronarch_core.models.delegation import DelegationCalendarGrant
+    from chronarch_core.models.enums import ActorType as AT
+
+    exec_user, cal = await _seed(session)
+    dest = await _second_calendar(session)
+    ea = User(id="ea-1", email="ea@co.com", display_name="EA", password_hash="x", role=UserRole.DELEGATE)
+    session.add(ea)
+    await session.flush()
+    created = await ai_tools.create_event(
+        session, _owner_ctx(exec_user), calendar_id=cal.id, title="T",
+        start=datetime(2026, 9, 17, 10, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 17, 11, 0, tzinfo=timezone.utc), is_owner=True,
+    )
+    # Availability-only grant: no move rights on source, no create on dest.
+    grant = DelegationCalendarGrant(id="g-1", delegation_id="d-1", calendar_id=cal.id, can_view_availability=True)
+    ea_ctx = AuthContext(user_id=ea.id, role=UserRole.DELEGATE, actor_type=AT.COPILOT)
+    with pytest.raises(ai_tools.PermissionDenied):
+        await ai_tools.move_event_between_calendars(
+            session, ea_ctx, event_id=created.id, destination_calendar_id=dest.id,
+            grants_by_calendar={cal.id: grant},
+        )
+
+
+async def test_ea_copilot_respects_delegation_grants(session):
+    """BRD §37: an assistant's copilot must not exceed its grant (the engine
+    must not bypass grants for COPILOT actors the way MCP scope-gating does)."""
+    from chronarch_core.models.delegation import DelegationCalendarGrant
+    from chronarch_core.models.enums import ActorType as AT
+
+    exec_user, cal = await _seed(session)
+    ea = User(id="ea-2", email="ea2@co.com", display_name="EA2", password_hash="x", role=UserRole.DELEGATE)
+    session.add(ea)
+    await session.flush()
+    created = await ai_tools.create_event(
+        session, _owner_ctx(exec_user), calendar_id=cal.id, title="T",
+        start=datetime(2026, 9, 17, 10, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 17, 11, 0, tzinfo=timezone.utc), is_owner=True,
+    )
+    grant = DelegationCalendarGrant(id="g-2", delegation_id="d-2", calendar_id=cal.id, can_view_availability=True)
+    ea_ctx = AuthContext(user_id=ea.id, role=UserRole.DELEGATE, actor_type=AT.COPILOT)
+    with pytest.raises(ai_tools.PermissionDenied):
+        await ai_tools.delete_event(session, ea_ctx, event_id=created.id, delegation_grant=grant)
+
+
+async def test_find_free_slots_min_notice(session):
+    exec_user, cal = await _seed(session)
+    ctx = _owner_ctx(exec_user)
+    base = datetime(2026, 9, 17, 8, 0, tzinfo=timezone.utc)
+    slots = await ai_tools.find_free_slots(
+        session, ctx, window_start=base, window_end=base + timedelta(hours=12),
+        duration=timedelta(minutes=30), working_hours=(9, 17),
+        min_notice=timedelta(hours=2), now=base, owner_calendar_ids={cal.id},
+    )
+    assert slots, "expected slots"
+    assert all(s["start"] >= base + timedelta(hours=2) for s in slots)

@@ -222,7 +222,7 @@ export default function CopilotDrawer({
         style={{
           padding: "12px 16px",
           borderBottom: "1px solid var(--border-subtle)",
-          background: "rgba(0,0,0,0.1)",
+          background: "var(--wash-deep)",
         }}
       >
         <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>

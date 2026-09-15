@@ -151,19 +151,19 @@ const ACTOR_METAS: Record<string, { label: string; icon: IconName; bg: string; c
   ics_import: {
     label: "ICS File",
     icon: "calendar",
-    bg: "rgba(255, 255, 255, 0.08)",
+    bg: "var(--wash-faint)",
     color: "var(--text-secondary)",
   },
   api: {
     label: "REST API",
     icon: "external",
-    bg: "rgba(255, 255, 255, 0.08)",
+    bg: "var(--wash-faint)",
     color: "var(--text-secondary)",
   },
   system: {
     label: "System",
     icon: "settings",
-    bg: "rgba(255, 255, 255, 0.08)",
+    bg: "var(--wash-faint)",
     color: "var(--text-secondary)",
   },
 };
@@ -287,7 +287,6 @@ export default function AuditLogSettings() {
           alignItems: "center",
           gap: 12,
           flexWrap: "wrap",
-          boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
         }}
       >
         {/* Search */}
@@ -401,7 +400,6 @@ export default function AuditLogSettings() {
           border: "1px solid var(--border-subtle)",
           borderRadius: 12,
           overflow: "hidden",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
         }}
       >
         {filteredEntries.length === 0 ? (
@@ -416,7 +414,7 @@ export default function AuditLogSettings() {
               <tr
                 style={{
                   borderBottom: "1px solid var(--border-subtle)",
-                  background: "rgba(0,0,0,0.12)",
+                  background: "var(--wash-deep)",
                 }}
               >
                 <th style={{ padding: "12px 16px", fontWeight: 600, color: "var(--text-secondary)", width: 140 }}>

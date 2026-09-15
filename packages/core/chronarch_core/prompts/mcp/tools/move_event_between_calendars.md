@@ -1,0 +1,1 @@
+Move an event to a different calendar in one atomic operation (BR-EVT-004): created on the destination first, then removed from the source. The event keeps its id. Requires move rights on the source and create rights on the destination; both calendars must be provider-writable.

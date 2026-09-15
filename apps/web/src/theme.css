@@ -25,6 +25,15 @@
   --shadow-lift: 0 4px 14px rgba(0, 0, 0, 0.35);
   --wash-a: rgba(10, 132, 255, 0.13);
   --wash-b: rgba(191, 90, 242, 0.09);
+  /* Recessed wells (expanded sections, inspector panes): dark wash in dark
+     mode, barely-there grey in light mode — never a muddy mid-grey. */
+  --wash-deep: rgba(0, 0, 0, 0.12);
+  /* Subtle selected-row highlight: white lift in dark mode, accent tint in
+     light mode (white-on-white would be invisible). */
+  --wash-lift: rgba(255, 255, 255, 0.05);
+  /* Faint neutral chip (inactive badges, code chips): white in dark mode,
+     light grey in light mode. */
+  --wash-faint: rgba(255, 255, 255, 0.08);
 }
 
 /* Light theme (Chronarch design philosophy: tokens only, no component changes) */
@@ -44,6 +53,13 @@
   --shadow-lift: 0 4px 14px rgba(0, 0, 0, 0.12);
   --wash-a: rgba(10, 132, 255, 0.07);
   --wash-b: rgba(191, 90, 242, 0.05);
+  --wash-deep: rgba(0, 0, 0, 0.045);
+  --wash-lift: rgba(10, 132, 255, 0.07);
+  --wash-faint: rgba(0, 0, 0, 0.055);
+}
+
+[data-theme="light"] .modal-backdrop {
+  background: rgba(0, 0, 0, 0.32);
 }
 
 * {

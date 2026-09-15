@@ -373,7 +373,6 @@ export default function UsersSettings() {
                 alignItems: "center",
                 justifyContent: "space-between",
                 gap: 16,
-                boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
                 opacity: u.is_active ? 1 : 0.6,
                 transition: "all 0.15s ease",
               }}

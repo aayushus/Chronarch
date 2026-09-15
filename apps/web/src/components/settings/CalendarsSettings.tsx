@@ -202,7 +202,7 @@ export default function CalendarsSettings() {
                                   height: 18,
                                   borderRadius: "50%",
                                   background: cal.color,
-                                  border: "2px solid rgba(255,255,255,0.2)",
+                                  border: "2px solid var(--border)",
                                   display: "inline-block",
                                 }}
                               />
@@ -265,7 +265,7 @@ export default function CalendarsSettings() {
                                 cursor: "pointer",
                                 padding: "4px 8px",
                                 borderRadius: "var(--radius-sm)",
-                                background: cal.visible ? "rgba(10, 132, 255, 0.12)" : "rgba(255, 255, 255, 0.05)",
+                                background: cal.visible ? "rgba(10, 132, 255, 0.12)" : "var(--bg-app)",
                                 color: cal.visible ? "var(--accent)" : "var(--text-secondary)",
                               }}
                             >
@@ -301,7 +301,7 @@ export default function CalendarsSettings() {
                           <div
                             style={{
                               borderTop: "1px solid var(--border-subtle)",
-                              background: "rgba(0, 0, 0, 0.12)",
+                              background: "var(--wash-deep)",
                               padding: "16px 20px",
                               display: "grid",
                               gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
@@ -333,7 +333,7 @@ export default function CalendarsSettings() {
                                       gap: 10,
                                       padding: "6px 8px",
                                       borderRadius: "var(--radius-sm)",
-                                      background: cal[key] ? "rgba(255, 255, 255, 0.04)" : "transparent",
+                                      background: cal[key] ? "var(--wash-lift)" : "transparent",
                                       cursor: "pointer",
                                     }}
                                   >
@@ -381,7 +381,7 @@ export default function CalendarsSettings() {
                                       gap: 10,
                                       padding: "6px 8px",
                                       borderRadius: "var(--radius-sm)",
-                                      background: cal[key] ? "rgba(255, 255, 255, 0.04)" : "transparent",
+                                      background: cal[key] ? "var(--wash-lift)" : "transparent",
                                       cursor: "pointer",
                                     }}
                                   >

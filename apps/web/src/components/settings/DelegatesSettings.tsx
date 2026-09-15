@@ -299,7 +299,7 @@ export default function DelegatesSettings() {
                         width: 40,
                         height: 40,
                         borderRadius: 10,
-                        background: d.active ? "rgba(10, 132, 255, 0.15)" : "rgba(255, 255, 255, 0.08)",
+                        background: d.active ? "rgba(10, 132, 255, 0.15)" : "var(--wash-faint)",
                         color: d.active ? "var(--accent)" : "var(--text-tertiary)",
                         display: "flex",
                         alignItems: "center",

@@ -1479,7 +1479,7 @@ function ProviderCredentialCard({
             letterSpacing: 0.5,
             padding: "2px 6px",
             borderRadius: 4,
-            background: configured ? "rgba(48, 209, 88, 0.15)" : "rgba(255, 255, 255, 0.08)",
+            background: configured ? "rgba(48, 209, 88, 0.15)" : "var(--wash-faint)",
             color: configured ? "var(--success)" : "var(--text-tertiary)",
           }}
         >

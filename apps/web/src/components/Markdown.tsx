@@ -28,7 +28,7 @@ export default function Markdown({ text }: { text: string }) {
               style={{
                 fontFamily: "var(--font-mono, monospace)",
                 fontSize: 12,
-                background: "rgba(255,255,255,0.08)",
+                background: "var(--wash-faint)",
                 padding: "1px 5px",
                 borderRadius: 4,
               }}

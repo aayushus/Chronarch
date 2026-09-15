@@ -98,11 +98,21 @@ def _user_level(
     if not ctx.has_scope(required_scope):
         return PermissionLevel.NONE
 
-    if ctx.actor_type in (ActorType.MCP, ActorType.COPILOT):
-        # Scope check above is the user-authority gate for AI actors; a
+    if ctx.actor_type == ActorType.MCP:
+        # Scope check above is the user-authority gate for MCP callers; a
         # matching scope grants up to the level the action requires.
+        # MCP stays scope-gated by design (deny-by-default, never owners).
         return ACTION_REQUIRED_LEVEL[action]
 
+    if ctx.actor_type == ActorType.COPILOT and ctx.role != UserRole.DELEGATE:
+        # Copilot acting for an owner/admin with no scopes: the session user
+        # already passed the is_owner/is_admin bypass above, so grant the
+        # requested level (calendar authority still applies via cal_level).
+        return ACTION_REQUIRED_LEVEL[action]
+
+    # COPILOT for a delegate, and all UI actors, fall through to the
+    # per-grant check below: an assistant's copilot must never exceed what
+    # their DelegationCalendarGrant allows (BRD §37: AI is a client).
     if ctx.role == UserRole.DELEGATE:
         if grant is None:
             return PermissionLevel.NONE

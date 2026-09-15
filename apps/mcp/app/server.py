@@ -13,7 +13,7 @@ calendar's AI gates plus credential scopes. Deny-by-default is intentional.
 """
 
 from contextvars import ContextVar
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 
 from mcp.server.fastmcp import FastMCP
@@ -180,10 +180,23 @@ async def find_free_slots(
     window_end: str,
     duration_minutes: int,
     calendar_ids: list[str] | None = None,
+    working_hours_start: int | None = None,
+    working_hours_end: int | None = None,
+    buffer_minutes: int = 0,
+    min_notice_minutes: int = 0,
 ) -> list[dict]:
     """Prompt: prompts/mcp/tools/find_free_slots.md."""
     ctx, session = await _authed_context()
     async with session:
+        if (working_hours_start is None) != (working_hours_end is None):
+            return [{"error": "working_hours_start and working_hours_end must be provided together"}]
+        working_hours = None
+        if working_hours_start is not None and working_hours_end is not None:
+            if not (0 <= working_hours_start < working_hours_end <= 24):
+                return [{"error": "working hours must satisfy 0 <= start < end <= 24"}]
+            working_hours = (working_hours_start, working_hours_end)
+        if buffer_minutes < 0 or min_notice_minutes < 0:
+            return [{"error": "buffer_minutes and min_notice_minutes must be >= 0"}]
         tz_name = await _caller_timezone(session, ctx, None)
         slots = await ai_tools.find_free_slots(
             session, ctx,
@@ -191,6 +204,10 @@ async def find_free_slots(
             window_end=_as_aware(window_end, tz_name),
             duration=timedelta(minutes=duration_minutes),
             calendar_ids=calendar_ids,
+            working_hours=working_hours,
+            buffer=timedelta(minutes=buffer_minutes),
+            min_notice=timedelta(minutes=min_notice_minutes),
+            now=datetime.now(timezone.utc),
         )
         return [{"start": s["start"].isoformat(), "end": s["end"].isoformat()} for s in slots]
 
@@ -279,6 +296,27 @@ async def move_event(event_id: str, start: str, end: str, timezone: str | None =
             return {"error": str(exc)}
         await session.commit()
         return {"id": event.id, "start": event.start.isoformat(), "end": event.end.isoformat()}
+
+
+@mcp.tool(description=tool_description("mcp", "move_event_between_calendars"))
+async def move_event_between_calendars(event_id: str, destination_calendar_id: str) -> dict:
+    """Prompt: prompts/mcp/tools/move_event_between_calendars.md."""
+    ctx, session = await _authed_context()
+    async with session:
+        try:
+            event = await ai_tools.move_event_between_calendars(
+                session, ctx, event_id=event_id,
+                destination_calendar_id=destination_calendar_id,
+            )
+        except ai_tools.PermissionDenied as exc:
+            return {"error": describe_denial(exc.action, exc.reason)}
+        except ValueError as exc:
+            return {"error": str(exc)}
+        except Exception as exc:
+            return {"error": str(exc)}
+        await session.commit()
+        return {"id": event.id, "calendar_id": event.calendar_id,
+                "start": event.start.isoformat(), "end": event.end.isoformat()}
 
 
 @mcp.tool(description=tool_description("mcp", "update_event"))

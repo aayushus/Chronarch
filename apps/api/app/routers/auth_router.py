@@ -88,6 +88,10 @@ class MeResponse(BaseModel):
     working_hours_start: str = "09:00"
     working_hours_end: str = "17:00"
     home_timezone: str = "UTC"
+    secondary_timezone: str | None = None
+    working_days: str = "1,2,3,4,5"
+    min_meeting_notice_minutes: int = 0
+    meeting_buffer_minutes: int = 0
 
 
 def _me_response(user: User, *, permissions=None, roles=None) -> MeResponse:
@@ -101,6 +105,10 @@ def _me_response(user: User, *, permissions=None, roles=None) -> MeResponse:
         working_hours_start=user.working_hours_start or "09:00",
         working_hours_end=user.working_hours_end or "17:00",
         home_timezone=user.home_timezone or "UTC",
+        secondary_timezone=user.secondary_timezone,
+        working_days=user.working_days or "1,2,3,4,5",
+        min_meeting_notice_minutes=user.min_meeting_notice_minutes or 0,
+        meeting_buffer_minutes=user.meeting_buffer_minutes or 0,
     )
 
 
@@ -122,6 +130,21 @@ class MeUpdate(BaseModel):
     display_name: str | None = None
     email: EmailStr | None = None
     home_timezone: str | None = None
+    secondary_timezone: str | None = None
+    working_days: str | None = None
+    working_hours_start: str | None = None
+    working_hours_end: str | None = None
+    min_meeting_notice_minutes: int | None = None
+    meeting_buffer_minutes: int | None = None
+
+
+def _parse_hhmm(value: str, field: str) -> str:
+    import re
+
+    m = re.fullmatch(r"(\d{1,2}):(\d{2})", value.strip())
+    if not m or not (0 <= int(m.group(1)) <= 23 and 0 <= int(m.group(2)) <= 59):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"{field} must be HH:MM (00:00–23:59)")
+    return f"{int(m.group(1)):02d}:{m.group(2)}"
 
 
 @router.patch("/me", response_model=MeResponse)
@@ -150,6 +173,36 @@ async def update_me(
             user.home_timezone = validate_timezone(body.home_timezone)
         except ValueError as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+    if body.secondary_timezone is not None:
+        if not body.secondary_timezone.strip():
+            user.secondary_timezone = None
+        else:
+            try:
+                user.secondary_timezone = validate_timezone(body.secondary_timezone)
+            except ValueError as exc:
+                raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+    if body.working_days is not None:
+        import re as _re_days
+
+        parts = [p.strip() for p in body.working_days.split(",") if p.strip()]
+        if not parts or any(not _re_days.fullmatch(r"[1-7]", p) for p in parts):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "working_days must be comma-separated ISO weekday numbers (1=Mon … 7=Sun)",
+            )
+        user.working_days = ",".join(sorted(set(parts), key=int))
+    if body.working_hours_start is not None:
+        user.working_hours_start = _parse_hhmm(body.working_hours_start, "working_hours_start")
+    if body.working_hours_end is not None:
+        user.working_hours_end = _parse_hhmm(body.working_hours_end, "working_hours_end")
+    if body.min_meeting_notice_minutes is not None:
+        if body.min_meeting_notice_minutes < 0 or body.min_meeting_notice_minutes > 10080:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "min_meeting_notice_minutes must be 0–10080")
+        user.min_meeting_notice_minutes = body.min_meeting_notice_minutes
+    if body.meeting_buffer_minutes is not None:
+        if body.meeting_buffer_minutes < 0 or body.meeting_buffer_minutes > 480:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "meeting_buffer_minutes must be 0–480")
+        user.meeting_buffer_minutes = body.meeting_buffer_minutes
     await session.flush()
     from chronarch_core import rbac as _rbac_me
 

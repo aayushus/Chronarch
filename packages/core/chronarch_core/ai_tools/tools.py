@@ -262,6 +262,7 @@ async def find_free_slots(
     calendar_ids: list[str] | None = None,
     working_hours: tuple[int, int] | None = None,
     buffer: timedelta = timedelta(0),
+    min_notice: timedelta = timedelta(0),
     now: datetime | None = None,
     owner_calendar_ids: set[str] | None = None,
     grants_by_calendar: dict | None = None,
@@ -286,6 +287,7 @@ async def find_free_slots(
         blocking_ids,
         working_hours=working_hours,
         buffer=buffer,
+        min_notice=min_notice,
         now=now,
     )
     return [{"start": s.start, "end": s.end} for s in slots]
@@ -609,6 +611,7 @@ async def update_event(
     end: datetime | None = None,
     timezone: str | None = None,
     all_day: bool | None = None,
+    visibility: str | None = None,
     is_owner: bool = False,
     delegation_grant=None,
 ) -> UnifiedEvent:
@@ -624,7 +627,7 @@ async def update_event(
         raise ValueError(f"event {event_id} not found")
     calendar = await _get_calendar(session, event.calendar_id)
 
-    if all(v is None for v in (title, description, location, start, end, timezone, all_day)):
+    if all(v is None for v in (title, description, location, start, end, timezone, all_day, visibility)):
         raise ValueError("update_event requires at least one field to change")
 
     new_start = start if start is not None else event.start
@@ -688,6 +691,14 @@ async def update_event(
         event.timezone = _normalize_timezone(timezone)
     if all_day is not None:
         event.all_day = all_day
+    if visibility is not None:
+        from ..models.enums import EventVisibility as _EventVisibility
+
+        try:
+            event.visibility = _EventVisibility(visibility.strip().lower())
+        except ValueError:
+            raise ValueError("visibility must be public, standard, or private")
+        changes["visibility"] = [visibility]
     await session.flush()
 
     await write_audit_entry(
@@ -697,6 +708,101 @@ async def update_event(
         calendar_id=calendar.id,
         event_id=event.id,
         detail={"changes": changes},
+    )
+    return event
+
+
+async def move_event_between_calendars(
+    session: AsyncSession,
+    ctx: AuthContext,
+    *,
+    event_id: str,
+    destination_calendar_id: str,
+    owner_calendar_ids: set[str] | None = None,
+    grants_by_calendar: dict | None = None,
+) -> UnifiedEvent:
+    """Atomic cross-calendar move (BR-EVT-004): create on destination first,
+    then delete from source — never the reverse, so a failed destination
+    write leaves the source untouched. The event keeps its id.
+
+    Gates: MOVE_BETWEEN_CALENDARS on the source calendar, CREATE on the
+    destination. Both ends must be provider-writable (delete + create).
+    Audited as MOVE_EVENT with both calendar ids.
+    """
+    from ..permissions import CalendarAction as _MoveAction
+
+    event = await session.get(UnifiedEvent, event_id)
+    if event is None:
+        raise ValueError(f"event {event_id} not found")
+    if event.calendar_id == destination_calendar_id:
+        raise ValueError("event is already on that calendar")
+    source = await _get_calendar(session, event.calendar_id)
+    dest = await _get_calendar(session, destination_calendar_id)
+
+    def _gate(calendar: Calendar, action) -> None:
+        is_owner = bool(owner_calendar_ids and calendar.id in owner_calendar_ids)
+        grant = grants_by_calendar.get(calendar.id) if grants_by_calendar else None
+        decision = resolve_permission(
+            ctx, calendar, action, event=event, is_owner=is_owner, delegation_grant=grant,
+        )
+        if not decision.allowed:
+            raise PermissionDenied(action, decision.reason)
+
+    _gate(source, _MoveAction.MOVE_BETWEEN_CALENDARS)
+    _gate(dest, _MoveAction.CREATE)
+    if not source.provider_writable or not dest.provider_writable:
+        raise PermissionDenied(_MoveAction.MOVE_BETWEEN_CALENDARS, "source_calendar_does_not_permit")
+
+    from ..connectors.base import RemoteEvent as _RemoteEvent
+
+    dest_provider_event_id = ""
+    dest_connector, dest_account = await _get_connector_for_calendar(session, dest)
+    if dest_connector is not None:
+        created_remote = await dest_connector.create_event(
+            dest.provider_calendar_id,
+            _RemoteEvent(
+                provider_event_id="", title=event.title, description=event.description,
+                start=event.start, end=event.end, timezone=event.timezone,
+                all_day=event.all_day, organizer=event.organizer,
+                attendees=list(event.attendees or []), location=event.location,
+                conference=event.conference, recurrence=event.recurrence,
+                visibility=event.visibility.value if hasattr(event.visibility, "value") else str(event.visibility),
+                busy_status=event.busy_status.value if hasattr(event.busy_status, "value") else str(event.busy_status),
+                writable=True, provider_updated_at=None,
+            ),
+        )
+        dest_provider_event_id = created_remote.provider_event_id
+        refreshed = getattr(dest_connector, "access_token", None)
+        if dest_account and refreshed:
+            _persist_refreshed_token(dest_account, refreshed)
+
+    source_connector, source_account = await _get_connector_for_calendar(session, source)
+    if source_connector is not None and event.provider_event_id:
+        await source_connector.delete_event(source.provider_calendar_id, event.provider_event_id)
+        refreshed = getattr(source_connector, "access_token", None)
+        if source_account and refreshed:
+            _persist_refreshed_token(source_account, refreshed)
+
+    source_cal_id, source_provider_event_id = event.calendar_id, event.provider_event_id
+    event.calendar_id = dest.id
+    event.provider_account_id = dest.account_id
+    event.provider_event_id = dest_provider_event_id
+    event.source_permissions = {"write": True}
+    await session.flush()
+
+    await write_audit_entry(
+        session,
+        ctx=ctx,
+        action=AuditAction.MOVE_EVENT,
+        calendar_id=dest.id,
+        event_id=event.id,
+        detail={
+            "from_calendar_id": source_cal_id,
+            "to_calendar_id": dest.id,
+            "from_provider_event_id": source_provider_event_id,
+            "to_provider_event_id": dest_provider_event_id,
+            "title": event.title,
+        },
     )
     return event
 

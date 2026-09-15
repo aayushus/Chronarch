@@ -345,7 +345,6 @@ export default function McpSettings() {
                   borderRadius: 12,
                   border: "1px solid var(--border-subtle)",
                   padding: 20,
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                   opacity: isRevoked ? 0.6 : 1,
                   transition: "all 0.15s ease",
                 }}

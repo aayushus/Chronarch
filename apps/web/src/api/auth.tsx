@@ -12,6 +12,10 @@ export interface CurrentUser {
   working_hours_start?: string;
   working_hours_end?: string;
   home_timezone?: string;
+  secondary_timezone?: string | null;
+  working_days?: string;
+  min_meeting_notice_minutes?: number;
+  meeting_buffer_minutes?: number;
 }
 
 /** True when the user may enter Settings at all (admin or any section view). */

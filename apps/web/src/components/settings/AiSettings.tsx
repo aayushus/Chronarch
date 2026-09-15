@@ -401,7 +401,6 @@ export default function AiSettings() {
           borderRadius: 12,
           padding: 20,
           marginBottom: 20,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
         }}
       >
         <div style={{ marginBottom: 14 }}>
@@ -461,7 +460,6 @@ export default function AiSettings() {
           borderRadius: 12,
           padding: 20,
           marginBottom: 20,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -638,7 +636,6 @@ export default function AiSettings() {
           border: "1px solid var(--border-subtle)",
           borderRadius: 12,
           padding: 20,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -734,7 +731,7 @@ function ProviderKeyRow({
             letterSpacing: 0.5,
             padding: "2px 6px",
             borderRadius: 4,
-            background: configured ? "rgba(48, 209, 88, 0.15)" : "rgba(255, 255, 255, 0.08)",
+            background: configured ? "rgba(48, 209, 88, 0.15)" : "var(--wash-faint)",
             color: configured ? "var(--success)" : "var(--text-tertiary)",
           }}
         >

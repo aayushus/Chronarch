@@ -2,7 +2,7 @@ import React from "react";
 
 import Icon from "./Icon";
 
-export type CalendarViewMode = "day" | "week" | "month" | "year";
+export type CalendarViewMode = "day" | "week" | "month" | "year" | "agenda";
 
 interface Props {
   viewedDate: Date;
@@ -27,9 +27,13 @@ export default function TopBar({
   isSyncing,
   onSyncNow,
 }: Props) {
+  const endOfAgenda = new Date(viewedDate);
+  endOfAgenda.setDate(endOfAgenda.getDate() + 13);
   const dateLabel =
     viewMode === "year"
       ? String(viewedDate.getFullYear())
+      : viewMode === "agenda"
+      ? `${viewedDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${endOfAgenda.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`
       : viewedDate.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
   const weekdayLabel = viewedDate.toLocaleDateString(undefined, { weekday: "long" });
 
@@ -81,7 +85,7 @@ export default function TopBar({
           overflowX: "auto",
         }}
       >
-        {(["day", "week", "month", "year"] as CalendarViewMode[]).map((mode) => (
+        {((["day", "week", "month", "agenda", "year"] as CalendarViewMode[])).map((mode) => (
           <button
             key={mode}
             onClick={() => onViewModeChange(mode)}
