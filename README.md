@@ -52,18 +52,20 @@ docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compo
 
 ## Running the Test Suite
 
-Run core engine tests inside the API container (from `/srv`, where the
-relative paths in the root `pyproject.toml` resolve):
+Run the full suite (core engine + API callback tests) inside the API
+container (from `/srv`, where the relative paths in the root
+`pyproject.toml` resolve):
 
 ```bash
 docker compose --env-file .env -f infra/docker-compose.yml exec api sh -c "cd /srv && python -m pytest -q"
 ```
 
-Or locally in a Python virtual environment (repo root):
+Or locally in a Python virtual environment (repo root). The API callback
+tests import fastapi, so it is installed alongside the core dev extras:
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e "packages/core[dev]"
+pip install -e "packages/core[dev]" "fastapi>=0.111"
 pytest -q
 ```
 

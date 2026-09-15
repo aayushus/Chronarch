@@ -2,5 +2,7 @@
 asyncio_mode = "auto"
 # Relative paths resolve from the repo root both locally and in containers
 # (run container tests from /srv, e.g. `cd /srv && python -m pytest -q`).
-testpaths = ["packages/core/tests"]
+# API tests import fastapi (present in the api image; installed for local runs
+# per README), so single-file runs from the root keep rootdir at the repo root.
+testpaths = ["packages/core/tests", "apps/api/tests"]
 pythonpath = ["packages/core", "apps/api", "apps/mcp"]
