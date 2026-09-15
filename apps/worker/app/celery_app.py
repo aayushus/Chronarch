@@ -45,6 +45,19 @@ async def _reconcile_single(session, account: Account) -> dict:
 
 
 async def _reconcile_async(account_id: str) -> dict:
+    from chronarch_core.contacts import refresh_contacts_for_account
+
+    async def _refresh_best_effort(session, account_id: str) -> None:
+        """Rebuild the contact directory from the account's invites.
+
+        Best-effort by design: contact extraction must never fail a sync —
+        polling correctness outranks directory freshness.
+        """
+        try:
+            await refresh_contacts_for_account(session, account_id)
+        except Exception:
+            logger.exception("Contact refresh failed for account %s", account_id)
+
     async with SessionLocal() as session:
         if account_id == "__all__":
             accounts = list((await session.execute(select(Account))).scalars())
@@ -52,6 +65,7 @@ async def _reconcile_async(account_id: str) -> dict:
             for acct in accounts:
                 try:
                     res = await _reconcile_single(session, acct)
+                    await _refresh_best_effort(session, acct.id)
                     results[acct.id] = {"status": "ok", "stats": res}
                 except Exception as exc:
                     logger.exception("Failed to reconcile account %s", acct.id)
@@ -65,6 +79,7 @@ async def _reconcile_async(account_id: str) -> dict:
 
         try:
             stats = await _reconcile_single(session, account)
+            await _refresh_best_effort(session, account_id)
             await session.commit()
             return {"account_id": account_id, "status": "ok", "stats": stats}
         except Exception as exc:

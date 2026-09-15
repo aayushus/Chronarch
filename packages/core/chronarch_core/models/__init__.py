@@ -11,6 +11,7 @@ from .enums import (
 )
 from .user import User
 from .webhook import ProviderWebhook
+from .contact import Contact
 from .rbac import Role, RolePermission, RoleAssignment
 from .account import Account
 from .calendar import Calendar
@@ -33,6 +34,7 @@ __all__ = [
     "AuditAction",
     "User",
     "ProviderWebhook",
+    "Contact",
     "Role",
     "RolePermission",
     "RoleAssignment",

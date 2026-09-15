@@ -252,6 +252,14 @@ async def sync_account(
         account.last_synced_at = now_iso
         account.sync_status = "active"
         account.last_sync_error = None
+        # Keep the invite-extracted contact directory in step (best-effort:
+        # extraction must never fail a manual sync either).
+        try:
+            from chronarch_core.contacts import refresh_contacts_for_account
+
+            await refresh_contacts_for_account(session, account.id)
+        except Exception:
+            pass
         await session.commit()
     except Exception as e:
         account.sync_status = "error"

@@ -103,6 +103,51 @@ export function deleteEvent(eventId: string): Promise<void> {
   return apiFetch<void>(`/events/${eventId}`, { method: "DELETE" });
 }
 
+// --- Natural-language quick-add (BRD §32) ---
+
+export interface QuickAddAttendee {
+  name: string;
+  email: string | null;
+  ambiguous?: { email: string; display_name: string | null }[] | null;
+}
+
+export interface QuickAddDraft {
+  title: string;
+  start: string;
+  end: string;
+  all_day: boolean;
+  location: string | null;
+  description: string | null;
+  attendees: QuickAddAttendee[];
+}
+
+export function quickAddParse(text: string): Promise<QuickAddDraft> {
+  return apiFetch<QuickAddDraft>("/quick-add/parse", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}
+
+export function quickAddCreate(calendarId: string, draft: QuickAddDraft): Promise<EventSummary> {
+  return apiFetch<EventSummary>("/quick-add/create", {
+    method: "POST",
+    body: JSON.stringify({ calendar_id: calendarId, draft }),
+  });
+}
+
+// --- Contact directory (invite-extracted, BRD §32) ---
+
+export interface ContactEntry {
+  email: string;
+  display_name: string | null;
+  event_count: number;
+  last_seen_at: string;
+}
+
+export function searchContacts(q: string): Promise<{ contacts: ContactEntry[] }> {
+  return apiFetch<{ contacts: ContactEntry[] }>(`/contacts/search?q=${encodeURIComponent(q)}`);
+}
+
 export function getEvent(eventId: string): Promise<EventSummary> {
   return apiFetch<EventSummary>(`/events/${eventId}`);
 }

@@ -60,12 +60,12 @@ container (from `/srv`, where the relative paths in the root
 docker compose --env-file .env -f infra/docker-compose.yml exec api sh -c "cd /srv && python -m pytest -q"
 ```
 
-Or locally in a Python virtual environment (repo root). The API callback
-tests import fastapi, so it is installed alongside the core dev extras:
+Or locally in a Python virtual environment (repo root). The API tests import
+fastapi and the API auth stack, so those ride along with the core dev extras:
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e "packages/core[dev]" "fastapi>=0.111"
+pip install -e "packages/core[dev]" "fastapi>=0.111" "python-jose[cryptography]" passlib
 pytest -q
 ```
 

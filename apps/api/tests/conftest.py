@@ -6,6 +6,11 @@ Mirrors packages/core/tests/conftest.py so the API suite is self-contained
 
 import os
 
+# The API config refuses to import without a JWT secret; tests never sign
+# tokens, so allow the documented throwaway-dev value before importing app
+# modules. Set before any app.* import below.
+os.environ.setdefault("ALLOW_INSECURE_DEV_SECRET", "1")
+
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
