@@ -29,6 +29,20 @@ from ..oauth_state import sign_oauth_state, verify_oauth_state
 router = APIRouter(prefix="/api/v1/admin/accounts/microsoft", tags=["admin"])
 logger = logging.getLogger(__name__)
 
+async def _ensure_push_best_effort(session, account) -> None:
+    """Arm push subscriptions after connect. Never fails the OAuth flow:
+    polling covers every deployment push can't reach."""
+    import logging
+
+    from chronarch_core.sync.webhooks import ensure_account_webhooks
+
+    try:
+        result = await ensure_account_webhooks(session, account, APP_BASE_URL)
+        if result.get("skipped"):
+            logging.getLogger(__name__).info("Push not armed for account %s: %s", account.id, result["skipped"])
+    except Exception:
+        logging.getLogger(__name__).exception("Push ensure failed for account %s", account.id)
+
 REDIRECT_URI = f"{APP_BASE_URL}/api/v1/admin/accounts/microsoft/callback"
 
 
@@ -118,6 +132,7 @@ async def callback(
         await session.flush()
 
         stats = await sync_microsoft_account(session, account)
+        await _ensure_push_best_effort(session, account)
         await session.commit()
         logger.info("Connected Microsoft account %s: %s", email, stats)
         return RedirectResponse(f"{settings_url}?accounts_connected=microsoft")

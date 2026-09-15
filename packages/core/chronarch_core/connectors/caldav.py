@@ -442,7 +442,9 @@ class CalDAVConnector(BaseConnector):
             put = await client.put(target, content=cal.to_ical(), headers={"Content-Type": "text/calendar; charset=utf-8"})
             put.raise_for_status()
 
-    async def register_webhook(self, calendar_id: str, callback_url: str) -> dict[str, Any]:
+    async def register_webhook(
+        self, calendar_id: str, callback_url: str, *, token: str | None = None
+    ) -> dict[str, Any]:
         raise NotImplementedError(
             "CalDAV push is server-specific (pubsub/sync-collection polling). "
             "Falling back to periodic reconciliation until a push transport is configured."

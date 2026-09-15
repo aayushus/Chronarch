@@ -77,3 +77,23 @@ async def _reconcile_async(account_id: str) -> dict:
 def reconcile_account(account_id: str) -> dict:
     return asyncio.run(_reconcile_async(account_id))
 
+
+async def _renew_async() -> dict:
+    from chronarch_core.sync.webhooks import renew_due_webhooks
+
+    base_url = os.environ.get("APP_BASE_URL", "http://localhost:3000")
+    async with SessionLocal() as session:
+        try:
+            result = await renew_due_webhooks(session, base_url)
+            await session.commit()
+            return result
+        except Exception as exc:
+            logger.exception("Webhook renewal sweep failed")
+            await session.commit()
+            return {"error": str(exc)}
+
+
+@celery_app.task(name="chronarch.renew_webhooks")
+def renew_webhooks() -> dict:
+    return asyncio.run(_renew_async())
+

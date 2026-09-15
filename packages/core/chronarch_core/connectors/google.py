@@ -379,14 +379,49 @@ class GoogleConnector(BaseConnector):
             json={"attendees": attendees} if attendees else {},
         )
 
-    async def register_webhook(self, calendar_id: str, callback_url: str) -> dict[str, Any]:
-        """Google's push channels require a publicly reachable HTTPS URL —
-        not available for a local/dev deployment, so this is a no-op there.
-        A production deployment behind a real domain can call this once
-        that's true; the scheduler would then need to renew the channel
-        before `expiration` (channels last at most ~7 days for events)."""
-        raise NotImplementedError(
-            "Webhook registration requires a public HTTPS callback URL. "
-            "Falling back to periodic reconciliation until this deployment has one."
+    async def register_webhook(
+        self, calendar_id: str, callback_url: str, *, token: str | None = None
+    ) -> dict[str, Any]:
+        """Google push channel (BRD §24): watch a calendar.
+
+        Returns {"channel_id", "resource_id", "expiration"} for the
+        ProviderWebhook row. Raises on provider errors — callers fall back
+        to polling when push can't be armed.
+        """
+        import time
+        import uuid
+
+        from ..push import GOOGLE_CHANNEL_LIFETIME
+
+        expiration_ms = int((time.time() + GOOGLE_CHANNEL_LIFETIME.total_seconds()) * 1000)
+        body: dict[str, Any] = {
+            "id": f"chronarch-{uuid.uuid4().hex[:24]}",
+            "type": "web_hook",
+            "address": callback_url,
+            "expiration": str(expiration_ms),
+        }
+        if token:
+            body["token"] = token
+        resp = await self._request(
+            "POST",
+            f"{API_BASE}/calendars/{quote(calendar_id, safe='')}/events/watch",
+            json=body,
         )
+        data = resp.json()
+        return {
+            "channel_id": data["id"],
+            "resource_id": data.get("resourceId"),
+            "expiration": data.get("expiration"),
+        }
+
+    async def stop_webhook(self, channel_id: str, resource_id: str | None) -> None:
+        """Best-effort channel teardown (disconnect flows). 404 = already gone."""
+        try:
+            await self._request(
+                "POST", f"{API_BASE}/channels/stop",
+                json={"id": channel_id, "resourceId": resource_id},
+            )
+        except Exception as exc:
+            if "404" not in str(exc):
+                raise
 

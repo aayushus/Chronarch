@@ -21,6 +21,7 @@ from .routers import (
     events_router,
     health,
     mcp_keys_router,
+    webhooks_router,
 )
 
 app = FastAPI(title="Chronarch API", version="0.1.0")
@@ -55,5 +56,6 @@ app.include_router(admin_oauth_router.router)
 app.include_router(admin_ai_router.router)
 app.include_router(admin_roles_router.router)
 app.include_router(mcp_keys_router.router)
+app.include_router(webhooks_router.router)
 
 

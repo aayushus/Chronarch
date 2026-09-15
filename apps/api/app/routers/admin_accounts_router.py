@@ -34,10 +34,22 @@ class AdminAccountOut(BaseModel):
     sync_status: str
     last_synced_at: str | None
     calendar_count: int
+    push_status: str = "off"
+
+
+def _push_status(webhooks: list) -> str:
+    """Aggregate subscription rows: active > error > off."""
+    if not webhooks:
+        return "off"
+    if any(w.status == "active" for w in webhooks):
+        return "active"
+    return "error"
 
 
 @router.get("", response_model=list[AdminAccountOut])
 async def list_accounts(_user: User = Depends(require_permission("accounts.view")), session: AsyncSession = Depends(get_db_session)):
+    from chronarch_core.models.webhook import ProviderWebhook
+
     accounts = list((await session.execute(select(Account))).scalars())
     out = []
     for a in accounts:
@@ -45,12 +57,16 @@ async def list_accounts(_user: User = Depends(require_permission("accounts.view"
         count = len(
             list((await session.execute(select(Calendar.id).where(Calendar.account_id == a.id))).scalars())
         )
+        webhooks = list(
+            (await session.execute(select(ProviderWebhook).where(ProviderWebhook.account_id == a.id))).scalars()
+        )
         out.append(
             AdminAccountOut(
                 id=a.id, provider=a.provider.value, provider_account_email=a.provider_account_email,
                 tenant_id=a.tenant_id, owner_user_id=a.owner_user_id,
                 owner_email=owner.email if owner else "Unknown",
                 sync_status=a.sync_status, last_synced_at=a.last_synced_at, calendar_count=count,
+                push_status=_push_status(webhooks),
             )
         )
     return out
@@ -104,8 +120,32 @@ async def disconnect_account(
         # Audit entries referencing these calendars are preserved with their
         # calendar link cleared (ON DELETE SET NULL, migration 0005).
         await session.execute(delete(Calendar).where(Calendar.account_id == account_id))
+    # Tear down push subscriptions first (best-effort provider stops).
+    from chronarch_core.sync.webhooks import drop_account_webhooks
+
+    await drop_account_webhooks(session, account)
     await session.delete(account)
     await session.flush()
+
+
+@router.post("/{account_id}/webhooks")
+async def ensure_webhooks(
+    account_id: str,
+    _admin: User = Depends(require_permission("accounts.manage")),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Arm (or renew) push subscriptions for an account now. No-op with a
+    skip reason where push can't reach this deployment (polling covers it)."""
+    from chronarch_core.sync.webhooks import ensure_account_webhooks
+
+    from ..config import APP_BASE_URL
+
+    account = await session.get(Account, account_id)
+    if account is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Account not found")
+    result = await ensure_account_webhooks(session, account, APP_BASE_URL)
+    await session.commit()
+    return {"account_id": account.id, **result}
 
 
 class IcsSubscriptionCreate(BaseModel):

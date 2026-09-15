@@ -249,10 +249,20 @@ export interface AdminAccount {
   sync_status: string;
   last_synced_at: string | null;
   calendar_count: number;
+  push_status?: string;
 }
 
 export function adminListAccounts(): Promise<AdminAccount[]> {
   return apiFetch<AdminAccount[]>("/admin/accounts");
+}
+
+export function adminEnsureWebhooks(id: string): Promise<{
+  account_id: string;
+  ensured: number;
+  replaced: number;
+  skipped: string;
+}> {
+  return apiFetch(`/admin/accounts/${id}/webhooks`, { method: "POST" });
 }
 
 export function adminDisconnectAccount(id: string): Promise<void> {

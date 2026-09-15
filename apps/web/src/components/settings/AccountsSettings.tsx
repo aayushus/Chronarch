@@ -9,6 +9,7 @@ import {
   adminClearOAuthConfig,
   adminConnectCaldav,
   adminDisconnectAccount,
+  adminEnsureWebhooks,
   adminGetGoogleConnectUrl,
   adminGetMicrosoftConnectUrl,
   adminListAccounts,
@@ -121,6 +122,7 @@ export default function AccountsSettings() {
   }
 
   const [syncingAccountId, setSyncingAccountId] = useState<string | null>(null);
+  const [pushingAccountId, setPushingAccountId] = useState<string | null>(null);
 
   async function handleSyncAccount(a: AdminAccount) {
     setSyncingAccountId(a.id);
@@ -138,6 +140,28 @@ export default function AccountsSettings() {
       setError(friendlyError(e));
     } finally {
       setSyncingAccountId(null);
+    }
+  }
+
+  async function handleEnablePush(a: AdminAccount) {
+    setPushingAccountId(a.id);
+    try {
+      const res = await adminEnsureWebhooks(a.id);
+      if (res.skipped) {
+        setBanner({ kind: "error", text: `Push not available: ${res.skipped} Polling continues.` });
+      } else {
+        setAccounts((prev) =>
+          prev.map((x) => (x.id === a.id ? { ...x, push_status: "active" } : x))
+        );
+        setBanner({
+          kind: "success",
+          text: `Push notifications armed for ${a.provider_account_email} (ensured ${res.ensured}, renewed ${res.replaced}).`,
+        });
+      }
+    } catch (e) {
+      setError(friendlyError(e));
+    } finally {
+      setPushingAccountId(null);
     }
   }
 
@@ -298,11 +322,56 @@ export default function AccountsSettings() {
                         >
                           {a.sync_status}
                         </span>
+                        {(isGoogle || isMicrosoft) && (
+                          <>
+                            {" "}· push:{" "}
+                            <span
+                              style={{
+                                color:
+                                  a.push_status === "active"
+                                    ? "var(--success)"
+                                    : a.push_status === "error"
+                                    ? "var(--danger)"
+                                    : "var(--text-tertiary)",
+                                fontWeight: 600,
+                              }}
+                              title={
+                                a.push_status === "active"
+                                  ? "Provider push notifications armed; polling remains the backstop"
+                                  : "Polling covers this account (push needs a public https APP_BASE_URL)"
+                              }
+                            >
+                              {a.push_status ?? "off"}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {(isGoogle || isMicrosoft) && a.push_status !== "active" && (
+                      <button
+                        onClick={() => handleEnablePush(a)}
+                        disabled={pushingAccountId === a.id}
+                        className="hoverable"
+                        title="Arm provider push notifications (needs public https APP_BASE_URL; polling covers otherwise)"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: "var(--bg-app)",
+                          border: "1px solid var(--border-subtle)",
+                          borderRadius: 6,
+                          color: "var(--text-primary)",
+                          padding: "6px 12px",
+                          fontSize: 12,
+                          cursor: pushingAccountId === a.id ? "wait" : "pointer",
+                        }}
+                      >
+                        <span>{pushingAccountId === a.id ? "Arming…" : "Enable push"}</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => handleSyncAccount(a)}
                       disabled={syncingAccountId === a.id}

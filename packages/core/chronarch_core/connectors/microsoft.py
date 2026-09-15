@@ -531,8 +531,48 @@ class MicrosoftConnector(BaseConnector):
             json={"sendUpdate": True},
         )
 
-    async def register_webhook(self, calendar_id: str, callback_url: str) -> dict[str, Any]:
-        raise NotImplementedError(
-            "Webhook registration requires a public HTTPS callback URL. "
-            "Falling back to periodic reconciliation until this deployment has one."
+    async def register_webhook(
+        self, calendar_id: str, callback_url: str, *, token: str | None = None
+    ) -> dict[str, Any]:
+        """Microsoft Graph subscription (BRD §24), one per account on
+        /me/events (all calendars; the callback reconciles the whole
+        account). Returns {"channel_id" (subscription id), "expiration"}.
+        Raises on provider errors — callers fall back to polling."""
+        from datetime import datetime, timezone
+
+        from ..push import MICROSOFT_SUBSCRIPTION_LIFETIME
+
+        expires = datetime.now(timezone.utc) + MICROSOFT_SUBSCRIPTION_LIFETIME
+        body: dict[str, Any] = {
+            "changeType": "created,updated,deleted",
+            "notificationUrl": callback_url,
+            "resource": "me/events",
+            "expirationDateTime": expires.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            "includeResourceData": False,
+        }
+        if token:
+            body["clientState"] = token
+        resp = await self._request("POST", "/subscriptions", json=body)
+        data = resp.json()
+        return {"channel_id": data["id"], "expiration": data.get("expirationDateTime")}
+
+    async def renew_webhook(self, channel_id: str) -> dict[str, Any]:
+        """Extend a subscription (same lifetime policy as creation)."""
+        from datetime import datetime, timezone
+
+        from ..push import MICROSOFT_SUBSCRIPTION_LIFETIME
+
+        expires = datetime.now(timezone.utc) + MICROSOFT_SUBSCRIPTION_LIFETIME
+        resp = await self._request(
+            "PATCH", f"/subscriptions/{quote(channel_id, safe='')}",
+            json={"expirationDateTime": expires.strftime("%Y-%m-%dT%H:%M:%S.000Z")},
         )
+        return {"channel_id": channel_id, "expiration": resp.json().get("expirationDateTime")}
+
+    async def stop_webhook(self, channel_id: str) -> None:
+        """Best-effort subscription teardown. 404 = already gone."""
+        try:
+            await self._request("DELETE", f"/subscriptions/{quote(channel_id, safe='')}")
+        except Exception as exc:
+            if "404" not in str(exc):
+                raise

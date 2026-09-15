@@ -105,8 +105,12 @@ class BaseConnector(ABC):
         ...
 
     @abstractmethod
-    async def register_webhook(self, calendar_id: str, callback_url: str) -> dict[str, Any]:
-        """Register a push subscription. Must return enough info (e.g.
+    async def register_webhook(
+        self, calendar_id: str, callback_url: str, *, token: str | None = None
+    ) -> dict[str, Any]:
+        """Register a push subscription. `token` is our validation secret,
+        echoed back by the provider on every notification (Google channel
+        token / Microsoft clientState). Must return enough info (e.g.
         channel id + expiration) for the scheduler to renew it before it
         expires — see infra note on webhook renewal."""
         ...

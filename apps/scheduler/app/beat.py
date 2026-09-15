@@ -23,4 +23,9 @@ celery_app.conf.beat_schedule = {
         "schedule": crontab(minute="*/5"),
         "args": ("__all__",),
     },
+    "renew-push-subscriptions": {
+        "task": "chronarch.renew_webhooks",
+        "schedule": crontab(minute="17"),
+        "args": (),
+    },
 }
