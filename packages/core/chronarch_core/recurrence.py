@@ -99,6 +99,48 @@ def to_graph_recurrence(normalized: dict) -> dict:
     return {"pattern": pattern, "range": range_}
 
 
+def _split_rrule_text(text: str, cut: datetime) -> tuple[str, str]:
+    """Split one RRULE text at `cut` (an occurrence start): truncated rule
+    (UNTIL the day before) + restarted rule (same pattern, no COUNT — counts
+    don't survive splits). Preserves an existing UNTIL on the new series."""
+    body = text.split(":", 1)[1] if ":" in text else text
+    fields = [f for f in body.split(";") if f]
+    keep_until = next((f.split("=", 1)[1] for f in fields if f.startswith("UNTIL=")), None)
+    base = [f for f in fields
+            if not f.startswith(("COUNT=", "UNTIL="))]
+    day_before = (cut - timedelta(days=1)).strftime("%Y%m%d")
+    truncated = ";".join(base + [f"UNTIL={day_before}"])
+    restarted = ";".join(base + ([f"UNTIL={keep_until}"] if keep_until else []))
+    return f"RRULE:{truncated}", f"RRULE:{restarted}"
+
+
+def split_series(recurrence: dict, cut: datetime) -> tuple[dict | None, dict | None]:
+    """(truncated_shape, restarted_shape) for a 'this and future' split at
+    `cut`. Returns (None, None) when the shape is unknown. Google/ICS text
+    rules and Graph objects both supported."""
+    if not isinstance(recurrence, dict):
+        return None, None
+    cut_utc = cut if cut.tzinfo else cut.replace(tzinfo=timezone.utc)
+    rules = recurrence.get("rule")
+    if rules:
+        items = rules if isinstance(rules, list) else [rules]
+        main = next((str(r) for r in items if "RRULE" in str(r).upper() or "FREQ" in str(r).upper()), None)
+        if main is None:
+            return None, None
+        trunc, restart = _split_rrule_text(main, cut_utc)
+        return {"rule": [trunc]}, {"rule": [restart]}
+    graph = recurrence.get("type")
+    if isinstance(graph, dict):
+        day_before = (cut_utc - timedelta(days=1)).date().isoformat()
+        trunc = {"pattern": graph.get("pattern", {}),
+                 "range": {"type": "endDate", "endDate": day_before}}
+        restart_range = graph.get("range", {})
+        if not isinstance(restart_range, dict) or restart_range.get("type") == "numbered":
+            restart_range = {"type": "noEnd"}
+        return {"type": trunc}, {"type": {"pattern": graph.get("pattern", {}), "range": restart_range}}
+    return None, None
+
+
 def _as_utc(dt: datetime) -> datetime:
     """Stored instants are UTC; naive sides (sqlite reads) are assumed UTC."""
     if dt.tzinfo is None:
@@ -257,9 +299,36 @@ def occurrences(event, window_start: datetime, window_end: datetime,
             except (ValueError, TypeError, OverflowError):
                 starts = []
     out = []
+    # Instance exceptions recorded by scoped edits: {"<iso start>":
+    # {"deleted": true} | {"start": iso, "end": iso}}.
+    exceptions = recurrence.get("exceptions") if isinstance(recurrence, dict) else None
+    moved: dict[str, tuple[datetime, datetime]] = {}
+    deleted: set[str] = set()
+    if isinstance(exceptions, dict):
+        for key, change in exceptions.items():
+            try:
+                at = _as_utc(datetime.fromisoformat(str(key))).isoformat()
+            except ValueError:
+                continue
+            if not isinstance(change, dict):
+                continue
+            if change.get("deleted"):
+                deleted.add(at)
+            elif change.get("start") and change.get("end"):
+                try:
+                    moved[at] = (_as_utc(datetime.fromisoformat(str(change["start"]))),
+                                 _as_utc(datetime.fromisoformat(str(change["end"]))))
+                except ValueError:
+                    continue
     for s in starts[:limit]:
         s_utc = _as_utc(s)
         e_utc = s_utc + duration
-        if e_utc > ws and s_utc < we:
-            out.append((s_utc, e_utc))
+        if e_utc <= ws or s_utc >= we:
+            continue
+        key = s_utc.isoformat()
+        if key in deleted:
+            continue
+        cand_start, cand_end = moved.get(key, (s_utc, e_utc))
+        if cand_end > ws and cand_start < we:
+            out.append((cand_start, cand_end))
     return out

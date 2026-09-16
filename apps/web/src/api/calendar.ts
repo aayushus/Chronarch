@@ -37,6 +37,8 @@ export interface EventSummary {
   attendees: Attendee[];
   busy_status: string;
   visibility?: string;
+  recurrence?: Record<string, unknown> | null;
+  next_occurrence?: string | null;
 }
 
 export function listCalendars(): Promise<CalendarSummary[]> {
@@ -101,8 +103,12 @@ export function getConflicts(
   return apiFetch<ConflictInfo[]>(`/events/conflicts?${params.toString()}`);
 }
 
-export function deleteEvent(eventId: string): Promise<void> {
-  return apiFetch<void>(`/events/${eventId}`, { method: "DELETE" });
+export function deleteEvent(eventId: string, scope?: string, instanceStart?: string): Promise<void> {
+  const params = new URLSearchParams();
+  if (scope && scope !== "series") params.set("scope", scope);
+  if (instanceStart) params.set("instance_start", instanceStart);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<void>(`/events/${eventId}${suffix}`, { method: "DELETE" });
 }
 
 // --- Natural-language quick-add (BRD §32) ---
@@ -192,6 +198,8 @@ export function updateEvent(
     timezone?: string;
     visibility?: string;
     attendees?: { name: string; email: string }[];
+    scope?: string;
+    instance_start?: string;
   }
 ): Promise<EventSummary> {
   return apiFetch<EventSummary>(`/events/${eventId}`, {

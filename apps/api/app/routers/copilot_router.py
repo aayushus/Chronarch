@@ -227,6 +227,8 @@ COPILOT_TOOLS = [
                     "description": {"type": "string", "description": "New description"},
                     "location": {"type": "string", "description": "New location"},
                     "all_day": {"type": "boolean", "description": "Toggle all-day flag in place (times unchanged)"},
+                    "scope": {"type": "string", "enum": ["series", "this", "future"], "description": "Repeating events only: whole series (default), one occurrence, or this-and-future."},
+                    "instance_time": {"type": "string", "description": "Which occurrence for scoped edits (ISO 8601 with offset). Omit for the next upcoming one."},
                 },
                 "required": ["event_id"],
             },
@@ -361,6 +363,8 @@ COPILOT_TOOLS = [
                         "type": "boolean",
                         "description": "Must be true only if the user has explicitly confirmed deleting this specific event.",
                     },
+                    "scope": {"type": "string", "enum": ["series", "this", "future"], "description": "Repeating events only: whole series (default), one occurrence, or this-and-future."},
+                    "instance_time": {"type": "string", "description": "Which occurrence for scoped deletes (ISO 8601 with offset). Omit for the next upcoming one."},
                 },
                 "required": ["event_id"],
             },
@@ -927,7 +931,8 @@ async def _execute_tool(
         ev = await ai_tools.update_event(
             session, ctx, event_id=ev_id, title=args.get("title"),
             description=args.get("description"), location=args.get("location"),
-            all_day=args.get("all_day"),
+            all_day=args.get("all_day"), scope=args.get("scope", "series"),
+            instance_start=_aware(args["instance_time"]) if args.get("instance_time") else None,
             is_owner=is_owner, delegation_grant=grant,
         )
         return {
@@ -1107,6 +1112,11 @@ async def _execute_tool(
 
         already_previewed = _already_previewed(history or [], ev_id)
         if not (args.get("confirmed", False) and already_previewed):
+            scope = args.get("scope", "series")
+            scope_note = (
+                " (this occurrence only)" if scope == "this"
+                else " (this and all future occurrences)" if scope == "future"
+                else " (the entire series)")
             return {
                 "requires_confirmation": True,
                 "action": "delete_event",
@@ -1117,14 +1127,16 @@ async def _execute_tool(
                 "start_local": _local(existing.start),
                 "end_local": _local(existing.end),
                 "message": (
-                    f"Deleting '{existing.title}' is a destructive action. "
+                    f"Deleting '{existing.title}'{scope_note} is a destructive action. "
                     "Please ask the user to explicitly confirm before proceeding. "
                     f"{_confirmation_ref(ev_id)}"
                 ),
             }
 
         await ai_tools.delete_event(
-            session, ctx, event_id=ev_id, is_owner=is_owner, delegation_grant=grant
+            session, ctx, event_id=ev_id, scope=args.get("scope", "series"),
+            instance_start=_aware(args["instance_time"]) if args.get("instance_time") else None,
+            is_owner=is_owner, delegation_grant=grant
         )
         return {"deleted": True, "event_id": ev_id, "title": existing.title}
 

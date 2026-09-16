@@ -262,16 +262,27 @@ export default function CalendarPage() {
     setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
   }
 
-  async function handleDelete(eventId: string) {
+  async function handleDelete(eventId: string, scope = "series", instanceStart?: string) {
     const doomed = events.find((e) => e.id === eventId) ?? selectedEvent;
     try {
-      await deleteEvent(eventId);
+      await deleteEvent(eventId, scope, instanceStart);
       invalidateEventsCache();
-      setSelectedEvent(null);
-      setEvents((prev) => prev.filter((e) => e.id !== eventId));
-      if (doomed) {
+      if (scope === "series") {
+        setSelectedEvent(null);
+        setEvents((prev) => prev.filter((e) => e.id !== eventId));
+      } else {
+        // Scoped deletes keep the series row — refresh it in place.
+        setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
+        try {
+          setSelectedEvent(await getEvent(eventId));
+        } catch {
+          setSelectedEvent(null);
+        }
+      }
+      if (doomed && scope === "series") {
         // Undo re-creates the event from the stashed snapshot (design
-        // philosophy: every destructive action is undoable).
+        // philosophy: every destructive action is undoable). Scoped deletes
+        // keep the series alive, so there is nothing to undo.
         const snapshot = doomed;
         toast(`Deleted “${snapshot.title}”`, {
           actionLabel: "Undo",

@@ -303,3 +303,229 @@ async def test_ai_create_stores_recurrence_locally(session):
         window_end=datetime(2026, 9, 28, 14, 30, tzinfo=timezone.utc),
         owner_calendar_ids={calendar.id})
     assert len(hits) == 1 and hits[0]["title"] == "Standup"
+
+
+def test_split_series_text_and_graph():
+    cut = datetime(2026, 9, 21, 14, 0, tzinfo=timezone.utc)
+    trunc, restart = _r.split_series({"rule": ["RRULE:FREQ=WEEKLY;BYDAY=MO"]}, cut)
+    assert trunc == {"rule": ["RRULE:FREQ=WEEKLY;BYDAY=MO;UNTIL=20260920"]}
+    assert restart == {"rule": ["RRULE:FREQ=WEEKLY;BYDAY=MO"]}
+    trunc, restart = _r.split_series(
+        {"rule": ["RRULE:FREQ=DAILY;COUNT=10"]}, cut)
+    assert trunc == {"rule": ["RRULE:FREQ=DAILY;UNTIL=20260920"]}
+    assert restart == {"rule": ["RRULE:FREQ=DAILY"]}
+    graph = {"pattern": {"type": "weekly", "interval": 1},
+             "range": {"type": "numbered", "numberOfOccurrences": 10}}
+    trunc, restart = _r.split_series({"type": graph}, cut)
+    assert trunc == {"type": {"pattern": graph["pattern"],
+                              "range": {"type": "endDate", "endDate": "2026-09-20"}}}
+    assert restart == {"type": {"pattern": graph["pattern"], "range": {"type": "noEnd"}}}
+    assert _r.split_series({"rule": ["GARBAGE"]}, cut) == (None, None)
+    assert _r.split_series(None, cut) == (None, None)
+
+
+def test_exceptions_deleted_and_moved():
+    base = _Ev(_monday(), _monday() + timedelta(minutes=30),
+               {"rule": ["RRULE:FREQ=DAILY;COUNT=5"]})
+    ws, we = _window(days=7)
+    assert len(_r.occurrences(base, ws, we)) == 5
+    key = datetime(2026, 9, 15, 14, 0, tzinfo=timezone.utc).isoformat()
+    exc = _Ev(_monday(), _monday() + timedelta(minutes=30), {
+        "rule": ["RRULE:FREQ=DAILY;COUNT=5"],
+        "exceptions": {
+            key: {"deleted": True},
+            datetime(2026, 9, 16, 14, 0, tzinfo=timezone.utc).isoformat(): {
+                "start": "2026-09-16T16:00:00+00:00",
+                "end": "2026-09-16T16:30:00+00:00"},
+        }})
+    occs = _r.occurrences(exc, ws, we)
+    days = sorted(s.day for s, _ in occs)
+    assert days == [14, 16, 17, 18]
+    moved = [s for s, _ in occs if s.day == 16][0]
+    assert (moved.hour, moved.minute) == (16, 0)
+
+
+class _FakeConnector:
+    provider = "google"
+
+    def __init__(self):
+        self.calls = []
+
+    async def create_event(self, calendar_id, remote):
+        from types import SimpleNamespace
+
+        self.calls.append(("create_event", calendar_id))
+        return SimpleNamespace(provider_event_id="new-1", recurrence=None)
+
+    async def delete_instance(self, calendar_id, series_id, instance_start):
+        self.calls.append(("delete_instance", series_id, instance_start.isoformat()))
+
+    async def update_instance(self, calendar_id, series_id, instance_start, patch):
+        self.calls.append(("update_instance", series_id, instance_start.isoformat(), sorted(patch)))
+        return None
+
+    async def update_event(self, calendar_id, provider_event_id, patch):
+        self.calls.append(("update_event", provider_event_id, sorted(patch)))
+        return None
+
+
+async def _series_owner(session, provider="google"):
+    from chronarch_core.ai_tools import tools as ai_tools
+    from chronarch_core.models.account import Account
+    from chronarch_core.models.calendar import Calendar
+    from chronarch_core.models.enums import (
+        ActorType, CalendarKind, ProviderType, UserRole,
+    )
+    from chronarch_core.models.event import UnifiedEvent
+    from chronarch_core.models.user import User
+    from chronarch_core.permissions import AuthContext
+
+    user = User(id=f"u-sc-{provider}", email=f"sc-{provider}@x.com", display_name="S",
+                password_hash="x", role=UserRole.ADMIN)
+    session.add(user)
+    await session.flush()
+    account = Account(owner_user_id=user.id, provider=ProviderType(provider),
+                      provider_account_email=user.email, provider_account_id=user.email)
+    session.add(account)
+    await session.flush()
+    calendar = Calendar(account_id=account.id, provider_calendar_id="g:sc",
+                        kind=CalendarKind.PRIMARY, name="Work",
+                        provider_writable=True, blocks_availability=True)
+    session.add(calendar)
+    await session.flush()
+    event = UnifiedEvent(
+        provider_account_id=account.id, calendar_id=calendar.id,
+        provider_event_id="series-9", title="Standup",
+        start=_monday(), end=_monday() + timedelta(minutes=30),
+        recurrence={"rule": ["RRULE:FREQ=WEEKLY;BYDAY=MO"]})
+    session.add(event)
+    await session.flush()
+    ctx = AuthContext(user_id=user.id, role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
+    return ai_tools, user, calendar, event, ctx
+
+
+async def test_delete_this_records_exception_row_survives(session, monkeypatch):
+    from chronarch_core import ai_tools
+    from sqlalchemy import select
+    from chronarch_core.models.event import UnifiedEvent
+
+    ai_tools, user, calendar, event, ctx = await _series_owner(session)
+    fake = _FakeConnector()
+
+    async def _conn(session, calendar):
+        return fake, await _account_for(session, calendar)
+
+    monkeypatch.setattr(ai_tools, "_get_connector_for_calendar", _conn)
+    out = await ai_tools.delete_event(
+        session, ctx, event_id=event.id, scope="this",
+        instance_start=_monday() + timedelta(days=7), is_owner=True)
+    assert out["scope"] == "this"
+    assert fake.calls[0][0] == "delete_instance"
+    # Row survives with the exception recorded.
+    row = (await session.execute(
+        select(UnifiedEvent).where(UnifiedEvent.id == event.id))).scalar_one()
+    assert row.recurrence["exceptions"] == {
+        (_monday() + timedelta(days=7)).isoformat(): {"deleted": True}}
+    # ...and expansion hides exactly that instance.
+    from chronarch_core.recurrence import occurrences
+
+    ws, we = _window()
+    assert len(occurrences(row, ws, we)) == 2
+
+
+async def _account_for(session, calendar):
+    from chronarch_core.models.account import Account
+
+    return await session.get(Account, calendar.account_id)
+
+
+async def test_delete_future_truncates_and_keeps_row(session, monkeypatch):
+    from chronarch_core import ai_tools
+    from sqlalchemy import select
+    from chronarch_core.models.event import UnifiedEvent
+
+    ai_tools, user, calendar, event, ctx = await _series_owner(session)
+    fake = _FakeConnector()
+
+    async def _conn(session, calendar):
+        return fake, await _account_for(session, calendar)
+
+    monkeypatch.setattr(ai_tools, "_get_connector_for_calendar", _conn)
+    out = await ai_tools.delete_event(
+        session, ctx, event_id=event.id, scope="future",
+        instance_start=_monday() + timedelta(days=7), is_owner=True)
+    assert out["scope"] == "future"
+    assert fake.calls[0] == ("update_event", "series-9", ["recurrence"])
+    row = (await session.execute(
+        select(UnifiedEvent).where(UnifiedEvent.id == event.id))).scalar_one()
+    assert row.recurrence == {"rule": ["RRULE:FREQ=WEEKLY;BYDAY=MO;UNTIL=20260920"]}
+
+
+async def test_update_this_moves_instance_records_exception(session, monkeypatch):
+    from chronarch_core import ai_tools
+    from sqlalchemy import select
+    from chronarch_core.models.event import UnifiedEvent
+
+    ai_tools, user, calendar, event, ctx = await _series_owner(session)
+    fake = _FakeConnector()
+
+    async def _conn(session, calendar):
+        return fake, await _account_for(session, calendar)
+
+    monkeypatch.setattr(ai_tools, "_get_connector_for_calendar", _conn)
+    new_start = _monday() + timedelta(days=7, hours=1)
+    updated = await ai_tools.update_event(
+        session, ctx, event_id=event.id, scope="this",
+        instance_start=_monday() + timedelta(days=7),
+        start=new_start, end=new_start + timedelta(minutes=30),
+        is_owner=True)
+    assert updated.id == event.id  # same row
+    row = (await session.execute(
+        select(UnifiedEvent).where(UnifiedEvent.id == event.id))).scalar_one()
+    assert row.recurrence["exceptions"] == {
+        (_monday() + timedelta(days=7)).isoformat(): {
+            "start": new_start.isoformat(), "end": (new_start + timedelta(minutes=30)).isoformat()}}
+
+
+async def test_update_future_splits_into_two_series(session, monkeypatch):
+    from chronarch_core import ai_tools
+    from sqlalchemy import select
+    from chronarch_core.models.event import UnifiedEvent
+
+    ai_tools, user, calendar, event, ctx = await _series_owner(session)
+    fake = _FakeConnector()
+
+    async def _conn(session, calendar):
+        return fake, await _account_for(session, calendar)
+
+    monkeypatch.setattr(ai_tools, "_get_connector_for_calendar", _conn)
+    cut = _monday() + timedelta(days=14)
+    continued = await ai_tools.update_event(
+        session, ctx, event_id=event.id, scope="future", instance_start=cut,
+        title="Standup v2", is_owner=True)
+    assert continued.id != event.id
+    assert continued.title == "Standup v2"
+    assert continued.start.replace(tzinfo=None) == cut.replace(tzinfo=None)
+    assert continued.recurrence == {"rule": ["RRULE:FREQ=WEEKLY;BYDAY=MO"]}
+    rows = {e.id: e for e in (await session.execute(select(UnifiedEvent))).scalars()}
+    assert rows[event.id].recurrence == {"rule": ["RRULE:FREQ=WEEKLY;BYDAY=MO;UNTIL=20260927"]}
+    assert fake.calls[0] == ("update_event", "series-9", ["recurrence"])
+
+
+async def test_scoped_caldav_rejected(session, monkeypatch):
+    from chronarch_core import ai_tools
+
+    ai_tools, user, calendar, event, ctx = await _series_owner(session, provider="caldav")
+    fake = _FakeConnector()
+
+    async def _conn(session, calendar):
+        return fake, await _account_for(session, calendar)
+
+    monkeypatch.setattr(ai_tools, "_get_connector_for_calendar", _conn)
+    import pytest as _pytest
+    with _pytest.raises(ValueError, match="whole-series"):
+        await ai_tools.delete_event(session, ctx, event_id=event.id, scope="this",
+                                    instance_start=_monday(), is_owner=True)
+    with _pytest.raises(ValueError, match="whole-series"):
+        await ai_tools.update_event(session, ctx, event_id=event.id, scope="this",
+                                    instance_start=_monday(), title="X", is_owner=True)

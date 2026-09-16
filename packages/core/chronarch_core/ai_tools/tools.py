@@ -680,16 +680,22 @@ async def update_event(
     all_day: bool | None = None,
     visibility: str | None = None,
     attendees: list[dict] | None = None,
+    scope: str = "series",
+    instance_start: datetime | None = None,
     is_owner: bool = False,
     delegation_grant=None,
 ) -> UnifiedEvent:
-    """Full-field edit (BRD §18 `update_event`). Field-level updates ride
+    """Full-field edit (BRD §18 `update_event`, scopes in BR-EVT-006). Field-level updates ride
     on the EDIT permission; a time change additionally requires RESCHEDULE.
-    At least one field must be provided. Writes through to the provider
-    when the calendar is provider-writable, then audits as UPDATE_EVENT.
+    scope="this"/"future" with an optional instance_start edits one occurrence
+    or splits the series (CalDAV: whole-series only). At least one field must
+    be provided. Writes through to the provider when the calendar is
+    provider-writable, then audits as UPDATE_EVENT.
     """
     from ..permissions import CalendarAction as _Action
 
+    if scope not in ("series", "this", "future"):
+        raise ValueError("scope must be 'series', 'this', or 'future'.")
     event = await session.get(UnifiedEvent, event_id)
     if event is None:
         raise ValueError(f"event {event_id} not found")
@@ -724,6 +730,20 @@ async def update_event(
         )
         if not resched_decision.allowed:
             raise PermissionDenied(_Action.RESCHEDULE, resched_decision.reason)
+
+    if scope != "series":
+        if not event.recurrence:
+            raise ValueError("scope applies to repeating events only — this event does not repeat.")
+        scoped_connector, scoped_account = await _get_connector_for_calendar(session, calendar)
+        return await _update_scoped(
+            session, ctx, calendar=calendar, event=event,
+            account=scoped_account, connector=scoped_connector,
+            scope=scope, instance_start=instance_start,
+            title=title, description=description, location=location,
+            start=start, end=end, tz_name=timezone, all_day=all_day,
+            visibility=visibility, attendees=attendees,
+            is_owner=is_owner, delegation_grant=delegation_grant,
+        )
 
     changes: dict[str, list[str]] = {}
     connector, account = await _get_connector_for_calendar(session, calendar)
@@ -796,6 +816,156 @@ async def update_event(
         detail={"changes": changes},
     )
     return event
+
+
+async def _update_scoped(
+    session: AsyncSession,
+    ctx: AuthContext,
+    *,
+    calendar,
+    event,
+    account,
+    connector,
+    scope: str,
+    instance_start: datetime | None,
+    title: str | None,
+    description: str | None,
+    location: str | None,
+    start: datetime | None,
+    end: datetime | None,
+    tz_name: str | None,
+    all_day: bool | None,
+    visibility: str | None,
+    attendees: list[dict] | None,
+    is_owner: bool = False,
+    delegation_grant=None,
+):
+    """This/future-occurrences edit for a recurring series (BR-EVT-006).
+
+    scope="this" patches one provider instance and records a moved-window
+    exception when the time changes (non-time field overrides live
+    provider-side; the local master keeps series truth). scope="future"
+    truncates the series at the cut and starts a replacement series carrying
+    the edited fields, returning the new row. CalDAV supports whole-series
+    edits only. EDIT/MANAGE/RESCHEDULE gates are enforced by the caller.
+    """
+    from ..models.enums import ProviderType as _ProviderType
+    from ..recurrence import split_series as _split
+
+    now = datetime.now(timezone.utc)
+    cut = _next_occurrence(event, now, instance_start)
+    cut_key = cut.isoformat()
+    if connector is None or not calendar.provider_writable:
+        raise ValueError("Scoped edits need a writable provider connection.")
+    provider = account.provider if account else None
+    if provider == _ProviderType.CALDAV:
+        raise ValueError("CalDAV supports whole-series edits only.")
+    if provider not in (_ProviderType.GOOGLE, _ProviderType.MICROSOFT):
+        raise ValueError(f"Scoped edits are not supported for {provider.value if provider else 'this account'}.")
+
+    # Same normalized field patch the series path builds, so instance and
+    # series writes carry identical semantics (quirks included).
+    patch: dict = {}
+    if title is not None:
+        patch["title"] = title
+    if description is not None:
+        patch["description"] = description
+    if location is not None:
+        patch["location"] = location
+    if attendees is not None:
+        patch["attendees"] = attendees
+    if start is not None or end is not None:
+        new_start = start if start is not None else cut
+        new_end = end if end is not None else cut + (_as_utc(event.end) - _as_utc(event.start))
+        patch["start"] = {"dateTime": new_start.isoformat(), "timeZone": tz_name or event.timezone}
+        patch["end"] = {"dateTime": new_end.isoformat(), "timeZone": tz_name or event.timezone}
+
+    if scope == "this":
+        if provider == _ProviderType.GOOGLE:
+            await connector.update_instance(
+                calendar.provider_calendar_id, event.provider_event_id, cut, patch)
+        else:
+            occs = await connector.list_instances(
+                event.provider_event_id,
+                cut - timedelta(minutes=1), cut + timedelta(minutes=1))
+            if not occs:
+                raise ValueError("Occurrence not found on the provider.")
+            await connector.update_instance(
+                calendar.provider_calendar_id, event.provider_event_id, occs[0]["id"], patch)
+        refreshed = getattr(connector, "access_token", None)
+        if account and refreshed:
+            _persist_refreshed_token(account, refreshed)
+        if start is not None or end is not None:
+            duration = _as_utc(event.end) - _as_utc(event.start)
+            new_start = start if start is not None else cut
+            new_end = end if end is not None else new_start + duration
+            exceptions = dict((event.recurrence or {}).get("exceptions") or {})
+            exceptions[cut_key] = {"start": new_start.isoformat(), "end": new_end.isoformat()}
+            event.recurrence = {**(event.recurrence or {}), "exceptions": exceptions}
+            await session.flush()
+        await write_audit_entry(
+            session, ctx=ctx, action=AuditAction.UPDATE_EVENT,
+            calendar_id=calendar.id, event_id=event.id,
+            detail={"scope": "this", "instance": cut_key,
+                    "changes": sorted(patch.keys())},
+        )
+        return event
+
+    # scope == "future": truncate the original, start a replacement series.
+    trunc, restart = _split(event.recurrence, cut)
+    if trunc is None or restart is None:
+        raise ValueError("Could not split this series' recurrence rule.")
+    await connector.update_event(
+        calendar.provider_calendar_id, event.provider_event_id, {"recurrence": trunc})
+    refreshed = getattr(connector, "access_token", None)
+    if account and refreshed:
+        _persist_refreshed_token(account, refreshed)
+    kept_exceptions = {
+        k: v for k, v in (((event.recurrence or {}).get("exceptions") or {}).items())
+        if k < cut_key
+    }
+    event.recurrence = {**trunc, **({"exceptions": kept_exceptions} if kept_exceptions else {})}
+    await session.flush()
+
+    duration = _as_utc(event.end) - _as_utc(event.start)
+    new_start = start if start is not None else cut
+    new_end = end if end is not None else new_start + duration
+    created = await create_event(
+        session, ctx, calendar_id=calendar.id,
+        title=title if title is not None else event.title,
+        start=new_start, end=new_end,
+        timezone=tz_name or event.timezone,
+        description=description if description is not None else event.description,
+        location=location if location is not None else event.location,
+        attendees=attendees if attendees is not None else list(event.attendees or []),
+        all_day=all_day if all_day is not None else event.all_day,
+        recurrence=None,  # replaced below with the provider-shape restart rule
+        is_owner=is_owner, delegation_grant=delegation_grant,
+    )
+    # create_event only accepts canonical input, but the restart rule is
+    # already provider-shaped — set it (and the provider row) directly.
+    created.recurrence = restart
+    if connector and created.provider_event_id and calendar.provider_writable:
+        try:
+            await connector.update_event(
+                calendar.provider_calendar_id, created.provider_event_id,
+                {"recurrence": restart})
+        except Exception:
+            pass
+    await session.flush()
+    await write_audit_entry(
+        session, ctx=ctx, action=AuditAction.UPDATE_EVENT,
+        calendar_id=calendar.id, event_id=event.id,
+        detail={"scope": "future", "cut": cut_key,
+                "continued_as": created.id, "changes": sorted(patch.keys())},
+    )
+    return created
+
+
+def _as_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 async def move_event_between_calendars(
@@ -893,14 +1063,42 @@ async def move_event_between_calendars(
     return event
 
 
+def _next_occurrence(event, now: datetime, instance_start: datetime | None) -> datetime:
+    """Target instance for scoped edits: explicit, else next upcoming."""
+    from ..recurrence import occurrences as _occurrences
+
+    if instance_start is not None:
+        return instance_start
+    upcoming = _occurrences(event, now, now + timedelta(days=365), limit=1)
+    if not upcoming:
+        raise ValueError("No upcoming occurrences — the series has ended.")
+    return upcoming[0][0]
+
+
 async def delete_event(
     session: AsyncSession,
     ctx: AuthContext,
     *,
     event_id: str,
+    scope: str = "series",
+    instance_start: datetime | None = None,
     is_owner: bool = False,
     delegation_grant=None,
-) -> None:
+) -> dict:
+    """Delete an event, with recurrence scope (BR-EVT-006).
+
+    scope="series" (default) removes the whole series — the historical
+    behavior. scope="this" removes one occurrence (the series continues;
+    recorded as an exception so expansion hides it). scope="future" ends the
+    series at the cut (truncate, no replacement). For "this"/"future" the
+    target instance defaults to the next upcoming occurrence when
+    `instance_start` is omitted. CalDAV supports whole-series deletes only.
+    Returns a summary dict (the row may survive scoped deletes).
+    """
+    from ..recurrence import split_series as _split
+
+    if scope not in ("series", "this", "future"):
+        raise ValueError("scope must be 'series', 'this', or 'future'.")
     event = await session.get(UnifiedEvent, event_id)
     if event is None:
         raise ValueError(f"event {event_id} not found")
@@ -913,11 +1111,70 @@ async def delete_event(
         raise PermissionDenied(CalendarAction.DELETE, decision.reason)
 
     connector, account = await _get_connector_for_calendar(session, calendar)
+    now = datetime.now(timezone.utc)
+
+    async def _touch_provider() -> None:
+        refreshed = getattr(connector, "access_token", None)
+        if account and refreshed:
+            _persist_refreshed_token(account, refreshed)
+
+    def _cut() -> datetime:
+        return _next_occurrence(event, now, instance_start)
+
+    if event.recurrence and scope != "series":
+        from ..models.enums import ProviderType as _ProviderType
+
+        cut = _cut()
+        cut_key = cut.isoformat()
+        provider = account.provider if account else None
+        if connector is None or not calendar.provider_writable:
+            raise ValueError("Scoped deletes need a writable provider connection.")
+        if provider == _ProviderType.CALDAV:
+            raise ValueError("CalDAV supports whole-series deletes only.")
+        if scope == "this":
+            if provider == _ProviderType.GOOGLE:
+                await connector.delete_instance(
+                    calendar.provider_calendar_id, event.provider_event_id, cut)
+            elif provider == _ProviderType.MICROSOFT:
+                occs = await connector.list_instances(
+                    event.provider_event_id,
+                    cut - timedelta(minutes=1), cut + timedelta(minutes=1))
+                if not occs:
+                    raise ValueError("Occurrence not found on the provider.")
+                await connector.delete_instance(
+                    calendar.provider_calendar_id, event.provider_event_id, occs[0]["id"])
+            else:
+                raise ValueError(f"Scoped deletes are not supported for {provider.value}.")
+            await _touch_provider()
+            exceptions = dict((event.recurrence or {}).get("exceptions") or {})
+            exceptions[cut_key] = {"deleted": True}
+            event.recurrence = {**(event.recurrence or {}), "exceptions": exceptions}
+            await session.flush()
+            await write_audit_entry(
+                session, ctx=ctx, action=AuditAction.DELETE_EVENT,
+                calendar_id=calendar.id, event_id=event.id,
+                detail={"title": event.title, "scope": "this", "instance": cut_key},
+            )
+            return {"deleted": "instance", "scope": "this", "instance": cut_key}
+        # scope == "future": truncate the series at the cut.
+        trunc, _ = _split(event.recurrence, cut)
+        if trunc is None:
+            raise ValueError("Could not split this series' recurrence rule.")
+        await connector.update_event(
+            calendar.provider_calendar_id, event.provider_event_id, {"recurrence": trunc})
+        await _touch_provider()
+        event.recurrence = trunc
+        await session.flush()
+        await write_audit_entry(
+            session, ctx=ctx, action=AuditAction.DELETE_EVENT,
+            calendar_id=calendar.id, event_id=event.id,
+            detail={"title": event.title, "scope": "future", "cut": cut_key},
+        )
+        return {"deleted": "future", "scope": "future", "cut": cut_key}
+
     if connector and event.provider_event_id and calendar.provider_writable:
         await connector.delete_event(calendar.provider_calendar_id, event.provider_event_id)
-        refreshed_token = getattr(connector, "access_token", None)
-        if account and refreshed_token:
-            _persist_refreshed_token(account, refreshed_token)
+        await _touch_provider()
 
     await write_audit_entry(
         session,
@@ -929,6 +1186,7 @@ async def delete_event(
     )
     await session.delete(event)
     await session.flush()
+    return {"deleted": "series", "scope": "series"}
 
 
 async def add_attendee(

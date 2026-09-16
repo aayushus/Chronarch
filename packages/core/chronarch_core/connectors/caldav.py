@@ -383,6 +383,21 @@ class CalDAVConnector(BaseConnector):
                     if entry.get("name"):
                         prop.params["CN"] = entry["name"]
                     vevent.add("attendee", prop)
+            if isinstance(patch.get("recurrence"), dict):
+                import icalendar as _ical2
+
+                rules = patch["recurrence"].get("rule")
+                items = rules if isinstance(rules, list) else ([rules] if rules else [])
+                if "rrule" in vevent:
+                    del vevent["rrule"]
+                for rule in items:
+                    text = str(rule)
+                    if ":" in text:
+                        text = text.split(":", 1)[1]
+                    try:
+                        vevent.add("rrule", _ical2.vRecur.from_ical(text))
+                    except (ValueError, TypeError):
+                        continue
             put = await client.put(target, content=cal.to_ical(), headers={"Content-Type": "text/calendar; charset=utf-8"})
             put.raise_for_status()
             remote = _ics_to_remote(_href_path(target), calendar_id, cal.to_ical().decode("utf-8"), True)

@@ -1,1 +1,1 @@
-Cancel/delete an event. DESTRUCTIVE-tier: callers must confirm before invoking.
+Cancel/delete an event. DESTRUCTIVE-tier: callers must confirm before invoking. scope picks series (whole series, default), this (one occurrence — omit instance_start for the next upcoming), or future (end the series at the cut). CalDAV supports series only.

@@ -312,6 +312,11 @@ class GoogleConnector(BaseConnector):
                 {"email": a.get("email"), **({"displayName": a["name"]} if a.get("name") else {})}
                 for a in body["attendees"] if isinstance(a, dict) and a.get("email")
             ]
+        # Stored shape {"rule": [...]} is already the Google wire form.
+        if isinstance(body.get("recurrence"), dict):
+            rules = body["recurrence"].get("rule")
+            items = rules if isinstance(rules, list) else ([rules] if rules else [])
+            body["recurrence"] = [r if str(r).startswith("RRULE:") else f"RRULE:{r}" for r in items]
         resp = await self._request(
             "PATCH",
             f"{API_BASE}/calendars/{quote(calendar_id, safe='')}/events/"
@@ -326,6 +331,34 @@ class GoogleConnector(BaseConnector):
             f"{API_BASE}/calendars/{quote(calendar_id, safe='')}/events/"
             f"{quote(provider_event_id, safe='')}",
         )
+
+    @staticmethod
+    def instance_id(series_id: str, instance_start: datetime) -> str:
+        """Google addresses one occurrence as {seriesId}_{UTC timestamp}."""
+        utc = instance_start.astimezone(timezone.utc) if instance_start.tzinfo else instance_start.replace(tzinfo=timezone.utc)
+        return f"{series_id}_{utc.strftime('%Y%m%dT%H%M%SZ')}"
+
+    async def delete_instance(self, calendar_id: str, series_id: str, instance_start: datetime) -> None:
+        """Delete one occurrence (creates an exception, series continues)."""
+        await self.delete_event(
+            calendar_id, self.instance_id(series_id, instance_start))
+
+    async def update_instance(self, calendar_id: str, series_id: str,
+                              instance_start: datetime, patch: dict[str, Any]) -> RemoteEvent:
+        """Patch one occurrence without touching the series."""
+        body = dict(patch)
+        if isinstance(body.get("attendees"), list):
+            body["attendees"] = [
+                {"email": a.get("email"), **({"displayName": a["name"]} if a.get("name") else {})}
+                for a in body["attendees"] if isinstance(a, dict) and a.get("email")
+            ]
+        resp = await self._request(
+            "PATCH",
+            f"{API_BASE}/calendars/{quote(calendar_id, safe='')}/events/"
+            f"{quote(self.instance_id(series_id, instance_start), safe='')}",
+            json=body,
+        )
+        return _to_remote_event(resp.json(), writable=True)
 
     async def get_raw_event(self, calendar_id: str, provider_event_id: str) -> dict[str, Any]:
         resp = await self._request(

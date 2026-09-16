@@ -449,6 +449,8 @@ class MicrosoftConnector(BaseConnector):
     async def update_event(self, calendar_id: str, provider_event_id: str, patch: dict[str, Any]) -> RemoteEvent:
         # Convert incoming patch (e.g. start/end) to Graph format if needed
         graph_patch: dict[str, Any] = {}
+        if isinstance(patch.get("recurrence"), dict) and isinstance(patch["recurrence"].get("type"), dict):
+            graph_patch["recurrence"] = patch["recurrence"]["type"]
         if isinstance(patch.get("attendees"), list):
             graph_patch["attendees"] = [
                 {"emailAddress": {
@@ -485,6 +487,52 @@ class MicrosoftConnector(BaseConnector):
             "DELETE",
             f"/me/events/{quote(provider_event_id, safe='')}",
         )
+
+    async def list_instances(self, series_id: str, window_start: datetime, window_end: datetime) -> list[dict]:
+        """Occurrences of a series in a window: [{id, start}]."""
+        params = {
+            "startDateTime": window_start.isoformat(),
+            "endDateTime": window_end.isoformat(),
+        }
+        resp = await self._request(
+            "GET",
+            f"/me/events/{quote(series_id, safe='')}/instances",
+            params=params,
+        )
+        out = []
+        for item in resp.json().get("value", []):
+            start = (item.get("start") or {}).get("dateTime")
+            if item.get("id") and start:
+                out.append({"id": item["id"], "start": start})
+        return out
+
+    async def delete_instance(self, calendar_id: str, series_id: str, occurrence_id: str) -> None:
+        """Delete one occurrence by its instance id (series continues)."""
+        _ = calendar_id, series_id
+        await self._request("DELETE", f"/me/events/{quote(occurrence_id, safe='')}")
+
+    async def update_instance(self, calendar_id: str, series_id: str,
+                              occurrence_id: str, patch: dict[str, Any]) -> RemoteEvent:
+        """Patch one occurrence without touching the series."""
+        _ = calendar_id, series_id
+        graph_patch: dict[str, Any] = {}
+        if isinstance(patch.get("attendees"), list):
+            graph_patch["attendees"] = [
+                {"emailAddress": {
+                    "address": a.get("email"),
+                    **({"name": a["name"]} if a.get("name") else {}),
+                }, "type": "required"}
+                for a in patch["attendees"] if isinstance(a, dict) and a.get("email")
+            ]
+        for k in ("subject", "body", "location", "isAllDay", "start", "end", "recurrence"):
+            if k in patch and k != "recurrence":
+                graph_patch[k] = patch[k]
+            elif k == "recurrence" and isinstance(patch.get("recurrence"), dict):
+                if isinstance(patch["recurrence"].get("type"), dict):
+                    graph_patch["recurrence"] = patch["recurrence"]["type"]
+        resp = await self._request(
+            "PATCH", f"/me/events/{quote(occurrence_id, safe='')}", json=graph_patch)
+        return _to_remote_event(resp.json(), writable=True)
 
     async def get_raw_event(self, calendar_id: str, provider_event_id: str) -> dict[str, Any]:
         resp = await self._request(

@@ -329,6 +329,8 @@ async def update_event(
     end: str | None = None,
     timezone: str | None = None,
     all_day: bool | None = None,
+    scope: str = "series",
+    instance_start: str | None = None,
 ) -> dict:
     """Prompt: prompts/mcp/tools/update_event.md."""
     ctx, session = await _authed_context()
@@ -341,7 +343,8 @@ async def update_event(
                 start=_as_aware(start, tz_name) if start else None,
                 end=_as_aware(end, tz_name) if end else None,
                 timezone=tz_name if timezone else None,
-                all_day=all_day,
+                all_day=all_day, scope=scope,
+                instance_start=_as_aware(instance_start, tz_name) if instance_start else None,
             )
         except ai_tools.PermissionDenied as exc:
             return {"error": describe_denial(exc.action, exc.reason)}
@@ -360,18 +363,21 @@ async def update_event(
 
 
 @mcp.tool(description=tool_description("mcp", "delete_event"))
-async def delete_event(event_id: str) -> dict:
+async def delete_event(event_id: str, scope: str = "series", instance_start: str | None = None) -> dict:
     """Prompt: prompts/mcp/tools/delete_event.md."""
     ctx, session = await _authed_context()
     async with session:
         try:
-            await ai_tools.delete_event(session, ctx, event_id=event_id)
+            tz_name = await _caller_timezone(session, ctx, None)
+            result = await ai_tools.delete_event(
+                session, ctx, event_id=event_id, scope=scope,
+                instance_start=_as_aware(instance_start, tz_name) if instance_start else None)
         except ai_tools.PermissionDenied as exc:
             return {"error": describe_denial(exc.action, exc.reason)}
         except Exception as exc:
             return {"error": str(exc)}
         await session.commit()
-        return {"status": "deleted", "id": event_id}
+        return {"status": "deleted", "id": event_id, **result}
 
 
 @mcp.tool(description=tool_description("mcp", "add_attendee"))

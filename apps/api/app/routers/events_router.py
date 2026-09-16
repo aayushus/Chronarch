@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, model_validator
@@ -36,8 +36,29 @@ class EventOut(BaseModel):
     busy_status: str = "busy"
     timezone: str = "UTC"
     visibility: str = "standard"
+    recurrence: dict | None = None
+    # Next upcoming occurrence (series only) — drives the scoped-edit UI.
+    next_occurrence: datetime | None = None
 
     model_config = {"from_attributes": True}
+
+
+def _with_next_occurrence(events: list) -> list:
+    """Attach next_occurrence to recurring rows (best-effort, never fails
+    a read — expansion of a malformed rule yields nothing)."""
+    from datetime import timezone as _tz
+
+    from chronarch_core.recurrence import occurrences as _occurrences
+
+    now = datetime.now(_tz.utc)
+    horizon = now + timedelta(days=365)
+    for e in events:
+        try:
+            upcoming = _occurrences(e, now, horizon, limit=1) if e.recurrence else []
+            e.next_occurrence = upcoming[0][0] if upcoming else None
+        except Exception:
+            e.next_occurrence = None
+    return events
 
 
 class EventCreate(BaseModel):
@@ -124,7 +145,7 @@ async def list_events(
         owner_calendar_ids=owner_ids,
         grants_by_calendar=grants,
     )
-    return events
+    return _with_next_occurrence(events)
 
 
 @router.get("/conflicts", response_model=list[ConflictOut])
@@ -249,9 +270,13 @@ async def move_event_to_calendar(
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_event(
     event_id: str,
+    scope: str = "series",
+    instance_start: datetime | None = None,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
+    """Delete with recurrence scope (BR-EVT-006): series (default), this
+    occurrence, or this-and-future. Scoped deletes keep the series row."""
     from chronarch_core.models.event import UnifiedEvent
 
     existing = await session.get(UnifiedEvent, event_id)
@@ -260,7 +285,9 @@ async def delete_event(
     is_owner, grant = await _resolve_owner_and_grant(session, user, existing.calendar_id)
     ctx = build_auth_context(user, actor_type_for(user))
     try:
-        await ai_tools.delete_event(session, ctx, event_id=event_id, is_owner=is_owner, delegation_grant=grant)
+        await ai_tools.delete_event(
+            session, ctx, event_id=event_id, scope=scope,
+            instance_start=instance_start, is_owner=is_owner, delegation_grant=grant)
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc))
     except ai_tools.PermissionDenied as exc:
@@ -284,10 +311,11 @@ async def get_event(
     grants = {existing.calendar_id: grant} if grant is not None else None
     ctx = build_auth_context(user, actor_type_for(user))
     try:
-        return await ai_tools.get_event(
+        fetched = await ai_tools.get_event(
             session, ctx, event_id=event_id,
             owner_calendar_ids=owner_ids, grants_by_calendar=grants,
         )
+        return _with_next_occurrence([fetched])[0]
     except ai_tools.PermissionDenied as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, describe_denial(exc.action, exc.reason))
 
@@ -302,6 +330,11 @@ class EventUpdate(BaseModel):
     all_day: bool | None = None
     visibility: str | None = None
     attendees: list[dict] | None = None
+    # Recurrence scope (BR-EVT-006): series (default), this occurrence, or
+    # this-and-future. Scoped edits target instance_start, defaulting to the
+    # next upcoming occurrence.
+    scope: str = "series"
+    instance_start: datetime | None = None
 
 
 @router.patch("/{event_id}", response_model=EventOut)
@@ -328,7 +361,7 @@ async def update_event(
             session, ctx, event_id=event_id, title=body.title, description=body.description,
             location=body.location, start=body.start, end=body.end,
             timezone=body.timezone, all_day=body.all_day, visibility=body.visibility,
-            attendees=body.attendees,
+            attendees=body.attendees, scope=body.scope, instance_start=body.instance_start,
             is_owner=is_owner, delegation_grant=grant,
         )
     except ai_tools.PermissionDenied as exc:

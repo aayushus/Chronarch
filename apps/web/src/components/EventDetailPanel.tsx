@@ -10,10 +10,53 @@ interface Props {
   event: EventSummary | null;
   calendar: CalendarSummary | undefined;
   onClose: () => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string, scope?: string, instanceStart?: string) => void;
   canDelete: boolean;
   canEdit: boolean;
   onSaved: (event: EventSummary) => void;
+}
+
+export type RecurrenceScope = "this" | "future" | "series";
+
+function ScopeDialog({
+  title, nextLabel, onPick, onClose,
+}: {
+  title: string;
+  nextLabel: string | null;
+  onPick: (scope: RecurrenceScope) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="modal-card mount-rise"
+        onClick={(e) => e.stopPropagation()}
+        style={{ width: 340, maxWidth: "90vw", padding: 22 }}
+      >
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{title}</div>
+        <p style={{ fontSize: 12.5, color: "var(--text-secondary)", margin: "0 0 14px", lineHeight: 1.5 }}>
+          This is a repeating event{nextLabel ? ` (next: ${nextLabel})` : ""}. Which occurrences change?
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <button onClick={() => onPick("this")} className="btn-secondary hoverable" style={{ textAlign: "left", padding: "9px 12px" }}>
+            <span style={{ display: "block", fontWeight: 600, fontSize: 13 }}>Only this event</span>
+            <span style={{ display: "block", fontSize: 11.5, color: "var(--text-secondary)" }}>The series continues unchanged</span>
+          </button>
+          <button onClick={() => onPick("future")} className="btn-secondary hoverable" style={{ textAlign: "left", padding: "9px 12px" }}>
+            <span style={{ display: "block", fontWeight: 600, fontSize: 13 }}>This and future events</span>
+            <span style={{ display: "block", fontSize: 11.5, color: "var(--text-secondary)" }}>Earlier occurrences stay as they are</span>
+          </button>
+          <button onClick={() => onPick("series")} className="btn-secondary hoverable" style={{ textAlign: "left", padding: "9px 12px" }}>
+            <span style={{ display: "block", fontWeight: 600, fontSize: 13 }}>Entire series</span>
+            <span style={{ display: "block", fontSize: 11.5, color: "var(--text-secondary)" }}>Every occurrence, past and future</span>
+          </button>
+        </div>
+        <button onClick={onClose} className="hoverable" style={{ background: "none", border: "none", color: "var(--text-tertiary)", fontSize: 12.5, cursor: "pointer", padding: "10px 0 0", width: "100%" }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
 }
 
 const RSVP_ICON: Record<string, string> = {
@@ -29,6 +72,7 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
   const [draft, setDraft] = useState<PickerAttendee[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scopeFor, setScopeFor] = useState<"delete" | "save" | null>(null);
 
   // The panel only exists while an event is selected — no placeholder chrome.
   if (!event) {
@@ -37,6 +81,10 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
 
   const start = new Date(event.start);
   const end = new Date(event.end);
+  const isRecurring = !!event.recurrence;
+  const nextLabel = event.next_occurrence
+    ? new Date(event.next_occurrence).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+    : null;
 
   function beginEdit() {
     setDraft((event?.attendees ?? []).map((a) => ({ name: a.name || a.email, email: a.email })));
@@ -44,13 +92,18 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
     setEditingAttendees(true);
   }
 
-  async function saveAttendees() {
+  async function saveAttendees(scope: RecurrenceScope = "series") {
     if (!event) return;
     setSaving(true);
     setError(null);
     try {
-      onSaved(await updateEvent(event.id, { attendees: draft }));
+      const patch: Parameters<typeof updateEvent>[1] =
+        scope === "series"
+          ? { attendees: draft }
+          : { attendees: draft, scope, ...(event.next_occurrence ? { instance_start: event.next_occurrence } : {}) };
+      onSaved(await updateEvent(event.id, patch));
       setEditingAttendees(false);
+      setScopeFor(null);
     } catch (e) {
       setError(friendlyError(e));
     } finally {
@@ -73,6 +126,11 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
         <div className="tabular-nums" style={{ fontSize: 13, color: "var(--text-secondary)" }}>
           {formatTimeRange(start, end)}
         </div>
+        {isRecurring && (
+          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>
+            Repeats{nextLabel ? ` · next ${nextLabel}` : ""}
+          </div>
+        )}
         {event.location && (
           <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
             <Icon name="mapPin" size={13} /> {event.location}
@@ -109,7 +167,15 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
                 <button onClick={() => setEditingAttendees(false)} className="btn-secondary hoverable" style={{ flex: 1, fontSize: 12 }}>
                   Cancel
                 </button>
-                <button onClick={() => void saveAttendees()} disabled={saving} className="btn-primary hoverable" style={{ flex: 1, fontSize: 12 }}>
+                <button
+                  onClick={() => {
+                    if (isRecurring) setScopeFor("save");
+                    else void saveAttendees();
+                  }}
+                  disabled={saving}
+                  className="btn-primary hoverable"
+                  style={{ flex: 1, fontSize: 12 }}
+                >
                   {saving ? "Saving…" : "Save"}
                 </button>
               </div>
@@ -167,13 +233,34 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
       {canDelete && (
         <div style={{ padding: "16px 20px", marginTop: "auto" }}>
           <button
-            onClick={() => onDelete(event.id)}
+            onClick={() => {
+              if (!event) return;
+              if (isRecurring) setScopeFor("delete");
+              else onDelete(event.id);
+            }}
             className="btn-danger"
             style={{ width: "100%" }}
           >
             Delete Event
           </button>
         </div>
+      )}
+      {scopeFor && (
+        <ScopeDialog
+          title={scopeFor === "delete" ? "Delete repeating event" : "Save attendees"}
+          nextLabel={nextLabel}
+          onClose={() => setScopeFor(null)}
+          onPick={(scope) => {
+            if (!event) return;
+            const instance = scope === "series" ? undefined : event.next_occurrence ?? undefined;
+            if (scopeFor === "delete") {
+              setScopeFor(null);
+              onDelete(event.id, scope, instance);
+            } else {
+              void saveAttendees(scope);
+            }
+          }}
+        />
       )}
     </aside>
   );
