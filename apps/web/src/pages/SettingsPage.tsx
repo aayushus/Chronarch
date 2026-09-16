@@ -8,19 +8,22 @@ import AccountSettings from "../components/settings/AccountSettings";
 import AiSettings from "../components/settings/AiSettings";
 import AuditLogSettings from "../components/settings/AuditLogSettings";
 import CalendarsSettings from "../components/settings/CalendarsSettings";
+import ContactsSettings from "../components/settings/ContactsSettings";
 import DelegatesSettings from "../components/settings/DelegatesSettings";
 import McpSettings from "../components/settings/McpSettings";
 import RolesSettings from "../components/settings/RolesSettings";
 import SystemSettings from "../components/settings/SystemSettings";
 import UsersSettings from "../components/settings/UsersSettings";
 
-type SettingsSection = "account" | "calendars" | "accounts" | "delegates" | "users" | "roles" | "ai" | "mcp" | "audit" | "system";
+type SettingsSection = "account" | "calendars" | "accounts" | "contacts" | "delegates" | "users" | "roles" | "ai" | "mcp" | "audit" | "system";
 
 const NAV: { key: SettingsSection; label: string; icon: IconName; view: string; Component: React.ComponentType }[] = [
   // Account is personal, not privileged: always visible (it also carries logout).
   { key: "account", label: "Account", icon: "user", view: "", Component: AccountSettings },
   { key: "calendars", label: "Calendars", icon: "calendar", view: "calendars.view", Component: CalendarsSettings },
   { key: "accounts", label: "Accounts", icon: "external", view: "accounts.view", Component: AccountsSettings },
+  // Contacts derive from synced invites — readable by anyone signed in.
+  { key: "contacts", label: "Contacts", icon: "addressBook", view: "", Component: ContactsSettings },
   { key: "delegates", label: "Delegates", icon: "users", view: "delegations.view", Component: DelegatesSettings },
   { key: "users", label: "Users", icon: "users", view: "users.view", Component: UsersSettings },
   { key: "roles", label: "Roles", icon: "shield", view: "", Component: RolesSettings },
@@ -33,6 +36,8 @@ const NAV: { key: SettingsSection; label: string; icon: IconName; view: string; 
 function initialSection(): SettingsSection {
   const params = new URLSearchParams(window.location.search);
   if (params.has("accounts_connected") || params.has("accounts_error")) return "accounts";
+  const requested = params.get("section");
+  if (requested && NAV.some((n) => n.key === requested)) return requested as SettingsSection;
   return "calendars";
 }
 
@@ -42,6 +47,7 @@ function visibleSections(user: ReturnType<typeof useAuth>["user"]): typeof NAV {
   const perms = new Set(user.permissions ?? []);
   return NAV.filter((n) => {
     if (n.key === "account") return true; // personal section, always visible
+    if (n.key === "contacts") return true; // invite-derived directory, readable by anyone signed in
     if (n.key === "roles") return false; // admin-only surface
     if (n.key === "mcp") return perms.has("mcp.view") || perms.has("mcp_keys.create_self");
     return perms.has(n.view);
@@ -152,7 +158,13 @@ export default function SettingsPage() {
 
       <main style={{ flex: 1, overflowY: "auto", padding: "36px 48px" }}>
         <div key={section} className="view-enter" style={{ maxWidth: 960, margin: "0 auto" }}>
-          <CurrentComponent />
+          {section === "contacts" ? (
+            <ContactsSettings
+              onOpenAccounts={items.some((n) => n.key === "accounts") ? () => setSection("accounts") : undefined}
+            />
+          ) : (
+            <CurrentComponent />
+          )}
         </div>
       </main>
     </div>

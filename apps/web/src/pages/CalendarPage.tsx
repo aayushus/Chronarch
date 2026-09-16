@@ -556,6 +556,13 @@ export default function CalendarPage() {
       { id: "sync", title: "Sync all accounts now", hint: "sync", icon: "refresh", run: () => handleSyncNow() },
       { id: "copilot", title: "Ask Copilot", hint: "AI", icon: "sparkles", run: () => setCopilotOpen(true) },
       {
+        id: "contacts",
+        title: "Open Contacts",
+        hint: "settings",
+        icon: "addressBook",
+        run: () => navigate("/settings?section=contacts"),
+      },
+      {
         id: "import-ics",
         title: "Import .ics file",
         hint: "import",

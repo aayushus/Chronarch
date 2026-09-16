@@ -85,6 +85,13 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M4 21a8 8 0 0116 0" />
     </>
   ),
+  addressBook: (
+    <>
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <circle cx="12" cy="10" r="2.5" />
+      <path d="M7 17a5 5 0 0110 0" />
+    </>
+  ),
   shield: (
     <>
       <path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" />
