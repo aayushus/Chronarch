@@ -185,3 +185,49 @@ async def test_extract_json_object():
     assert qa._parse_json_object('Here you go:\n```json\n{"a": 1}\n```') == {"a": 1}
     assert qa._parse_json_object("no json here") is None
     assert qa._parse_json_object("[1, 2]") is None
+
+
+async def test_parse_surfaces_ambiguity_and_all_day(session, monkeypatch):
+    _no_keys(monkeypatch)
+    monkeypatch.setattr(qa, "_call_litellm", _llm_says(
+        '{"title": "Standup", "start": "2026-09-17T09:00:00-04:00", '
+        '"end": "2026-09-17T09:15:00-04:00", "all_day": true, '
+        '"location": null, "description": null, '
+        '"attendees": [{"name": "Sam"}]}'))
+    user = await _user(session)
+    session.add(Contact(email="sam-a@x.com", display_name="Sam A", event_count=1))
+    session.add(Contact(email="sam-b@x.com", display_name="Sam B", event_count=9))
+    await session.flush()
+
+    draft = await qa.quick_add_parse(
+        QuickAddParseRequest(text="Standup with Sam Wednesday"), user=user,
+        session=session, client_timezone="America/New_York")
+    assert draft.all_day is True
+    assert len(draft.attendees) == 1
+    assert draft.attendees[0].email is None
+    assert [c["email"] for c in draft.attendees[0].ambiguous or []] == [
+        "sam-b@x.com", "sam-a@x.com"]
+
+
+async def test_parse_rejects_end_before_start(session, monkeypatch):
+    from fastapi import HTTPException
+
+    _no_keys(monkeypatch)
+    monkeypatch.setattr(qa, "_call_litellm", _llm_says(
+        '{"title": "Backwards", "start": "2026-09-17T10:00:00-04:00", '
+        '"end": "2026-09-17T09:00:00-04:00"}'))
+    user = await _user(session)
+    try:
+        await qa.quick_add_parse(QuickAddParseRequest(text="backwards meeting"),
+                                 user=user, session=session, client_timezone="UTC")
+        raise AssertionError("expected 502")
+    except HTTPException as exc:
+        assert exc.status_code == 502
+
+
+async def test_prompt_names_known_people():
+    people = [{"name": "John Appleseed", "email": "john@x.com"}]
+    messages = qa._parse_prompt("lunch", "2026-09-15T09:00:00-04:00",
+                                "America/New_York", people)
+    assert "John Appleseed <john@x.com>" in messages[0]["content"]
+    assert "ONLY a JSON object" in messages[0]["content"]

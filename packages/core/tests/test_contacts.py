@@ -125,3 +125,47 @@ async def test_known_people_only_named(session):
     await _contacts.refresh_contacts_for_account(session, account.id)
     assert await _contacts.known_people_for_prompt(session) == [
         {"name": "Named Person", "email": "named@x.com"}]
+
+
+async def test_existing_name_never_overwritten(session):
+    account, calendar = await _account(session)
+    await _event(session, account, calendar,
+                 [{"email": "keep@x.com", "name": "Original Name"}])
+    await _contacts.refresh_contacts_for_account(session, account.id)
+    # Later sightings with a blank or different name must not clobber it.
+    await _event(session, account, calendar,
+                 [{"email": "keep@x.com"}, {"email": "keep@x.com", "name": "Different"}])
+    await _contacts.refresh_contacts_for_account(session, account.id)
+    row = (await session.execute(
+        select(Contact).where(Contact.email == "keep@x.com"))).scalar_one()
+    assert row.display_name == "Original Name"
+
+
+async def test_ambiguous_candidates_most_met_first(session):
+    account, calendar = await _account(session)
+    for _ in range(3):
+        await _event(session, account, calendar,
+                     [{"email": "sam-rare@x.com", "name": "Sam Rare"}])
+    await _event(session, account, calendar,
+                 [{"email": "sam-often@x.com", "name": "Sam Often"}])
+    await _contacts.refresh_contacts_for_account(session, account.id)
+    out = await _contacts.resolve_contact(session, "sam")
+    assert out["status"] == "ambiguous"
+    assert [c.email for c in out["candidates"]] == ["sam-rare@x.com", "sam-often@x.com"]
+
+
+async def test_organizer_without_email_skipped(session):
+    account, calendar = await _account(session)
+    await _event(session, account, calendar, [],
+                 organizer={"name": "No Email Organizer"})
+    out = await _contacts.refresh_contacts_for_account(session, account.id)
+    assert out == {"contacts": 0}
+
+
+async def test_search_limit_capped_at_fifty(session):
+    account, calendar = await _account(session)
+    await _event(session, account, calendar,
+                 [{"email": f"p{i}@x.com", "name": f"Person {i}"} for i in range(3)])
+    await _contacts.refresh_contacts_for_account(session, account.id)
+    assert len(await _contacts.search_contacts(session, "", limit=2)) == 2
+    assert len(await _contacts.search_contacts(session, "", limit=5000)) == 3
