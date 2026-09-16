@@ -38,6 +38,20 @@ export function formatHour(hour: number): string {
   return `${h12} ${period}`;
 }
 
+/** Wall-clock hour of `instant` in another IANA zone ("2 PM"). Null when
+ * the zone is missing, identical to local, or invalid — callers hide the
+ * second scale instead of showing a duplicate or throwing. */
+export function formatHourInZone(instant: Date, timeZone: string | null | undefined): string | null {
+  if (!timeZone) return null;
+  try {
+    const local = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (local && timeZone === local) return null;
+    return instant.toLocaleTimeString(undefined, { hour: "numeric", timeZone });
+  } catch {
+    return null;
+  }
+}
+
 export function formatTime(d: Date): string {
   return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }

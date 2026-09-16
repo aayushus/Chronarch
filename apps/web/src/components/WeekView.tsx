@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { CalendarSummary, EventSummary } from "../api/calendar";
 import { useAppearance } from "../appearance";
 import { tint } from "../lib/color";
-import { WEEKDAY_SHORT, formatHour, formatTimeRange, sameDay, startOfDay, startOfWeek } from "../lib/dates";
+import { WEEKDAY_SHORT, formatHour, formatHourInZone, formatTimeRange, sameDay, startOfDay, startOfWeek } from "../lib/dates";
 import {
   SNAP_MINUTES,
   addDaysPreserveTime,
@@ -33,6 +33,8 @@ interface Props {
   onEmptyMenu?: (e: React.MouseEvent, at: Date) => void;
   /** Working-hours window [startHour, endHour] for background shading. */
   workingHours?: [number, number];
+  /** Optional second time-zone scale in the hour gutter (BRD §27). */
+  secondaryTimezone?: string | null;
 }
 
 type DragMode = "move" | "resize" | "lane-out";
@@ -66,7 +68,7 @@ function canCreate(cal: CalendarSummary[] | undefined): boolean {
   return (cal ?? []).some((c) => c.can_create ?? c.writable);
 }
 
-export default function WeekView({ weekAnchor, events, calendarById, onSelectEvent, onSelectDay, onMoveEvent, onCreateRange, onEventMenu, onEmptyMenu, workingHours = [9, 17] }: Props) {
+export default function WeekView({ weekAnchor, events, calendarById, onSelectEvent, onSelectDay, onMoveEvent, onCreateRange, onEventMenu, onEmptyMenu, workingHours = [9, 17], secondaryTimezone }: Props) {
   const { hourHeight } = useAppearance();
   const HOUR_H = hourHeight(HOUR_HEIGHT);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -79,6 +81,15 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
     return d;
   });
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
+  // Shared gutter: anchor on the week's first day (DST edges mid-week are
+  // accepted imprecision for a glanceable second scale).
+  const anchorDay = days[0] ?? weekAnchor;
+  const secondaryLabels = hours.map((h) =>
+    formatHourInZone(
+      new Date(anchorDay.getFullYear(), anchorDay.getMonth(), anchorDay.getDate(), h),
+      secondaryTimezone
+    )
+  );
   const weekAllDay = events.filter((e) => e.all_day && days.some((d) => sameDay(new Date(e.start), d)));
 
   function dayIndexOf(date: Date): number {
@@ -357,6 +368,9 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                 }}
               >
                 {formatHour(h)}
+                {secondaryLabels[i] ? (
+                  <span style={{ display: "block", fontSize: 8, opacity: 0.75 }}>{secondaryLabels[i]}</span>
+                ) : null}
               </span>
             ))}
           </div>

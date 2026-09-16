@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 
 import { CalendarSummary, EventSummary } from "../api/calendar";
 import { useAppearance } from "../appearance";
-import { formatHour, formatTimeRange, sameDay, startOfDay } from "../lib/dates";
+import { formatHour, formatHourInZone, formatTimeRange, sameDay, startOfDay } from "../lib/dates";
 import { contrastText, tint } from "../lib/color";
 import {
   SNAP_MINUTES,
@@ -30,6 +30,8 @@ interface Props {
   onEmptyMenu?: (e: React.MouseEvent, at: Date) => void;
   /** Working-hours window [startHour, endHour] for background shading. */
   workingHours?: [number, number];
+  /** Optional second time-zone scale in the hour gutter (BRD §27). */
+  secondaryTimezone?: string | null;
 }
 
 type DragMode = "move" | "resize" | "lane-out";
@@ -54,7 +56,7 @@ function canWrite(cal: CalendarSummary | undefined): boolean {
   return !!(cal?.can_reschedule ?? cal?.writable);
 }
 
-export default function DayView({ day, events, calendarById, onSelectEvent, selectedEventId, onMoveEvent, onCreateRange, onEventMenu, onEmptyMenu, workingHours = [9, 17] }: Props) {
+export default function DayView({ day, events, calendarById, onSelectEvent, selectedEventId, onMoveEvent, onCreateRange, onEventMenu, onEmptyMenu, workingHours = [9, 17], secondaryTimezone }: Props) {
   const { hourHeight } = useAppearance();
   const HOUR_H = hourHeight(HOUR_HEIGHT);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -71,6 +73,11 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
   );
 
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
+  // Second gutter scale (BRD §27): wall-clock hour of each grid line in the
+  // secondary zone. Null entries render nothing (unset/same/invalid zone).
+  const secondaryLabels = hours.map((h) =>
+    formatHourInZone(new Date(day.getFullYear(), day.getMonth(), day.getDate(), h), secondaryTimezone)
+  );
   const now = new Date();
   const showNowLine = sameDay(now, day);
   const nowOffset = ((now.getHours() * 60 + now.getMinutes() - START_HOUR * 60) / 60) * HOUR_H;
@@ -307,6 +314,9 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                 }}
               >
                 {formatHour(h)}
+                {secondaryLabels[i] ? (
+                  <span style={{ display: "block", fontSize: 9, opacity: 0.75 }}>{secondaryLabels[i]}</span>
+                ) : null}
               </span>
             </div>
           ))}

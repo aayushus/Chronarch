@@ -756,6 +756,7 @@ export default function CalendarPage() {
                 onEventMenu={openEventMenu}
                 onEmptyMenu={openEmptyMenu}
                 workingHours={workingHours}
+                secondaryTimezone={user?.secondary_timezone ?? null}
               />
             )}
             {viewMode === "week" && (
@@ -773,6 +774,7 @@ export default function CalendarPage() {
                 onEventMenu={openEventMenu}
                 onEmptyMenu={openEmptyMenu}
                 workingHours={workingHours}
+                secondaryTimezone={user?.secondary_timezone ?? null}
               />
             )}
             {viewMode === "month" && (
