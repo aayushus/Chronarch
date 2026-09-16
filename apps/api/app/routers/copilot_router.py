@@ -366,7 +366,104 @@ COPILOT_TOOLS = [
             },
         },
     },
-]
+        {
+            "type": "function",
+            "function": {
+                "name": "search_contacts",
+                "description": tool_description("copilot", "search_contacts"),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Name, email, or company substring. Empty lists everyone, most-met first."},
+                        "limit": {"type": "integer", "description": "Max results (default 10)."},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "resolve_contact",
+                "description": tool_description("copilot", "resolve_contact"),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "A name ('Sarah') or email to resolve to one contact."},
+                    },
+                    "required": ["query"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "create_contact",
+                "description": tool_description("copilot", "create_contact"),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "email": {"type": "string", "description": "Email address (required, must be new)."},
+                        "name": {"type": "string", "description": "Display name (optional)."},
+                        "phone": {"type": "string", "description": "Phone (optional)."},
+                        "company": {"type": "string", "description": "Company (optional)."},
+                        "job_title": {"type": "string", "description": "Job title (optional)."},
+                    },
+                    "required": ["email"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "update_contact",
+                "description": tool_description("copilot", "update_contact"),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "contact_id": {"type": "string", "description": "Contact ID from search/resolve."},
+                        "name": {"type": "string", "description": "New display name (optional)."},
+                        "email": {"type": "string", "description": "New email (optional, must stay unique)."},
+                        "phone": {"type": "string", "description": "New phone (optional)."},
+                        "company": {"type": "string", "description": "New company (optional)."},
+                        "job_title": {"type": "string", "description": "New job title (optional)."},
+                    },
+                    "required": ["contact_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "delete_contact",
+                "description": tool_description("copilot", "delete_contact"),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "contact_id": {"type": "string", "description": "Contact ID to remove."},
+                        "confirmed": {
+                            "type": "boolean",
+                            "description": "Must be true only if the user has explicitly confirmed removing this specific contact.",
+                        },
+                    },
+                    "required": ["contact_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "restore_contact",
+                "description": tool_description("copilot", "restore_contact"),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "contact_id": {"type": "string", "description": "Contact ID to bring back."},
+                    },
+                    "required": ["contact_id"],
+                },
+            },
+        },
+    ]
 
 
 class ChatMessage(BaseModel):
@@ -1015,6 +1112,62 @@ async def _execute_tool(
         )
         return {"deleted": True, "event_id": ev_id, "title": existing.title}
 
+    elif name == "search_contacts":
+        return {"contacts": await ai_tools.search_contacts(
+            session, ctx, query=args.get("query", ""), limit=int(args.get("limit", 10) or 10))}
+
+    elif name == "resolve_contact":
+        return await ai_tools.resolve_contact(session, ctx, query=args.get("query", ""))
+
+    elif name == "create_contact":
+        try:
+            contact = await ai_tools.create_contact(
+                session, ctx, email=args["email"], display_name=args.get("name"),
+                phone=args.get("phone"), company=args.get("company"), job_title=args.get("job_title"))
+        except ValueError as exc:
+            return {"error": str(exc)}
+        return {"contact": contact}
+
+    elif name == "update_contact":
+        try:
+            contact = await ai_tools.update_contact(
+                session, ctx, contact_id=args["contact_id"], display_name=args.get("name"),
+                email=args.get("email"), phone=args.get("phone"),
+                company=args.get("company"), job_title=args.get("job_title"))
+        except ValueError as exc:
+            return {"error": str(exc)}
+        return {"contact": contact}
+
+    elif name == "delete_contact":
+        from chronarch_core.models.contact import Contact as _Contact
+
+        cid = args["contact_id"]
+        existing = await session.get(_Contact, cid)
+        if existing is None or existing.deleted_at is not None:
+            return {"error": f"Contact {cid} not found"}
+        already_previewed = _already_previewed(history or [], cid)
+        if not (args.get("confirmed", False) and already_previewed):
+            return {
+                "requires_confirmation": True,
+                "action": "delete_contact",
+                "contact_id": cid,
+                "title": existing.display_name or existing.email,
+                "message": (
+                    f"Removing '{existing.display_name or existing.email}' from contacts "
+                    "is destructive. Please ask the user to explicitly confirm before "
+                    f"proceeding. {_confirmation_ref(cid)}"
+                ),
+            }
+        await ai_tools.delete_contact(session, ctx, contact_id=cid)
+        return {"deleted": True, "contact_id": cid}
+
+    elif name == "restore_contact":
+        try:
+            contact = await ai_tools.restore_contact(session, ctx, contact_id=args["contact_id"])
+        except ValueError as exc:
+            return {"error": str(exc)}
+        return {"contact": contact}
+
     return {"error": f"Unknown tool: {name}"}
 
 
@@ -1078,6 +1231,18 @@ def _describe_tool_call(name: str, args: dict[str, Any]) -> str:
         return "Rescheduling event"
     if name == "delete_event":
         return "Deleting event"
+    if name == "search_contacts":
+        return f"Looking up {args.get('query') or 'contacts'}"
+    if name == "resolve_contact":
+        return f"Resolving {args.get('query', 'contact')}"
+    if name == "create_contact":
+        return f"Adding {args.get('email', 'contact')}"
+    if name == "update_contact":
+        return "Updating contact"
+    if name == "delete_contact":
+        return "Removing contact"
+    if name == "restore_contact":
+        return "Restoring contact"
     return name.replace("_", " ").capitalize()
 
 
@@ -1108,6 +1273,21 @@ def _summarize_tool_result(name: str, result: dict[str, Any]) -> str:
         return "Updated"
     if name == "delete_event":
         return f"Deleted '{result.get('title', 'event')}'"
+    if name == "search_contacts":
+        n = len(result.get("contacts", []))
+        return f"Found {n} contact{'s' if n != 1 else ''}"
+    if name == "resolve_contact":
+        if result.get("status") == "found":
+            c = result.get("contact", {})
+            return f"Resolved to {c.get('display_name') or c.get('email', '?')}"
+        if result.get("status") == "ambiguous":
+            return f"{len(result.get('candidates', []))} matches — ask which one"
+        return "No match"
+    if name in ("create_contact", "update_contact", "restore_contact"):
+        c = result.get("contact", {})
+        return f"Saved {c.get('display_name') or c.get('email', 'contact')}"
+    if name == "delete_contact":
+        return "Removed contact"
     if name == "get_event":
         return result.get("event", {}).get("title", "Done")
     return "Done"

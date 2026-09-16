@@ -15,6 +15,12 @@ from .tools import (
     add_attendee,
     remove_attendee,
     respond_to_event,
+    search_contacts,
+    resolve_contact,
+    create_contact,
+    update_contact,
+    delete_contact,
+    restore_contact,
 )
 
 __all__ = [
@@ -34,5 +40,11 @@ __all__ = [
     "add_attendee",
     "remove_attendee",
     "respond_to_event",
+    "search_contacts",
+    "resolve_contact",
+    "create_contact",
+    "update_contact",
+    "delete_contact",
+    "restore_contact",
 ]
 

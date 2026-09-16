@@ -144,12 +144,13 @@ async def resolve_contact(session: AsyncSession, query: str) -> dict:
 
 
 async def search_contacts(session: AsyncSession, query: str, limit: int = 10) -> list[Contact]:
-    """Substring search over names + emails, most-met first. Skips deleted."""
+    """Substring search over names, emails, and companies, most-met first."""
     q = _norm(query)
     contacts = list((await session.execute(_live_only(select(Contact)))).scalars())
     if q:
         contacts = [c for c in contacts
-                    if q in _norm(c.display_name or "") or q in _norm(c.email)]
+                    if q in _norm(c.display_name or "") or q in _norm(c.email)
+                    or q in _norm(c.company or "")]
     contacts.sort(key=lambda c: (-(c.event_count or 0), c.display_name or c.email))
     return contacts[:max(1, min(limit, 50))]
 

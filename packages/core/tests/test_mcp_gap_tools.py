@@ -222,3 +222,42 @@ async def test_find_free_slots_min_notice(session):
     )
     assert slots, "expected slots"
     assert all(s["start"] >= base + timedelta(hours=2) for s in slots)
+
+
+async def test_ai_contact_wrappers_round_trip(session):
+    exec_user, _cal = await _seed(session)
+    ctx = _owner_ctx(exec_user)
+    created = await ai_tools.create_contact(
+        session, ctx, email="Ada@x.com", display_name="Ada",
+        company="Acme", phone="+1", job_title="Eng")
+    assert created["email"] == "ada@x.com" and created["company"] == "Acme"
+
+    found = await ai_tools.resolve_contact(session, ctx, query="ada")
+    assert found["status"] == "found" and found["contact"]["id"] == created["id"]
+
+    searched = await ai_tools.search_contacts(session, ctx, query="acme")
+    assert [c["email"] for c in searched] == ["ada@x.com"]
+
+    updated = await ai_tools.update_contact(
+        session, ctx, contact_id=created["id"], job_title="Senior Eng")
+    assert updated["job_title"] == "Senior Eng"
+
+    assert await ai_tools.delete_contact(session, ctx, contact_id=created["id"]) == {
+        "deleted": True, "contact_id": created["id"]}
+    assert await ai_tools.search_contacts(session, ctx, query="") == []
+
+    restored = await ai_tools.restore_contact(session, ctx, contact_id=created["id"])
+    assert restored["email"] == "ada@x.com"
+
+
+async def test_ai_contact_wrappers_reject_garbage(session):
+    exec_user, _cal = await _seed(session)
+    ctx = _owner_ctx(exec_user)
+    with pytest.raises(ValueError):
+        await ai_tools.create_contact(session, ctx, email="bad")
+    with pytest.raises(ValueError):
+        await ai_tools.update_contact(session, ctx, contact_id="missing", phone="+1")
+    with pytest.raises(ValueError):
+        await ai_tools.delete_contact(session, ctx, contact_id="missing")
+    missing = await ai_tools.resolve_contact(session, ctx, query="nobody here")
+    assert missing["status"] == "not_found"

@@ -1063,3 +1063,108 @@ async def respond_to_event(
     )
     return event
 
+
+
+# ---------------------------------------------------------------------------
+# Contacts (BRD §32): invite-extracted directory + manual curation.
+# Readable by any authenticated caller — every address here was already
+# visible on a synced calendar event. Writes follow the same rule as the
+# REST layer: manual edits win over extraction, deletes are soft.
+# ---------------------------------------------------------------------------
+
+def _contact_out(contact) -> dict:
+    return {
+        "id": contact.id,
+        "email": contact.email,
+        "display_name": contact.display_name,
+        "phone": contact.phone,
+        "company": contact.company,
+        "job_title": contact.job_title,
+        "event_count": contact.event_count,
+        "last_seen_at": contact.last_seen_at.isoformat() if contact.last_seen_at else None,
+    }
+
+
+async def search_contacts(
+    session: AsyncSession,
+    ctx: AuthContext,
+    query: str = "",
+    limit: int = 10,
+) -> list[dict]:
+    from ..contacts import search_contacts as _search
+
+    return [_contact_out(c) for c in await _search(session, query, limit)]
+
+
+async def resolve_contact(session: AsyncSession, ctx: AuthContext, query: str) -> dict:
+    from ..contacts import resolve_contact as _resolve
+
+    out = await _resolve(session, query)
+    if out["status"] == "found":
+        return {"status": "found", "contact": _contact_out(out["contact"])}
+    if out["status"] == "ambiguous":
+        return {"status": "ambiguous",
+                "candidates": [_contact_out(c) for c in out["candidates"]]}
+    return {"status": "not_found", "candidates": []}
+
+
+async def create_contact(
+    session: AsyncSession,
+    ctx: AuthContext,
+    email: str,
+    display_name: str | None = None,
+    phone: str | None = None,
+    company: str | None = None,
+    job_title: str | None = None,
+) -> dict:
+    from ..contacts import create_contact as _create
+
+    try:
+        contact = await _create(
+            session, email=email, display_name=display_name,
+            phone=phone, company=company, job_title=job_title)
+    except ValueError as exc:
+        raise ValueError(str(exc))
+    return _contact_out(contact)
+
+
+async def update_contact(
+    session: AsyncSession,
+    ctx: AuthContext,
+    contact_id: str,
+    display_name: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    company: str | None = None,
+    job_title: str | None = None,
+) -> dict:
+    from ..contacts import update_contact as _update
+
+    fields = {k: v for k, v in {
+        "display_name": display_name, "email": email, "phone": phone,
+        "company": company, "job_title": job_title,
+    }.items() if v is not None}
+    try:
+        contact = await _update(session, contact_id, **fields)
+    except ValueError as exc:
+        raise ValueError(str(exc))
+    if contact is None:
+        raise ValueError(f"contact {contact_id} not found")
+    return _contact_out(contact)
+
+
+async def delete_contact(session: AsyncSession, ctx: AuthContext, contact_id: str) -> dict:
+    from ..contacts import delete_contact as _delete
+
+    if not await _delete(session, contact_id):
+        raise ValueError(f"contact {contact_id} not found")
+    return {"deleted": True, "contact_id": contact_id}
+
+
+async def restore_contact(session: AsyncSession, ctx: AuthContext, contact_id: str) -> dict:
+    from ..contacts import restore_contact as _restore
+
+    contact = await _restore(session, contact_id)
+    if contact is None:
+        raise ValueError(f"contact {contact_id} not found")
+    return _contact_out(contact)

@@ -408,6 +408,106 @@ async def remove_attendee(event_id: str, email: str) -> dict:
         return {"status": "ok", "id": event_id, "attendees": event.attendees}
 
 
+@mcp.tool(description=tool_description("mcp", "search_contacts"))
+async def search_contacts(query: str = "", limit: int = 10) -> dict:
+    """Prompt: prompts/mcp/tools/search_contacts.md."""
+    ctx, session = await _authed_context()
+    async with session:
+        try:
+            results = await ai_tools.search_contacts(session, ctx, query=query, limit=limit)
+        except Exception as exc:
+            return {"error": str(exc)}
+        return {"contacts": results}
+
+
+@mcp.tool(description=tool_description("mcp", "resolve_contact"))
+async def resolve_contact(query: str) -> dict:
+    """Prompt: prompts/mcp/tools/resolve_contact.md."""
+    ctx, session = await _authed_context()
+    async with session:
+        try:
+            return await ai_tools.resolve_contact(session, ctx, query=query)
+        except Exception as exc:
+            return {"error": str(exc)}
+
+
+@mcp.tool(description=tool_description("mcp", "create_contact"))
+async def create_contact(
+    email: str,
+    display_name: str | None = None,
+    phone: str | None = None,
+    company: str | None = None,
+    job_title: str | None = None,
+) -> dict:
+    """Prompt: prompts/mcp/tools/create_contact.md."""
+    ctx, session = await _authed_context()
+    async with session:
+        try:
+            contact = await ai_tools.create_contact(
+                session, ctx, email=email, display_name=display_name,
+                phone=phone, company=company, job_title=job_title)
+        except ValueError as exc:
+            return {"error": str(exc)}
+        except Exception as exc:
+            return {"error": str(exc)}
+        await session.commit()
+        return contact
+
+
+@mcp.tool(description=tool_description("mcp", "update_contact"))
+async def update_contact(
+    contact_id: str,
+    display_name: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    company: str | None = None,
+    job_title: str | None = None,
+) -> dict:
+    """Prompt: prompts/mcp/tools/update_contact.md."""
+    ctx, session = await _authed_context()
+    async with session:
+        try:
+            contact = await ai_tools.update_contact(
+                session, ctx, contact_id=contact_id, display_name=display_name,
+                email=email, phone=phone, company=company, job_title=job_title)
+        except ValueError as exc:
+            return {"error": str(exc)}
+        except Exception as exc:
+            return {"error": str(exc)}
+        await session.commit()
+        return contact
+
+
+@mcp.tool(description=tool_description("mcp", "delete_contact"))
+async def delete_contact(contact_id: str) -> dict:
+    """Prompt: prompts/mcp/tools/delete_contact.md."""
+    ctx, session = await _authed_context()
+    async with session:
+        try:
+            result = await ai_tools.delete_contact(session, ctx, contact_id=contact_id)
+        except ValueError as exc:
+            return {"error": str(exc)}
+        except Exception as exc:
+            return {"error": str(exc)}
+        await session.commit()
+        return result
+
+
+@mcp.tool(description=tool_description("mcp", "restore_contact"))
+async def restore_contact(contact_id: str) -> dict:
+    """Prompt: prompts/mcp/tools/restore_contact.md."""
+    ctx, session = await _authed_context()
+    async with session:
+        try:
+            contact = await ai_tools.restore_contact(session, ctx, contact_id=contact_id)
+        except ValueError as exc:
+            return {"error": str(exc)}
+        except Exception as exc:
+            return {"error": str(exc)}
+        await session.commit()
+        return contact
+
+
 @mcp.tool(description=tool_description("mcp", "respond_to_event"))
 async def respond_to_event(event_id: str, response: str) -> dict:
     """Prompt: prompts/mcp/tools/respond_to_event.md."""
