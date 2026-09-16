@@ -138,14 +138,43 @@ export function quickAddCreate(calendarId: string, draft: QuickAddDraft): Promis
 // --- Contact directory (invite-extracted, BRD §32) ---
 
 export interface ContactEntry {
+  id: string;
   email: string;
   display_name: string | null;
+  phone: string | null;
+  company: string | null;
+  job_title: string | null;
   event_count: number;
   last_seen_at: string;
 }
 
 export function searchContacts(q: string): Promise<{ contacts: ContactEntry[] }> {
   return apiFetch<{ contacts: ContactEntry[] }>(`/contacts/search?q=${encodeURIComponent(q)}`);
+}
+
+export function createContact(body: {
+  email: string;
+  display_name?: string | null;
+  phone?: string | null;
+  company?: string | null;
+  job_title?: string | null;
+}): Promise<ContactEntry> {
+  return apiFetch<ContactEntry>("/contacts", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function updateContact(
+  id: string,
+  body: Partial<Pick<ContactEntry, "display_name" | "email" | "phone" | "company" | "job_title">>
+): Promise<ContactEntry> {
+  return apiFetch<ContactEntry>(`/contacts/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+export function deleteContact(id: string): Promise<void> {
+  return apiFetch<void>(`/contacts/${id}`, { method: "DELETE" });
+}
+
+export function restoreContact(id: string): Promise<ContactEntry> {
+  return apiFetch<ContactEntry>(`/contacts/${id}/restore`, { method: "POST" });
 }
 
 export function getEvent(eventId: string): Promise<EventSummary> {

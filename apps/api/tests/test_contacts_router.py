@@ -48,3 +48,53 @@ async def test_search_limit_capped(session):
     await _seed(session)
     out = await cr.search_contacts(q="", limit=2, _user=await _user(), session=session)
     assert len(out["contacts"]) == 2
+
+
+async def test_create_update_delete_restore_round_trip(session, monkeypatch):
+    from fastapi import HTTPException
+
+    user = await _user()
+    created = await cr.create_contact(
+        cr.ContactCreate(email="Ada@x.com", display_name="Ada",
+                         company="Acme", job_title="Eng", phone="+1"),
+        _user=user, session=session)
+    assert created["email"] == "ada@x.com"
+    assert created["company"] == "Acme" and created["phone"] == "+1"
+    contact_id = created["id"]
+
+    try:
+        await cr.create_contact(cr.ContactCreate(email="ada@x.com"),
+                                _user=user, session=session)
+        raise AssertionError("expected 409")
+    except HTTPException as exc:
+        assert exc.status_code == 409
+    try:
+        await cr.create_contact(cr.ContactCreate(email="bad"),
+                                _user=user, session=session)
+        raise AssertionError("expected 409")
+    except HTTPException as exc:
+        assert exc.status_code == 409
+
+    updated = await cr.update_contact(
+        contact_id, cr.ContactUpdate(display_name="Ada Lovelace"),
+        _user=user, session=session)
+    assert updated["display_name"] == "Ada Lovelace"
+
+    fetched = await cr.get_contact(contact_id, _user=user, session=session)
+    assert fetched["id"] == contact_id
+
+    await cr.delete_contact(contact_id, _user=user, session=session)
+    assert (await cr.search_contacts(q="ada", limit=10, _user=user, session=session)) == {"contacts": []}
+    try:
+        await cr.get_contact(contact_id, _user=user, session=session)
+        raise AssertionError("expected 404")
+    except HTTPException as exc:
+        assert exc.status_code == 404
+
+    restored = await cr.restore_contact(contact_id, _user=user, session=session)
+    assert restored["display_name"] == "Ada Lovelace"
+    try:
+        await cr.delete_contact("missing", _user=user, session=session)
+        raise AssertionError("expected 404")
+    except HTTPException as exc:
+        assert exc.status_code == 404

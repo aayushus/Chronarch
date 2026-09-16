@@ -169,3 +169,77 @@ async def test_search_limit_capped_at_fifty(session):
     await _contacts.refresh_contacts_for_account(session, account.id)
     assert len(await _contacts.search_contacts(session, "", limit=2)) == 2
     assert len(await _contacts.search_contacts(session, "", limit=5000)) == 3
+
+
+async def test_create_rejects_invalid_and_duplicate(session):
+    import pytest as _pytest
+
+    await _contacts.create_contact(session, email="new@x.com", display_name="New")
+    with _pytest.raises(ValueError, match="already in your contacts"):
+        await _contacts.create_contact(session, email="NEW@x.com")
+    with _pytest.raises(ValueError, match="not a valid email"):
+        await _contacts.create_contact(session, email="not-an-email")
+
+
+async def test_manual_rows_start_locked(session):
+    account, calendar = await _account(session)
+    contact = await _contacts.create_contact(session, email="vip@x.com", display_name="VIP")
+    assert contact.name_locked is True
+    # A later invite with a different name must not overwrite the typed one.
+    await _event(session, account, calendar,
+                 [{"email": "vip@x.com", "name": "Someone Else"}])
+    await _contacts.refresh_contacts_for_account(session, account.id)
+    assert contact.display_name == "VIP"
+    assert contact.event_count == 1
+
+
+async def test_update_locks_name_and_rejects_email_clash(session):
+    import pytest as _pytest
+
+    account, calendar = await _account(session)
+    await _event(session, account, calendar, [{"email": "flex@x.com"}])
+    await _contacts.refresh_contacts_for_account(session, account.id)
+    row = (await session.execute(
+        select(Contact).where(Contact.email == "flex@x.com"))).scalar_one()
+    assert row.name_locked is False
+
+    updated = await _contacts.update_contact(
+        session, row.id, display_name="Flex", company="Acme", phone="+1")
+    assert updated is not None and updated.name_locked is True
+    assert updated.company == "Acme" and updated.phone == "+1"
+
+    await _contacts.create_contact(session, email="other@x.com")
+    with _pytest.raises(ValueError, match="already in your contacts"):
+        await _contacts.update_contact(session, row.id, email="other@x.com")
+    assert await _contacts.update_contact(session, "missing", display_name="X") is None
+
+
+async def test_delete_suppresses_resurrection_and_restore_works(session):
+    account, calendar = await _account(session)
+    await _event(session, account, calendar, [{"email": "gone@x.com", "name": "Gone"}])
+    await _contacts.refresh_contacts_for_account(session, account.id)
+    row = (await session.execute(
+        select(Contact).where(Contact.email == "gone@x.com"))).scalar_one()
+
+    assert await _contacts.delete_contact(session, row.id) is True
+    assert await _contacts.delete_contact(session, row.id) is False
+    # Refresh sees the invite again but must not resurrect or count it.
+    await _contacts.refresh_contacts_for_account(session, account.id)
+    assert (await _contacts.resolve_contact(session, "gone@x.com"))["status"] == "not_found"
+    assert (await _contacts.search_contacts(session, "gone")) == []
+
+    restored = await _contacts.restore_contact(session, row.id)
+    assert restored is not None and restored.deleted_at is None
+    assert (await _contacts.resolve_contact(session, "gone@x.com"))["status"] == "found"
+    assert await _contacts.restore_contact(session, "missing") is None
+
+
+async def test_readding_deleted_address_restores(session):
+    account, calendar = await _account(session)
+    await _event(session, account, calendar, [{"email": "back@x.com", "name": "Back"}])
+    await _contacts.refresh_contacts_for_account(session, account.id)
+    row = (await session.execute(
+        select(Contact).where(Contact.email == "back@x.com"))).scalar_one()
+    await _contacts.delete_contact(session, row.id)
+    revived = await _contacts.create_contact(session, email="back@x.com")
+    assert revived.id == row.id and revived.deleted_at is None
