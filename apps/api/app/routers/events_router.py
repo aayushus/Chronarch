@@ -50,6 +50,7 @@ class EventCreate(BaseModel):
     description: str | None = None
     location: str | None = None
     all_day: bool = False
+    attendees: list[dict] | None = None
 
     @model_validator(mode="after")
     def _end_after_start(self):
@@ -168,7 +169,7 @@ async def create_event(
         event = await ai_tools.create_event(
             session, ctx, calendar_id=body.calendar_id, title=body.title, start=body.start, end=body.end,
             timezone=body.timezone or client_timezone, description=body.description, location=body.location,
-            all_day=body.all_day,
+            all_day=body.all_day, attendees=body.attendees,
             is_owner=is_owner, delegation_grant=grant,
         )
     except ai_tools.PermissionDenied as exc:
@@ -297,6 +298,7 @@ class EventUpdate(BaseModel):
     timezone: str | None = None
     all_day: bool | None = None
     visibility: str | None = None
+    attendees: list[dict] | None = None
 
 
 @router.patch("/{event_id}", response_model=EventOut)
@@ -312,7 +314,7 @@ async def update_event(
     existing = await session.get(UnifiedEvent, event_id)
     if existing is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Event not found")
-    if all(v is None for v in (body.title, body.description, body.location, body.start, body.end, body.timezone, body.all_day, body.visibility)):
+    if all(v is None for v in (body.title, body.description, body.location, body.start, body.end, body.timezone, body.all_day, body.visibility, body.attendees)):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "No fields to update")
     if (body.start is None) != (body.end is None):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "start and end must be provided together")
@@ -323,6 +325,7 @@ async def update_event(
             session, ctx, event_id=event_id, title=body.title, description=body.description,
             location=body.location, start=body.start, end=body.end,
             timezone=body.timezone, all_day=body.all_day, visibility=body.visibility,
+            attendees=body.attendees,
             is_owner=is_owner, delegation_grant=grant,
         )
     except ai_tools.PermissionDenied as exc:

@@ -59,6 +59,7 @@ export function createEvent(body: {
   all_day?: boolean;
   description?: string | null;
   location?: string | null;
+  attendees?: { name: string; email: string }[];
 }): Promise<EventSummary> {
   return apiFetch<EventSummary>("/events", { method: "POST", body: JSON.stringify(body) });
 }
@@ -188,6 +189,7 @@ export function updateEvent(
     end?: string;
     timezone?: string;
     visibility?: string;
+    attendees?: { name: string; email: string }[];
   }
 ): Promise<EventSummary> {
   return apiFetch<EventSummary>(`/events/${eventId}`, {

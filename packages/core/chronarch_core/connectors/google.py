@@ -299,11 +299,18 @@ class GoogleConnector(BaseConnector):
         return _to_remote_event(resp.json(), writable=True)
 
     async def update_event(self, calendar_id: str, provider_event_id: str, patch: dict[str, Any]) -> RemoteEvent:
+        body = dict(patch)
+        # Normalized {email, name} entries become Google attendee resources.
+        if isinstance(body.get("attendees"), list):
+            body["attendees"] = [
+                {"email": a.get("email"), **({"displayName": a["name"]} if a.get("name") else {})}
+                for a in body["attendees"] if isinstance(a, dict) and a.get("email")
+            ]
         resp = await self._request(
             "PATCH",
             f"{API_BASE}/calendars/{quote(calendar_id, safe='')}/events/"
             f"{quote(provider_event_id, safe='')}",
-            json=patch,
+            json=body,
         )
         return _to_remote_event(resp.json(), writable=True)
 

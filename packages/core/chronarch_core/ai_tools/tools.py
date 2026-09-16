@@ -67,6 +67,24 @@ def _validate_window(start: datetime, end: datetime) -> None:
         raise ValueError(f"event end ({end.isoformat()}) must be after start ({start.isoformat()})")
 
 
+def _normalize_attendees(attendees: list[dict]) -> list[dict]:
+    """Validate + normalize attendee entries to {email, name?} (lowercased
+    emails, trimmed names). Shared by create and update so every write path
+    stores the same shape extraction produces. Raises ValueError."""
+    if not isinstance(attendees, list):
+        raise ValueError("attendees must be a list of {email, name} entries")
+    normalized = []
+    for entry in attendees:
+        if not isinstance(entry, dict):
+            raise ValueError("attendees must be a list of {email, name} entries")
+        email = (entry.get("email") or "").strip().lower()
+        if "@" not in email:
+            raise ValueError(f"'{entry.get('email')}' is not a valid attendee email.")
+        name = " ".join((entry.get("name") or "").strip().split())
+        normalized.append({"email": email, "name": name or None})
+    return normalized
+
+
 async def _get_calendar(session: AsyncSession, calendar_id: str) -> Calendar:
     calendar = await session.get(Calendar, calendar_id)
     if calendar is None:
@@ -474,6 +492,7 @@ async def create_event(
     )
     if not decision.allowed:
         raise PermissionDenied(CalendarAction.CREATE, decision.reason)
+    normalized_attendees = _normalize_attendees(attendees) if attendees else []
     provider_event_id = ""
     connector, account = await _get_connector_for_calendar(session, calendar)
     if connector and calendar.provider_writable:
@@ -488,7 +507,7 @@ async def create_event(
             timezone=timezone,
             all_day=all_day,
             organizer=None,
-            attendees=attendees or [],
+            attendees=normalized_attendees,
             location=location,
             conference=None,
             recurrence=None,
@@ -514,7 +533,7 @@ async def create_event(
         timezone=timezone,
         all_day=all_day,
         location=location,
-        attendees=attendees or [],
+        attendees=normalized_attendees,
     )
     session.add(event)
     await session.flush()
@@ -612,6 +631,7 @@ async def update_event(
     timezone: str | None = None,
     all_day: bool | None = None,
     visibility: str | None = None,
+    attendees: list[dict] | None = None,
     is_owner: bool = False,
     delegation_grant=None,
 ) -> UnifiedEvent:
@@ -627,7 +647,7 @@ async def update_event(
         raise ValueError(f"event {event_id} not found")
     calendar = await _get_calendar(session, event.calendar_id)
 
-    if all(v is None for v in (title, description, location, start, end, timezone, all_day, visibility)):
+    if all(v is None for v in (title, description, location, start, end, timezone, all_day, visibility, attendees)):
         raise ValueError("update_event requires at least one field to change")
 
     new_start = start if start is not None else event.start
@@ -640,6 +660,16 @@ async def update_event(
     )
     if not edit_decision.allowed:
         raise PermissionDenied(_Action.EDIT, edit_decision.reason)
+    if attendees is not None:
+        # Invite membership is its own grant flag — editing details must not
+        # silently confer the right to add/remove people.
+        manage_decision = resolve_permission(
+            ctx, calendar, _Action.MANAGE_ATTENDEES, event=event,
+            is_owner=is_owner, delegation_grant=delegation_grant,
+        )
+        if not manage_decision.allowed:
+            raise PermissionDenied(_Action.MANAGE_ATTENDEES, manage_decision.reason)
+        attendees = _normalize_attendees(attendees)
     if start is not None or end is not None or all_day is not None:
         resched_decision = resolve_permission(
             ctx, calendar, _Action.RESCHEDULE, event=event, is_owner=is_owner, delegation_grant=delegation_grant,
@@ -664,6 +694,8 @@ async def update_event(
             patch["description"] = description
         if location is not None:
             patch["location"] = location
+        if attendees is not None:
+            patch["attendees"] = attendees
         if patch:
             await connector.update_event(calendar.provider_calendar_id, event.provider_event_id, patch)
         refreshed = getattr(connector, "access_token", None)
@@ -679,6 +711,12 @@ async def update_event(
     if location is not None and location != event.location:
         changes["location"] = [str(event.location), str(location)]
         event.location = location
+    if attendees is not None:
+        old_emails = sorted(a.get("email", "") for a in (event.attendees or []) if isinstance(a, dict))
+        new_emails = sorted(a.get("email", "") for a in attendees)
+        if old_emails != new_emails:
+            changes["attendees"] = [",".join(old_emails), ",".join(new_emails)]
+        event.attendees = attendees
     if start is not None:
         changes["start"] = [event.start.isoformat(), new_start.isoformat()]
         event.start = new_start

@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 
-import { CalendarSummary, EventSummary } from "../api/calendar";
+import { CalendarSummary, EventSummary, updateEvent } from "../api/calendar";
+import { friendlyError } from "../api/client";
+import AttendeePicker, { PickerAttendee } from "./AttendeePicker";
 import Icon from "./Icon";
 import { formatTimeRange } from "../lib/dates";
 
@@ -10,6 +12,8 @@ interface Props {
   onClose: () => void;
   onDelete: (id: string) => void;
   canDelete: boolean;
+  canEdit: boolean;
+  onSaved: (event: EventSummary) => void;
 }
 
 const RSVP_ICON: Record<string, string> = {
@@ -20,7 +24,12 @@ const RSVP_ICON: Record<string, string> = {
   organizer: "★",
 };
 
-export default function EventDetailPanel({ event, calendar, onClose, onDelete, canDelete }: Props) {
+export default function EventDetailPanel({ event, calendar, onClose, onDelete, canDelete, canEdit, onSaved }: Props) {
+  const [editingAttendees, setEditingAttendees] = useState(false);
+  const [draft, setDraft] = useState<PickerAttendee[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   // The panel only exists while an event is selected — no placeholder chrome.
   if (!event) {
     return null;
@@ -28,6 +37,26 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
 
   const start = new Date(event.start);
   const end = new Date(event.end);
+
+  function beginEdit() {
+    setDraft((event?.attendees ?? []).map((a) => ({ name: a.name || a.email, email: a.email })));
+    setError(null);
+    setEditingAttendees(true);
+  }
+
+  async function saveAttendees() {
+    if (!event) return;
+    setSaving(true);
+    setError(null);
+    try {
+      onSaved(await updateEvent(event.id, { attendees: draft }));
+      setEditingAttendees(false);
+    } catch (e) {
+      setError(friendlyError(e));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <aside className="vibrancy mount-rise" style={panelStyle}>
@@ -55,34 +84,75 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
         <div style={{ padding: "0 20px 16px", fontSize: 13, color: "var(--text-secondary)" }}>{event.description}</div>
       )}
 
-      {event.attendees && event.attendees.length > 0 && (
+      {(editingAttendees || (event.attendees && event.attendees.length > 0)) && (
         <div style={{ padding: "8px 20px", borderTop: "1px solid var(--border-subtle)" }}>
-          {event.attendees.map((a, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", fontSize: 13 }}>
-              <span
-                style={{
-                  width: 16,
-                  height: 16,
-                  borderRadius: "50%",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 10,
-                  background:
-                    a.response_status === "accepted" || a.response_status === "organizer"
-                      ? "var(--success)"
-                      : a.response_status === "declined"
-                        ? "var(--danger)"
-                        : "var(--bg-raised-hover)",
-                  color: "#fff",
-                  flexShrink: 0,
-                }}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: editingAttendees ? 8 : 0 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Attendees
+            </span>
+            {!editingAttendees && canEdit && (
+              <button
+                onClick={beginEdit}
+                className="hoverable"
+                aria-label="Edit attendees"
+                style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", padding: 4, display: "inline-flex" }}
               >
-                {RSVP_ICON[a.response_status ?? "needs_action"]}
-              </span>
-              <span>{a.name || a.email}</span>
+                <Icon name="pencil" size={13} />
+              </button>
+            )}
+          </div>
+          {editingAttendees ? (
+            <div>
+              <AttendeePicker value={draft} onChange={setDraft} />
+              {error && <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 6 }}>{error}</div>}
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button onClick={() => setEditingAttendees(false)} className="btn-secondary hoverable" style={{ flex: 1, fontSize: 12 }}>
+                  Cancel
+                </button>
+                <button onClick={() => void saveAttendees()} disabled={saving} className="btn-primary hoverable" style={{ flex: 1, fontSize: 12 }}>
+                  {saving ? "Saving…" : "Save"}
+                </button>
+              </div>
             </div>
-          ))}
+          ) : (
+            (event.attendees ?? []).map((a, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", fontSize: 13 }}>
+                <span
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: "50%",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 10,
+                    background:
+                      a.response_status === "accepted" || a.response_status === "organizer"
+                        ? "var(--success)"
+                        : a.response_status === "declined"
+                          ? "var(--danger)"
+                          : "var(--bg-raised-hover)",
+                    color: "#fff",
+                    flexShrink: 0,
+                  }}
+                >
+                  {RSVP_ICON[a.response_status ?? "needs_action"]}
+                </span>
+                <span>{a.name || a.email}</span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+      {!editingAttendees && canEdit && (!event.attendees || event.attendees.length === 0) && (
+        <div style={{ padding: "8px 20px", borderTop: "1px solid var(--border-subtle)" }}>
+          <button
+            onClick={beginEdit}
+            className="hoverable"
+            style={{ background: "none", border: "none", color: "var(--text-tertiary)", fontSize: 12.5, cursor: "pointer", padding: "5px 0", display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <Icon name="plus" size={13} /> Add attendees
+          </button>
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 
 import { CalendarSummary } from "../api/calendar";
+import AttendeePicker, { PickerAttendee } from "./AttendeePicker";
 
 export interface CreateDraft {
   calendar_id: string;
@@ -10,6 +11,7 @@ export interface CreateDraft {
   all_day: boolean;
   description?: string | null;
   location?: string | null;
+  attendees?: PickerAttendee[];
 }
 
 interface Props {
@@ -45,15 +47,17 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
   const [startTime, setStartTime] = useState(toTimeInput(initialStart));
   const [endTime, setEndTime] = useState(toTimeInput(initialEnd));
   const [allDay, setAllDay] = useState(initialAllDay);
+  const [attendees, setAttendees] = useState<PickerAttendee[]>([]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!calendarId || !title) return;
+    const withAttendees = attendees.length > 0 ? { attendees } : {};
     if (allDay) {
       const dayStart = new Date(`${date}T00:00`);
       const dayEnd = new Date(dayStart);
       dayEnd.setDate(dayEnd.getDate() + 1);
-      onCreate({ calendar_id: calendarId, title, start: dayStart.toISOString(), end: dayEnd.toISOString(), all_day: true });
+      onCreate({ calendar_id: calendarId, title, start: dayStart.toISOString(), end: dayEnd.toISOString(), all_day: true, ...withAttendees });
     } else {
       onCreate({
         calendar_id: calendarId,
@@ -61,6 +65,7 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
         start: new Date(`${date}T${startTime}`).toISOString(),
         end: new Date(`${date}T${endTime}`).toISOString(),
         all_day: false,
+        ...withAttendees,
       });
     }
   }
@@ -108,6 +113,7 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
           <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
           All-day event
         </label>
+        <AttendeePicker value={attendees} onChange={setAttendees} label="Attendees" />
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
           <button type="button" onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>
             Cancel

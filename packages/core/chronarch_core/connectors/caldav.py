@@ -360,6 +360,18 @@ class CalDAVConnector(BaseConnector):
                     vevent["description"] = patch["description"] or ""
                 if patch.get("location") is not None:
                     vevent["location"] = patch["location"] or ""
+            if isinstance(patch.get("attendees"), list):
+                import icalendar as _ical
+
+                if "attendee" in vevent:
+                    del vevent["attendee"]
+                for entry in patch["attendees"]:
+                    if not isinstance(entry, dict) or not entry.get("email"):
+                        continue
+                    prop = _ical.vCalAddress(f"mailto:{entry['email']}")
+                    if entry.get("name"):
+                        prop.params["CN"] = entry["name"]
+                    vevent.add("attendee", prop)
             put = await client.put(target, content=cal.to_ical(), headers={"Content-Type": "text/calendar; charset=utf-8"})
             put.raise_for_status()
             remote = _ics_to_remote(_href_path(target), calendar_id, cal.to_ical().decode("utf-8"), True)

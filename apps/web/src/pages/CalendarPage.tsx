@@ -827,6 +827,12 @@ export default function CalendarPage() {
         onClose={() => setSelectedEvent(null)}
         onDelete={handleDelete}
         canDelete={!!(selectedCalendar?.can_delete ?? selectedCalendar?.writable)}
+        canEdit={!!(selectedCalendar?.can_edit ?? selectedCalendar?.writable)}
+        onSaved={async (updated) => {
+          setSelectedEvent(updated);
+          invalidateEventsCache();
+          setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
+        }}
       />
 
       {tzPrompt && (

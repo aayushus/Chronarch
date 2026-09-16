@@ -447,6 +447,14 @@ class MicrosoftConnector(BaseConnector):
     async def update_event(self, calendar_id: str, provider_event_id: str, patch: dict[str, Any]) -> RemoteEvent:
         # Convert incoming patch (e.g. start/end) to Graph format if needed
         graph_patch: dict[str, Any] = {}
+        if isinstance(patch.get("attendees"), list):
+            graph_patch["attendees"] = [
+                {"emailAddress": {
+                    "address": a.get("email"),
+                    **({"name": a["name"]} if a.get("name") else {}),
+                }, "type": "required"}
+                for a in patch["attendees"] if isinstance(a, dict) and a.get("email")
+            ]
         if "start" in patch and isinstance(patch["start"], dict):
             graph_patch["start"] = {
                 "dateTime": patch["start"].get("dateTime", patch["start"].get("date")),
