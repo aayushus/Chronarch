@@ -58,6 +58,7 @@ export default function QuickAddModal({ calendars, initialDraft, onClose, onConf
       location: location.trim() || null,
       description: description.trim() || null,
       attendees,
+      recurrence: initialDraft.recurrence ?? null,
     };
   }
 
@@ -153,6 +154,11 @@ export default function QuickAddModal({ calendars, initialDraft, onClose, onConf
           <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
           All-day event
         </label>
+        {initialDraft.recurrence?.freq && (
+          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            Repeats {({ daily: "daily", weekly: "weekly", monthly: "monthly", yearly: "yearly" } as Record<string, string>)[initialDraft.recurrence.freq] ?? initialDraft.recurrence.freq}
+          </div>
+        )}
 
         <input
           placeholder="Location (optional)"

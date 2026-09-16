@@ -17,6 +17,87 @@ from datetime import datetime, timedelta, timezone
 
 MAX_OCCURRENCES = 2000
 
+VALID_FREQS = ("daily", "weekly", "monthly", "yearly")
+VALID_WEEKDAYS = ("MO", "TU", "WE", "TH", "FR", "SA", "SU")
+
+
+def normalize_recurrence_input(value: dict) -> dict:
+    """Validate a recurrence request {freq, interval?, count?, until?, byday?}
+    into a canonical form. Raises ValueError. `until` accepts an ISO date or
+    datetime; `byday` accepts weekday codes (weekly default: from `anchor`
+    when omitted by callers that pass it — here callers resolve it)."""
+    if not isinstance(value, dict):
+        raise ValueError("recurrence must be an object like {freq: 'weekly'}.")
+    freq = str(value.get("freq", "")).lower()
+    if freq not in VALID_FREQS:
+        raise ValueError(f"recurrence freq must be one of {', '.join(VALID_FREQS)}.")
+    try:
+        interval = int(value.get("interval", 1))
+    except (ValueError, TypeError):
+        raise ValueError("recurrence interval must be a positive integer.")
+    if interval < 1:
+        raise ValueError("recurrence interval must be a positive integer.")
+    out: dict = {"freq": freq, "interval": interval}
+    if value.get("count") is not None:
+        try:
+            count = int(value["count"])
+        except (ValueError, TypeError):
+            raise ValueError("recurrence count must be a positive integer.")
+        if count < 1:
+            raise ValueError("recurrence count must be a positive integer.")
+        out["count"] = count
+    if value.get("until") is not None:
+        try:
+            until = datetime.fromisoformat(str(value["until"]))
+        except ValueError:
+            raise ValueError("recurrence until must be an ISO date or datetime.")
+        if until.tzinfo is None:
+            until = until.replace(tzinfo=timezone.utc)
+        out["until"] = until.astimezone(timezone.utc).isoformat()
+    if value.get("byday") is not None:
+        days = value["byday"] if isinstance(value["byday"], list) else [value["byday"]]
+        clean = [str(d).upper() for d in days]
+        if not clean or any(d not in VALID_WEEKDAYS for d in clean):
+            raise ValueError("recurrence byday must be weekday codes like ['MO', 'WE'].")
+        out["byday"] = sorted(set(clean),
+                              key=("MO", "TU", "WE", "TH", "FR", "SA", "SU").index)
+    return out
+
+
+def to_rrule_text(normalized: dict) -> str:
+    """Canonical input → 'RRULE:FREQ=WEEKLY;INTERVAL=1;...' (Google/ICS wire
+    form, also what we store for local-only calendars)."""
+    parts = [f"FREQ={normalized['freq'].upper()}"]
+    if normalized.get("interval", 1) != 1:
+        parts.append(f"INTERVAL={normalized['interval']}")
+    if normalized.get("byday"):
+        parts.append(f"BYDAY={','.join(normalized['byday'])}")
+    if normalized.get("count") is not None:
+        parts.append(f"COUNT={normalized['count']}")
+    if normalized.get("until") is not None:
+        until = datetime.fromisoformat(normalized["until"])
+        parts.append("UNTIL=" + until.strftime("%Y%m%dT%H%M%SZ"))
+    return "RRULE:" + ";".join(parts)
+
+
+def to_graph_recurrence(normalized: dict) -> dict:
+    """Canonical input → Microsoft Graph recurrence {pattern, range}."""
+    freq_map = {"daily": "daily", "weekly": "weekly",
+                "monthly": "absoluteMonthly", "yearly": "absoluteYearly"}
+    pattern: dict = {"type": freq_map[normalized["freq"]], "interval": normalized["interval"]}
+    if normalized.get("byday") and normalized["freq"] == "weekly":
+        graph_days = {"MO": "monday", "TU": "tuesday", "WE": "wednesday",
+                      "TH": "thursday", "FR": "friday", "SA": "saturday", "SU": "sunday"}
+        pattern["daysOfWeek"] = [graph_days[d] for d in normalized["byday"]]
+        pattern["firstDayOfWeek"] = "sunday"
+    range_: dict = {"type": "noEnd"}
+    if normalized.get("count") is not None:
+        range_ = {"type": "numbered", "numberOfOccurrences": normalized["count"]}
+    elif normalized.get("until") is not None:
+        range_ = {"type": "endDate",
+                  "endDate": datetime.fromisoformat(normalized["until"]).date().isoformat()}
+    return {"pattern": pattern, "range": range_}
+
 
 def _as_utc(dt: datetime) -> datetime:
     """Stored instants are UTC; naive sides (sqlite reads) are assumed UTC."""

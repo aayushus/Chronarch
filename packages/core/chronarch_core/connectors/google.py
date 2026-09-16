@@ -173,6 +173,12 @@ def _from_remote_event(event: RemoteEvent) -> dict[str, Any]:
     }
     if event.attendees:
         body["attendees"] = [{"email": a["email"]} for a in event.attendees if a.get("email")]
+    if isinstance(event.recurrence, dict):
+        rules = event.recurrence.get("rule")
+        if isinstance(rules, list) and rules:
+            body["recurrence"] = [str(r) for r in rules]
+        elif isinstance(rules, str) and rules:
+            body["recurrence"] = [rules if rules.startswith("RRULE:") else f"RRULE:{rules}"]
     return body
 
 

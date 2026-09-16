@@ -507,10 +507,16 @@ async def create_event(
     location: str | None = None,
     attendees: list[dict] | None = None,
     all_day: bool = False,
+    recurrence: dict | None = None,
     is_owner: bool = False,
     delegation_grant=None,
 ) -> UnifiedEvent:
     _validate_window(start, end)
+    from ..recurrence import (
+        normalize_recurrence_input as _normalize_recurrence,
+        to_graph_recurrence as _to_graph,
+        to_rrule_text as _to_rrule,
+    )
     from ..timezones import normalize_timezone
 
     timezone = normalize_timezone(timezone)
@@ -521,11 +527,21 @@ async def create_event(
     if not decision.allowed:
         raise PermissionDenied(CalendarAction.CREATE, decision.reason)
     normalized_attendees = _normalize_attendees(attendees) if attendees else []
+    canonical = _normalize_recurrence(recurrence) if recurrence is not None else None
     provider_event_id = ""
+    stored_recurrence = None
     connector, account = await _get_connector_for_calendar(session, calendar)
     if connector and calendar.provider_writable:
         from ..connectors.base import RemoteEvent
+        from ..models.enums import ProviderType as _ProviderType
 
+        if canonical is not None and account is not None and account.provider == _ProviderType.MICROSOFT:
+            provider_shape = {"type": _to_graph(canonical)}
+        elif canonical is not None:
+            # Google wire form doubles as the CalDAV/ICS/local stored shape.
+            provider_shape = {"rule": [_to_rrule(canonical)]}
+        else:
+            provider_shape = None
         remote_req = RemoteEvent(
             provider_event_id="",
             title=title,
@@ -538,7 +554,7 @@ async def create_event(
             attendees=normalized_attendees,
             location=location,
             conference=None,
-            recurrence=None,
+            recurrence=provider_shape,
             visibility="standard",
             busy_status="busy",
             writable=True,
@@ -546,9 +562,12 @@ async def create_event(
         )
         created_remote = await connector.create_event(calendar.provider_calendar_id, remote_req)
         provider_event_id = created_remote.provider_event_id
+        stored_recurrence = created_remote.recurrence or provider_shape
         refreshed_token = getattr(connector, "access_token", None)
         if account and refreshed_token:
             _persist_refreshed_token(account, refreshed_token)
+    elif canonical is not None:
+        stored_recurrence = {"rule": [_to_rrule(canonical)]}
 
     event = UnifiedEvent(
         provider_account_id=calendar.account_id,
@@ -562,6 +581,7 @@ async def create_event(
         all_day=all_day,
         location=location,
         attendees=normalized_attendees,
+        recurrence=stored_recurrence,
     )
     session.add(event)
     await session.flush()

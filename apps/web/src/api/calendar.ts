@@ -60,6 +60,7 @@ export function createEvent(body: {
   description?: string | null;
   location?: string | null;
   attendees?: { name: string; email: string }[];
+  recurrence?: { freq: string } | null;
 }): Promise<EventSummary> {
   return apiFetch<EventSummary>("/events", { method: "POST", body: JSON.stringify(body) });
 }
@@ -120,6 +121,7 @@ export interface QuickAddDraft {
   location: string | null;
   description: string | null;
   attendees: QuickAddAttendee[];
+  recurrence?: { freq: string } | null;
 }
 
 export function quickAddParse(text: string): Promise<QuickAddDraft> {

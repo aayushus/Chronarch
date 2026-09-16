@@ -162,6 +162,17 @@ def _remote_to_ics(uid: str, event: RemoteEvent) -> str:
     for att in event.attendees or []:
         if isinstance(att, dict) and att.get("email"):
             vevent.add("attendee", f"mailto:{att['email']}")
+    if isinstance(event.recurrence, dict):
+        rules = event.recurrence.get("rule")
+        items = rules if isinstance(rules, list) else ([rules] if rules else [])
+        for rule in items:
+            text = str(rule)
+            if ":" in text:
+                text = text.split(":", 1)[1]
+            try:
+                vevent.add("rrule", icalendar.vRecur.from_ical(text))
+            except (ValueError, TypeError):
+                continue
     cal.add_component(vevent)
     return cal.to_ical().decode("utf-8")
 

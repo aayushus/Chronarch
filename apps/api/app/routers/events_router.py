@@ -51,6 +51,9 @@ class EventCreate(BaseModel):
     location: str | None = None
     all_day: bool = False
     attendees: list[dict] | None = None
+    # Optional normalized recurrence {freq: daily|weekly|monthly|yearly,
+    # interval?, count?, until?, byday?} — validated in the ai layer.
+    recurrence: dict | None = None
 
     @model_validator(mode="after")
     def _end_after_start(self):
@@ -169,7 +172,7 @@ async def create_event(
         event = await ai_tools.create_event(
             session, ctx, calendar_id=body.calendar_id, title=body.title, start=body.start, end=body.end,
             timezone=body.timezone or client_timezone, description=body.description, location=body.location,
-            all_day=body.all_day, attendees=body.attendees,
+            all_day=body.all_day, attendees=body.attendees, recurrence=body.recurrence,
             is_owner=is_owner, delegation_grant=grant,
         )
     except ai_tools.PermissionDenied as exc:

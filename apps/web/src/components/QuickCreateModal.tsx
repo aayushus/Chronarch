@@ -12,6 +12,7 @@ export interface CreateDraft {
   description?: string | null;
   location?: string | null;
   attendees?: PickerAttendee[];
+  recurrence?: { freq: string } | null;
 }
 
 interface Props {
@@ -48,16 +49,18 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
   const [endTime, setEndTime] = useState(toTimeInput(initialEnd));
   const [allDay, setAllDay] = useState(initialAllDay);
   const [attendees, setAttendees] = useState<PickerAttendee[]>([]);
+  const [repeat, setRepeat] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!calendarId || !title) return;
     const withAttendees = attendees.length > 0 ? { attendees } : {};
+    const withRepeat = repeat ? { recurrence: { freq: repeat } } : {};
     if (allDay) {
       const dayStart = new Date(`${date}T00:00`);
       const dayEnd = new Date(dayStart);
       dayEnd.setDate(dayEnd.getDate() + 1);
-      onCreate({ calendar_id: calendarId, title, start: dayStart.toISOString(), end: dayEnd.toISOString(), all_day: true, ...withAttendees });
+      onCreate({ calendar_id: calendarId, title, start: dayStart.toISOString(), end: dayEnd.toISOString(), all_day: true, ...withAttendees, ...withRepeat });
     } else {
       onCreate({
         calendar_id: calendarId,
@@ -66,6 +69,7 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
         end: new Date(`${date}T${endTime}`).toISOString(),
         all_day: false,
         ...withAttendees,
+        ...withRepeat,
       });
     }
   }
@@ -112,6 +116,16 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-secondary)", cursor: "pointer" }}>
           <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
           All-day event
+        </label>
+        <label style={{ display: "block", fontSize: 12, fontWeight: 600 }}>
+          Repeat
+          <select value={repeat} onChange={(e) => setRepeat(e.target.value)} className="input-standard" style={{ width: "100%", fontSize: 13, marginTop: 6 }}>
+            <option value="">Does not repeat</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
         </label>
         <AttendeePicker value={attendees} onChange={setAttendees} label="Attendees" />
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>

@@ -131,3 +131,175 @@ async def test_conflicts_see_future_instances(session):
         owner_calendar_ids={calendar.id})
     # 13:00–14:00 and 14:30–18:00 are the only hour-long gaps.
     assert [(s["start"].hour, s["end"].hour) for s in slots] == [(13, 14), (14, 15)]
+
+
+def test_normalize_recurrence_input():
+    assert _r.normalize_recurrence_input({"freq": "Weekly"}) == {
+        "freq": "weekly", "interval": 1}
+    assert _r.normalize_recurrence_input(
+        {"freq": "monthly", "interval": 2, "count": 6}) == {
+        "freq": "monthly", "interval": 2, "count": 6}
+    assert _r.normalize_recurrence_input(
+        {"freq": "daily", "until": "2026-12-31"})["until"].startswith("2026-12-31")
+    assert _r.normalize_recurrence_input(
+        {"freq": "weekly", "byday": ["we", "MO"]})["byday"] == ["MO", "WE"]
+    import pytest as _pytest
+    for bad in ({"freq": "minutely"}, {"freq": "weekly", "interval": 0},
+                {"freq": "daily", "count": 0}, {"freq": "daily", "until": "soon"},
+                {"freq": "weekly", "byday": ["XX"]}, "weekly", {}):
+        with _pytest.raises(ValueError):
+            _r.normalize_recurrence_input(bad)
+
+
+def test_to_rrule_and_graph_shapes():
+    norm = {"freq": "weekly", "interval": 2, "byday": ["MO", "WE"], "count": 4}
+    assert _r.to_rrule_text(norm) == "RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE;COUNT=4"
+    graph = _r.to_graph_recurrence(norm)
+    assert graph["pattern"]["type"] == "weekly"
+    assert graph["pattern"]["daysOfWeek"] == ["monday", "wednesday"]
+    assert graph["range"] == {"type": "numbered", "numberOfOccurrences": 4}
+    assert _r.to_rrule_text({"freq": "daily", "interval": 1}).startswith("RRULE:FREQ=DAILY")
+
+
+async def test_google_create_carries_rrule(monkeypatch):
+    from chronarch_core.connectors.google import GoogleConnector
+
+    seen = {}
+
+    class _Resp:
+        def json(self):
+            return {"id": "e9", "summary": "Standup",
+                    "start": {"dateTime": "2026-09-21T14:00:00+00:00"},
+                    "end": {"dateTime": "2026-09-21T14:30:00+00:00"},
+                    "recurrence": seen["json"]["recurrence"]}
+
+    async def _fake_request(self, method, url, json=None):
+        seen["json"] = json
+        return _Resp()
+
+    monkeypatch.setattr(GoogleConnector, "_request", _fake_request)
+    from chronarch_core.connectors.base import RemoteEvent
+
+    remote = RemoteEvent(
+        provider_event_id="", title="Standup", description=None,
+        start=datetime(2026, 9, 21, 14, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 21, 14, 30, tzinfo=timezone.utc),
+        timezone="UTC", all_day=False, organizer=None, attendees=[],
+        location=None, conference=None,
+        recurrence={"rule": ["RRULE:FREQ=WEEKLY;BYDAY=MO"]},
+        visibility="standard", busy_status="busy", writable=True,
+        provider_updated_at=None)
+    created = await GoogleConnector("token").create_event("cal", remote)
+    assert seen["json"]["recurrence"] == ["RRULE:FREQ=WEEKLY;BYDAY=MO"]
+    assert created.recurrence == {"rule": ["RRULE:FREQ=WEEKLY;BYDAY=MO"]}
+
+
+async def test_microsoft_create_carries_graph_recurrence(monkeypatch):
+    from chronarch_core.connectors.microsoft import MicrosoftConnector
+
+    seen = {}
+
+    class _Resp:
+        def json(self):
+            return {"id": "e9", "subject": "Standup",
+                    "start": {"dateTime": "2026-09-21T14:00:00", "timeZone": "UTC"},
+                    "end": {"dateTime": "2026-09-21T14:30:00", "timeZone": "UTC"},
+                    "recurrence": seen["json"].get("recurrence")}
+
+    async def _fake_request(self, method, url, json=None):
+        seen["json"] = json
+        return _Resp()
+
+    monkeypatch.setattr(MicrosoftConnector, "_request", _fake_request)
+    from chronarch_core.connectors.base import RemoteEvent
+
+    graph = {"pattern": {"type": "weekly", "interval": 1}, "range": {"type": "noEnd"}}
+    remote = RemoteEvent(
+        provider_event_id="", title="Standup", description=None,
+        start=datetime(2026, 9, 21, 14, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 21, 14, 30, tzinfo=timezone.utc),
+        timezone="UTC", all_day=False, organizer=None, attendees=[],
+        location=None, conference=None, recurrence={"type": graph},
+        visibility="standard", busy_status="busy", writable=True,
+        provider_updated_at=None)
+    await MicrosoftConnector("token").create_event("cal", remote)
+    assert seen["json"]["recurrence"] == graph
+
+
+async def test_caldav_create_emits_rrule(monkeypatch):
+    from chronarch_core.connectors.base import RemoteEvent
+    from chronarch_core.connectors.caldav import CalDAVConnector, _remote_to_ics
+
+    remote = RemoteEvent(
+        provider_event_id="", title="Standup", description=None,
+        start=datetime(2026, 9, 21, 14, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 21, 14, 30, tzinfo=timezone.utc),
+        timezone="UTC", all_day=False, organizer=None, attendees=[],
+        location=None, conference=None,
+        recurrence={"rule": ["RRULE:FREQ=DAILY;COUNT=5"]},
+        visibility="standard", busy_status="busy", writable=True,
+        provider_updated_at=None)
+    text = _remote_to_ics("uid-1", remote)
+    assert "RRULE" in text and "FREQ=DAILY" in text
+    put_body = {}
+
+    class _Put:
+        def raise_for_status(self):
+            pass
+
+    class _FakeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def put(self, url, content=None, headers=None):
+            put_body["content"] = content
+            return _Put()
+
+    monkeypatch.setattr(CalDAVConnector, "_client", lambda self: _FakeClient())
+    connector = CalDAVConnector(server_url="https://dav.x.com", username="u", password="p")
+    created = await connector.create_event("https://dav.x.com/cal/", remote)
+    assert "RRULE:FREQ=DAILY;COUNT=5" in put_body["content"].decode()
+    assert created.recurrence == {"rule": ["RRULE:FREQ=DAILY;COUNT=5"]}
+
+
+async def test_ai_create_stores_recurrence_locally(session):
+    from chronarch_core import ai_tools
+    from chronarch_core.models.account import Account
+    from chronarch_core.models.calendar import Calendar
+    from chronarch_core.models.enums import (
+        ActorType, CalendarKind, ProviderType, UserRole,
+    )
+    from chronarch_core.models.user import User
+    from chronarch_core.permissions import AuthContext
+
+    user = User(id="u-rl", email="rl@x.com", display_name="R",
+                password_hash="x", role=UserRole.ADMIN)
+    session.add(user)
+    await session.flush()
+    account = Account(owner_user_id=user.id, provider=ProviderType.GOOGLE,
+                      provider_account_email=user.email, provider_account_id=user.email)
+    session.add(account)
+    await session.flush()
+    calendar = Calendar(account_id=account.id, provider_calendar_id="g:rl",
+                        kind=CalendarKind.PRIMARY, name="Work",
+                        provider_writable=True, blocks_availability=True)
+    session.add(calendar)
+    await session.flush()
+
+    ctx = AuthContext(user_id=user.id, role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
+    event = await ai_tools.create_event(
+        session, ctx, calendar_id=calendar.id, title="Standup",
+        start=datetime(2026, 9, 21, 14, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 21, 14, 30, tzinfo=timezone.utc),
+        recurrence={"freq": "weekly"}, is_owner=True)
+    assert event.recurrence == {"rule": ["RRULE:FREQ=WEEKLY"]}
+    # The stored series blocks its future instances.
+    hits = await ai_tools.get_conflicts(
+        session, ctx,
+        window_start=datetime(2026, 9, 28, 14, 0, tzinfo=timezone.utc),
+        window_end=datetime(2026, 9, 28, 14, 30, tzinfo=timezone.utc),
+        owner_calendar_ids={calendar.id})
+    assert len(hits) == 1 and hits[0]["title"] == "Standup"

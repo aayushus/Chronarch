@@ -57,6 +57,7 @@ class QuickAddDraft(BaseModel):
     location: str | None = None
     description: str | None = None
     attendees: list[QuickAddAttendee] = []
+    recurrence: dict | None = None
 
 
 class QuickAddCreateRequest(BaseModel):
@@ -135,7 +136,9 @@ def _parse_prompt(text: str, now_iso: str, tz_name: str, people: list[dict]) -> 
             "against it and emit start/end as ISO datetimes WITH numeric UTC offset "
             "(e.g. 2026-09-16T14:00:00-07:00). Default duration is 30 minutes when none is given. "
             'Schema: {"title": str, "start": str, "end": str, "all_day": bool, '
-            '"location": str|null, "description": str|null, "attendees": [{"name": str}]}. '
+            '"location": str|null, "description": str|null, "attendees": [{"name": str}], '
+            '"recurrence": {"freq": "daily|weekly|monthly|yearly"}|null}. '
+            'Set recurrence when the user says "every day/week/Tuesday/month" and null otherwise. '
             'Put every person mentioned with the event in attendees as {"name"} entries — '
             "do NOT guess emails. Known people (match names against these when the user says a first name):\n"
             f"{known}"
@@ -207,6 +210,7 @@ async def quick_add_parse(
         start=start, end=end, all_day=bool(parsed.get("all_day", False)),
         location=parsed.get("location"), description=parsed.get("description"),
         attendees=attendees,
+        recurrence=parsed.get("recurrence") if isinstance(parsed.get("recurrence"), dict) else None,
     )
 
 
@@ -239,7 +243,7 @@ async def quick_add_create(
             timezone=normalize_timezone(client_timezone),
             description=draft.description, location=draft.location,
             attendees=[{"email": a.email, "name": a.name} for a in draft.attendees if a.email],
-            all_day=draft.all_day,
+            all_day=draft.all_day, recurrence=draft.recurrence,
             is_owner=is_owner, delegation_grant=grant,
         )
     except ai_tools.PermissionDenied as exc:

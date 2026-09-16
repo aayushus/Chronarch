@@ -338,6 +338,8 @@ def _from_remote_event(event: RemoteEvent) -> dict[str, Any]:
             for a in event.attendees
             if a.get("email")
         ]
+    if isinstance(event.recurrence, dict) and isinstance(event.recurrence.get("type"), dict):
+        body["recurrence"] = event.recurrence["type"]
     return body
 
 
