@@ -266,7 +266,11 @@ async def get_availability(
         UnifiedEvent.end > window_start,
     )
     events = list((await session.execute(stmt)).scalars())
-    conflicts = _find_conflicts(window_start, window_end, events, blocking_ids)
+    probed = [
+        _Probe(e.id, e.calendar_id, _align_tz(e.start, window_start), _align_tz(e.end, window_start), e.busy_status)
+        for e in events
+    ]
+    conflicts = _find_conflicts(window_start, window_end, probed, blocking_ids)
     return [{"start": c.start, "end": c.end} for c in conflicts]
 
 
@@ -297,11 +301,18 @@ async def find_free_slots(
     )
     events = list((await session.execute(stmt)).scalars()) if blocking_ids else []
 
+    # Same sqlite/Postgres tz alignment as get_conflicts: stored instants
+    # are UTC, a naive side is assumed UTC. Without this, naive sqlite rows
+    # crash aware-window comparisons in the engine.
+    probed = [
+        _Probe(e.id, e.calendar_id, _align_tz(e.start, window_start), _align_tz(e.end, window_start), e.busy_status)
+        for e in events
+    ]
     slots = _find_free_slots(
         window_start,
         window_end,
         duration,
-        events,
+        probed,
         blocking_ids,
         working_hours=working_hours,
         buffer=buffer,
@@ -1168,3 +1179,76 @@ async def restore_contact(session: AsyncSession, ctx: AuthContext, contact_id: s
     if contact is None:
         raise ValueError(f"contact {contact_id} not found")
     return _contact_out(contact)
+
+
+async def suggest_meeting_times(
+    session: AsyncSession,
+    ctx: AuthContext,
+    *,
+    contact_query: str,
+    duration_minutes: int = 30,
+    window_days: int = 7,
+    window_start: datetime | None = None,
+    calendar_ids: list[str] | None = None,
+    owner_calendar_ids: set[str] | None = None,
+    grants_by_calendar: dict | None = None,
+    max_results: int = 5,
+) -> dict:
+    """Phase 3 guided scheduling (BRD §33): resolve who → find when.
+
+    Resolves `contact_query` against the directory, then runs the normal
+    free-slot search with the user's working hours, buffers, and minimum
+    notice applied. Returns candidates only — booking stays an explicit
+    create_event call (the §21 authorization boundary), never a side effect
+    of suggesting. Ambiguity and unknown people come back as data, not
+    guesses.
+    """
+    from ..contacts import resolve_contact as _resolve_contact
+    from ..models.user import User as _User
+
+    if duration_minutes <= 0:
+        raise ValueError("duration_minutes must be positive")
+    window_days = max(1, min(window_days, 30))
+
+    resolution = await _resolve_contact(session, contact_query)
+    if resolution["status"] != "found":
+        return resolution
+
+    now = datetime.now(timezone.utc)
+    start = window_start or now
+    end = start + timedelta(days=window_days)
+
+    # The user's own scheduling preferences shape every suggestion.
+    hours: tuple[int, int] | None = None
+    buffer = timedelta(0)
+    notice = timedelta(0)
+    user_obj = await session.get(_User, ctx.user_id)
+    if user_obj is not None:
+        try:
+            sh, sm = (user_obj.working_hours_start or "09:00").split(":")
+            eh, em = (user_obj.working_hours_end or "17:00").split(":")
+            if sm == "00" and em == "00":
+                hours = (int(sh), int(eh))
+        except (ValueError, AttributeError):
+            hours = None
+        buffer = timedelta(minutes=user_obj.meeting_buffer_minutes or 0)
+        notice = timedelta(minutes=user_obj.min_meeting_notice_minutes or 0)
+
+    slots = await find_free_slots(
+        session, ctx,
+        window_start=start, window_end=end,
+        duration=timedelta(minutes=duration_minutes),
+        calendar_ids=calendar_ids,
+        working_hours=hours, buffer=buffer, min_notice=notice, now=now,
+        owner_calendar_ids=owner_calendar_ids, grants_by_calendar=grants_by_calendar,
+    )
+    contact = resolution["contact"]
+    return {
+        "status": "proposed",
+        "contact": {
+            "email": contact.email,
+            "display_name": contact.display_name,
+        },
+        "duration_minutes": duration_minutes,
+        "slots": [{"start": s["start"], "end": s["end"]} for s in slots[:max_results]],
+    }

@@ -21,6 +21,7 @@ from .tools import (
     update_contact,
     delete_contact,
     restore_contact,
+    suggest_meeting_times,
 )
 
 __all__ = [
@@ -46,5 +47,6 @@ __all__ = [
     "update_contact",
     "delete_contact",
     "restore_contact",
+    "suggest_meeting_times",
 ]
 

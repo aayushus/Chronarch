@@ -508,6 +508,31 @@ async def restore_contact(contact_id: str) -> dict:
         return contact
 
 
+@mcp.tool(description=tool_description("mcp", "suggest_meeting_times"))
+async def suggest_meeting_times(
+    contact_query: str,
+    duration_minutes: int = 30,
+    window_days: int = 7,
+    calendar_ids: list[str] | None = None,
+) -> dict:
+    """Prompt: prompts/mcp/tools/suggest_meeting_times.md."""
+    ctx, session = await _authed_context()
+    async with session:
+        try:
+            result = await ai_tools.suggest_meeting_times(
+                session, ctx, contact_query=contact_query,
+                duration_minutes=duration_minutes, window_days=window_days,
+                calendar_ids=calendar_ids)
+        except ValueError as exc:
+            return {"error": str(exc)}
+        except Exception as exc:
+            return {"error": str(exc)}
+        for slot in result.get("slots", []):
+            slot["start"] = slot["start"].isoformat()
+            slot["end"] = slot["end"].isoformat()
+        return result
+
+
 @mcp.tool(description=tool_description("mcp", "respond_to_event"))
 async def respond_to_event(event_id: str, response: str) -> dict:
     """Prompt: prompts/mcp/tools/respond_to_event.md."""

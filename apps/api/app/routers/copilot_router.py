@@ -463,6 +463,22 @@ COPILOT_TOOLS = [
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "suggest_meeting_times",
+                "description": tool_description("copilot", "suggest_meeting_times"),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "contact_query": {"type": "string", "description": "Name or email of the person to meet ('Sarah', 'sarah@acme.com')."},
+                        "duration_minutes": {"type": "integer", "description": "Meeting length in minutes (default 30)."},
+                        "window_days": {"type": "integer", "description": "How many days ahead to search (default 7, max 30)."},
+                    },
+                    "required": ["contact_query"],
+                },
+            },
+        },
     ]
 
 
@@ -1168,6 +1184,16 @@ async def _execute_tool(
             return {"error": str(exc)}
         return {"contact": contact}
 
+    elif name == "suggest_meeting_times":
+        try:
+            return await ai_tools.suggest_meeting_times(
+                session, ctx, contact_query=args.get("contact_query", ""),
+                duration_minutes=int(args.get("duration_minutes", 30) or 30),
+                window_days=int(args.get("window_days", 7) or 7),
+                owner_calendar_ids=owned_ids, grants_by_calendar=grants)
+        except ValueError as exc:
+            return {"error": str(exc)}
+
     return {"error": f"Unknown tool: {name}"}
 
 
@@ -1243,6 +1269,8 @@ def _describe_tool_call(name: str, args: dict[str, Any]) -> str:
         return "Removing contact"
     if name == "restore_contact":
         return "Restoring contact"
+    if name == "suggest_meeting_times":
+        return f"Finding time with {args.get('contact_query', 'them')}"
     return name.replace("_", " ").capitalize()
 
 
@@ -1288,6 +1316,13 @@ def _summarize_tool_result(name: str, result: dict[str, Any]) -> str:
         return f"Saved {c.get('display_name') or c.get('email', 'contact')}"
     if name == "delete_contact":
         return "Removed contact"
+    if name == "suggest_meeting_times":
+        if result.get("status") == "proposed":
+            n = len(result.get("slots", []))
+            return f"Proposed {n} time{'s' if n != 1 else ''}" if n else "No open times found"
+        if result.get("status") == "ambiguous":
+            return f"{len(result.get('candidates', []))} matches — ask which one"
+        return "No match"
     if name == "get_event":
         return result.get("event", {}).get("title", "Done")
     return "Done"

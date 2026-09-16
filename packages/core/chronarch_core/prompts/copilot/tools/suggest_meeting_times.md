@@ -1,0 +1,1 @@
+Propose meeting times with someone: resolves the name to a contact, then searches the next 7 days (or window_days) for open slots honoring working hours, buffers, and minimum notice. Present the candidates and let the user pick — book with create_event only after they choose.

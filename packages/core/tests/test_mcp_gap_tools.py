@@ -261,3 +261,61 @@ async def test_ai_contact_wrappers_reject_garbage(session):
         await ai_tools.delete_contact(session, ctx, contact_id="missing")
     missing = await ai_tools.resolve_contact(session, ctx, query="nobody here")
     assert missing["status"] == "not_found"
+
+
+async def _suggest_user(session, **prefs):
+    user = User(id="exec-s", email="sugg@co.com", display_name="S",
+                password_hash="x", role=UserRole.ADMIN,
+                working_hours_start=prefs.get("start", "09:00"),
+                working_hours_end=prefs.get("end", "17:00"),
+                meeting_buffer_minutes=prefs.get("buffer", 0),
+                min_meeting_notice_minutes=prefs.get("notice", 0))
+    account = Account(id="acct-s", owner_user_id="exec-s", provider=ProviderType.GOOGLE,
+                      provider_account_email="sugg@co.com", provider_account_id="g-s")
+    cal = Calendar(id="cal-s", account_id="acct-s", provider_calendar_id="p-s",
+                   name="Work", provider_writable=True, blocks_availability=True)
+    session.add_all([user, account, cal])
+    await session.flush()
+    return user, cal
+
+
+async def test_suggest_proposes_around_busy(session):
+    from chronarch_core import contacts as _contacts
+
+    user, cal = await _suggest_user(session)
+    ctx = _owner_ctx(user)
+    await _contacts.create_contact(session, email="sarah@acme.com", display_name="Sarah")
+    start = datetime(2026, 9, 17, 14, 0, tzinfo=timezone.utc)
+    await ai_tools.create_event(
+        session, ctx, calendar_id=cal.id, title="Blocked",
+        start=start, end=start + timedelta(hours=2), is_owner=True)
+    out = await ai_tools.suggest_meeting_times(
+        session, ctx, contact_query="sarah", duration_minutes=30,
+        window_start=datetime(2026, 9, 17, 9, 0, tzinfo=timezone.utc),
+        owner_calendar_ids={cal.id})
+    assert out["status"] == "proposed"
+    assert out["contact"]["email"] == "sarah@acme.com"
+    # 09:00–14:00 PT window... all slots must avoid the 14:00–16:00 block.
+    assert len(out["slots"]) >= 1
+    for slot in out["slots"]:
+        assert slot["end"] <= start or slot["start"] >= start + timedelta(hours=2)
+
+
+async def test_suggest_ambiguity_and_unknown(session):
+    from chronarch_core import contacts as _contacts
+
+    user, _cal = await _suggest_user(session)
+    ctx = _owner_ctx(user)
+    await _contacts.create_contact(session, email="sam-a@x.com", display_name="Sam A")
+    await _contacts.create_contact(session, email="sam-b@x.com", display_name="Sam B")
+    amb = await ai_tools.suggest_meeting_times(session, ctx, contact_query="sam")
+    assert amb["status"] == "ambiguous" and len(amb["candidates"]) == 2
+    missing = await ai_tools.suggest_meeting_times(session, ctx, contact_query="ghost")
+    assert missing["status"] == "not_found"
+
+
+async def test_suggest_rejects_bad_duration(session):
+    user, _cal = await _suggest_user(session)
+    with pytest.raises(ValueError):
+        await ai_tools.suggest_meeting_times(
+            session, _owner_ctx(user), contact_query="x", duration_minutes=0)
