@@ -6,12 +6,14 @@ from .enums import (
     UserRole,
     EventVisibility,
     BusyStatus,
+    BookingStatus,
     ActorType,
     AuditAction,
 )
 from .user import User
 from .webhook import ProviderWebhook
 from .contact import Contact
+from .booking import BookingLink, Booking
 from .rbac import Role, RolePermission, RoleAssignment
 from .account import Account
 from .calendar import Calendar
@@ -30,9 +32,12 @@ __all__ = [
     "UserRole",
     "EventVisibility",
     "BusyStatus",
+    "BookingStatus",
     "ActorType",
     "AuditAction",
     "User",
+    "BookingLink",
+    "Booking",
     "ProviderWebhook",
     "Contact",
     "Role",

@@ -33,6 +33,10 @@ PERMISSION_GROUPS: dict[str, list[tuple[str, str]]] = {
         ("delegations.view", "See sharing grants"),
         ("delegations.manage", "Create and revoke sharing grants"),
     ],
+    "Booking": [
+        ("booking.view", "See booking links and bookings"),
+        ("booking.manage", "Create booking links and approve bookings"),
+    ],
     "Users": [
         ("users.view", "See users"),
         ("users.manage", "Create, edit, and deactivate users"),

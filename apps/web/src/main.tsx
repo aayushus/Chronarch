@@ -9,6 +9,8 @@ import { ToastProvider } from "./components/Toast";
 import LoginPage from "./pages/LoginPage";
 import CalendarPage from "./pages/CalendarPage";
 import SettingsPage from "./pages/SettingsPage";
+import BookPage from "./pages/BookPage";
+import CancelBookingPage from "./pages/CancelBookingPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -35,6 +37,9 @@ function App() {
           <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          {/* Public booking surface — no auth shell by design. */}
+          <Route path="/book/:slug" element={<BookPage />} />
+          <Route path="/book/cancel/:token" element={<CancelBookingPage />} />
           <Route
             path="/"
             element={

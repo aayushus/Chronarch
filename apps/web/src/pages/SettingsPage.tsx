@@ -5,6 +5,7 @@ import { useAuth } from "../api/auth";
 import Icon, { IconName } from "../components/Icon";
 import AccountsSettings from "../components/settings/AccountsSettings";
 import AccountSettings from "../components/settings/AccountSettings";
+import BookingSettings from "../components/settings/BookingSettings";
 import AiSettings from "../components/settings/AiSettings";
 import AuditLogSettings from "../components/settings/AuditLogSettings";
 import CalendarsSettings from "../components/settings/CalendarsSettings";
@@ -15,7 +16,7 @@ import RolesSettings from "../components/settings/RolesSettings";
 import SystemSettings from "../components/settings/SystemSettings";
 import UsersSettings from "../components/settings/UsersSettings";
 
-type SettingsSection = "account" | "calendars" | "accounts" | "contacts" | "delegates" | "users" | "roles" | "ai" | "mcp" | "audit" | "system";
+type SettingsSection = "account" | "calendars" | "accounts" | "contacts" | "delegates" | "booking" | "users" | "roles" | "ai" | "mcp" | "audit" | "system";
 
 const NAV: { key: SettingsSection; label: string; icon: IconName; view: string; Component: React.ComponentType }[] = [
   // Account is personal, not privileged: always visible (it also carries logout).
@@ -24,6 +25,7 @@ const NAV: { key: SettingsSection; label: string; icon: IconName; view: string; 
   { key: "accounts", label: "Accounts", icon: "external", view: "accounts.view", Component: AccountsSettings },
   // Contacts derive from synced invites — readable by anyone signed in.
   { key: "contacts", label: "Contacts", icon: "addressBook", view: "", Component: ContactsSettings },
+  { key: "booking", label: "Booking", icon: "link", view: "booking.view", Component: BookingSettings },
   { key: "delegates", label: "Delegates", icon: "users", view: "delegations.view", Component: DelegatesSettings },
   { key: "users", label: "Users", icon: "users", view: "users.view", Component: UsersSettings },
   { key: "roles", label: "Roles", icon: "shield", view: "", Component: RolesSettings },

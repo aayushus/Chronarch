@@ -46,6 +46,12 @@ const PATHS: Record<string, React.ReactNode> = {
   ),
   trash: <path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 13h10l1-13" />,
   pencil: <path d="M17 3a2.8 2.8 0 114 4L7.5 20.5 2 22l1.5-5.5z" />,
+  link: (
+    <>
+      <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+    </>
+  ),
   copy: (
     <>
       <rect x="9" y="9" width="12" height="12" rx="2" />

@@ -50,6 +50,13 @@ class BusyStatus(str, Enum):
     OUT_OF_OFFICE = "out_of_office"
 
 
+class BookingStatus(str, Enum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    CANCELLED = "cancelled"
+    DECLINED = "declined"
+
+
 class ActorType(str, Enum):
     ADMIN_UI = "admin_ui"
     DELEGATE_UI = "delegate_ui"

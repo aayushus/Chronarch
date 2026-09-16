@@ -398,3 +398,82 @@ export interface AuditEntry {
 export function adminListAuditLog(limit = 100): Promise<AuditEntry[]> {
   return apiFetch<AuditEntry[]>(`/admin/audit-log?limit=${limit}`);
 }
+
+// --- Booking links (Cal.com-style public scheduling) ---
+
+export interface BookingLink {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  duration_minutes: number;
+  calendar_id: string;
+  buffer_before_minutes: number;
+  buffer_after_minutes: number;
+  min_notice_minutes: number;
+  max_days_ahead: number;
+  approval_required: boolean;
+  active: boolean;
+  url_path: string;
+  booking_counts: { pending?: number; upcoming?: number };
+}
+
+export interface BookingEntry {
+  id: string;
+  booker_name: string;
+  booker_email: string;
+  note: string | null;
+  start: string;
+  end: string;
+  booked_timezone: string;
+  status: "pending" | "confirmed" | "cancelled" | "declined";
+  event_id: string | null;
+  created_at: string;
+}
+
+export function adminListBookingLinks(): Promise<BookingLink[]> {
+  return apiFetch<BookingLink[]>("/booking-links");
+}
+
+export function adminCheckSlug(slug: string): Promise<{ available: boolean; slug?: string; reason?: string }> {
+  return apiFetch(`/booking-links/slug-available?slug=${encodeURIComponent(slug)}`);
+}
+
+export function adminCreateBookingLink(body: {
+  title: string;
+  description?: string | null;
+  slug?: string | null;
+  duration_minutes: number;
+  calendar_id: string;
+  buffer_before_minutes?: number;
+  buffer_after_minutes?: number;
+  min_notice_minutes?: number;
+  max_days_ahead?: number;
+  approval_required?: boolean;
+}): Promise<BookingLink> {
+  return apiFetch<BookingLink>("/booking-links", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function adminUpdateBookingLink(id: string, body: Partial<BookingLink>): Promise<BookingLink> {
+  return apiFetch<BookingLink>(`/booking-links/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+export function adminDeleteBookingLink(id: string): Promise<void> {
+  return apiFetch<void>(`/booking-links/${id}`, { method: "DELETE" });
+}
+
+export function adminListBookings(linkId: string): Promise<{ link: BookingLink; bookings: BookingEntry[] }> {
+  return apiFetch(`/booking-links/${linkId}/bookings`);
+}
+
+export function adminApproveBooking(id: string): Promise<BookingEntry> {
+  return apiFetch<BookingEntry>(`/booking-links/bookings/${id}/approve`, { method: "POST" });
+}
+
+export function adminDeclineBooking(id: string): Promise<BookingEntry> {
+  return apiFetch<BookingEntry>(`/booking-links/bookings/${id}/decline`, { method: "POST" });
+}
+
+export function adminCancelBooking(id: string): Promise<BookingEntry> {
+  return apiFetch<BookingEntry>(`/booking-links/bookings/${id}/cancel`, { method: "POST" });
+}

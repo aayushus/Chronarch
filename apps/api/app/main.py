@@ -16,12 +16,14 @@ from .routers import (
     admin_router,
     admin_users_router,
     auth_router,
+    booking_links_router,
     calendars_router,
     contacts_router,
     copilot_router,
     events_router,
     health,
     mcp_keys_router,
+    public_booking_router,
     quick_add_router,
     webhooks_router,
 )
@@ -61,5 +63,7 @@ app.include_router(mcp_keys_router.router)
 app.include_router(webhooks_router.router)
 app.include_router(contacts_router.router)
 app.include_router(quick_add_router.router)
+app.include_router(booking_links_router.router)
+app.include_router(public_booking_router.router)
 
 
