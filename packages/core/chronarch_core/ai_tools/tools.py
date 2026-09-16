@@ -47,6 +47,48 @@ class _Probe:
         self.busy_status = busy_status
 
 
+async def _availability_events(session: AsyncSession, blocking_ids: set[str],
+                              window_start: datetime, window_end: datetime) -> list:
+    """Events relevant to availability in a window: rows overlapping it,
+    plus every recurring series on a blocking calendar (a series anchored
+    months ago still blocks its future instances)."""
+    from sqlalchemy import and_, or_
+
+    stmt = select(UnifiedEvent).where(
+        UnifiedEvent.calendar_id.in_(blocking_ids),
+        or_(
+            and_(UnifiedEvent.start < window_end, UnifiedEvent.end > window_start),
+            UnifiedEvent.recurrence.is_not(None),
+        ),
+    )
+    return list((await session.execute(stmt)).scalars())
+
+
+def _availability_probes(events: list, blocking_ids: set[str],
+                         window_start: datetime, window_end: datetime) -> list:
+    """Engine-ready probes: stored rows plus expanded recurring occurrences
+    (series identity kept, so conflict hits still resolve to the event).
+    Malformed rules degrade to invisible rather than crashing the search."""
+    from ..recurrence import occurrences
+
+    probed = []
+    for e in events:
+        if e.calendar_id not in blocking_ids:
+            continue
+        occs = occurrences(e, window_start, window_end)
+        if occs:
+            probed.extend(
+                _Probe(e.id, e.calendar_id, s, en, e.busy_status) for s, en in occs)
+            continue
+        # Non-recurring rows keep the stored instant, aligned to the
+        # window's awareness first (sqlite reads come back naive).
+        start = _align_tz(e.start, window_start)
+        end = _align_tz(e.end, window_start)
+        if start < window_end and end > window_start:
+            probed.append(_Probe(e.id, e.calendar_id, start, end, e.busy_status))
+    return probed
+
+
 def _align_tz(dt: datetime, ref: datetime) -> datetime:
     if (dt.tzinfo is None) == (ref.tzinfo is None):
         return dt
@@ -260,17 +302,11 @@ async def get_availability(
     if not blocking_ids:
         return []
 
-    stmt = select(UnifiedEvent).where(
-        UnifiedEvent.calendar_id.in_(blocking_ids),
-        UnifiedEvent.start < window_end,
-        UnifiedEvent.end > window_start,
-    )
-    events = list((await session.execute(stmt)).scalars())
-    probed = [
-        _Probe(e.id, e.calendar_id, _align_tz(e.start, window_start), _align_tz(e.end, window_start), e.busy_status)
-        for e in events
-    ]
-    conflicts = _find_conflicts(window_start, window_end, probed, blocking_ids)
+    events = await _availability_events(session, blocking_ids, window_start, window_end)
+    conflicts = _find_conflicts(
+        window_start, window_end,
+        _availability_probes(events, blocking_ids, window_start, window_end),
+        blocking_ids)
     return [{"start": c.start, "end": c.end} for c in conflicts]
 
 
@@ -294,20 +330,12 @@ async def find_free_slots(
     )
     blocking_ids = {c.id for c in calendars if c.blocks_availability}
 
-    stmt = select(UnifiedEvent).where(
-        UnifiedEvent.calendar_id.in_(blocking_ids),
-        UnifiedEvent.start < window_end,
-        UnifiedEvent.end > window_start,
-    )
-    events = list((await session.execute(stmt)).scalars()) if blocking_ids else []
+    events = await _availability_events(session, blocking_ids, window_start, window_end) if blocking_ids else []
 
     # Same sqlite/Postgres tz alignment as get_conflicts: stored instants
     # are UTC, a naive side is assumed UTC. Without this, naive sqlite rows
     # crash aware-window comparisons in the engine.
-    probed = [
-        _Probe(e.id, e.calendar_id, _align_tz(e.start, window_start), _align_tz(e.end, window_start), e.busy_status)
-        for e in events
-    ]
+    probed = _availability_probes(events, blocking_ids, window_start, window_end)
     slots = _find_free_slots(
         window_start,
         window_end,
@@ -358,19 +386,8 @@ async def get_conflicts(
     if not blocking_ids:
         return []
 
-    stmt = select(UnifiedEvent).where(
-        UnifiedEvent.calendar_id.in_(blocking_ids),
-        UnifiedEvent.start < window_end,
-        UnifiedEvent.end > window_start,
-    )
-    events = list((await session.execute(stmt)).scalars())
-    # SQLite drops tzinfo on read (prod Postgres timestamptz does not), so
-    # align event instants to the window's awareness before comparing.
-    # Stored instants are UTC; a naive side is assumed UTC.
-    probed = [
-        _Probe(e.id, e.calendar_id, _align_tz(e.start, window_start), _align_tz(e.end, window_start), e.busy_status)
-        for e in events
-    ]
+    events = await _availability_events(session, blocking_ids, window_start, window_end)
+    probed = _availability_probes(events, blocking_ids, window_start, window_end)
     hits = _find_conflicts(window_start, window_end, probed, blocking_ids, exclude_event_id=exclude_event_id)
 
     out = []
