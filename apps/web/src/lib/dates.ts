@@ -60,6 +60,22 @@ export function formatTimeRange(start: Date, end: Date): string {
   return `${formatTime(start)} – ${formatTime(end)}`;
 }
 
+/** Compact "10 – 11 AM" range for month-card meta lines (meridiem once).
+ * Computed arithmetically (not via toLocaleTimeString) so unit tests are
+ * locale-independent. */
+export function monthTime(startISO: string, endISO: string): string {
+  const parts = (d: Date) => {
+    const mer = d.getHours() >= 12 ? "PM" : "AM";
+    const h = d.getHours() % 12 || 12;
+    const min = d.getMinutes() === 0 ? "" : `:${String(d.getMinutes()).padStart(2, "0")}`;
+    return { label: `${h}${min}`, mer };
+  };
+  const a = parts(new Date(startISO));
+  const b = parts(new Date(endISO));
+  if (a.mer === b.mer) return `${a.label} – ${b.label} ${b.mer}`;
+  return `${a.label} ${a.mer} – ${b.label} ${b.mer}`;
+}
+
 export const WEEKDAY_SHORT = ["S", "M", "T", "W", "T", "F", "S"];
 export const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",

@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 
 import { CalendarSummary, EventSummary } from "../api/calendar";
 import { useAppearance } from "../appearance";
-import { tint } from "../lib/color";
 import { WEEKDAY_SHORT, formatHour, formatHourInZone, formatTimeRange, sameDay, startOfDay, startOfWeek } from "../lib/dates";
+import { AllDayChip } from "./EventCard";
 import {
   SNAP_MINUTES,
   addDaysPreserveTime,
@@ -298,59 +298,44 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
           <div style={{ fontSize: 10, color: "var(--text-tertiary)", padding: "4px 0 0 8px" }}>all-day</div>
           {days.map((day, di) => (
             <div key={day.toISOString()} data-lane-day={di} style={{ padding: "0 2px", minHeight: 20 }}>
-              {weekAllDay
-                .filter((e) => sameDay(new Date(e.start), day))
-                .map((e) => {
-                  const cal = calendarById[e.calendar_id];
-                  const color = cal?.color ?? "var(--accent)";
-                  const dragging = drag?.eventId === e.id;
-                  return (
-                    <div
-                      key={e.id}
-                      onClick={() => !dragging && onSelectEvent(e)}
-                      onContextMenu={(ev) => {
-                        ev.preventDefault();
-                        ev.stopPropagation();
-                        onEventMenu?.(ev, e);
-                      }}
-                      onMouseDown={(ev) => {
-                        if (ev.button !== 0 || !canWrite(cal) || !onMoveEvent) return;
-                        ev.preventDefault();
-                        ev.stopPropagation();
-                        setDrag({
-                          eventId: e.id,
-                          mode: "lane-out",
-                          startX: ev.clientX,
-                          startY: ev.clientY,
-                          originDayIndex: di,
-                          originStart: new Date(e.start),
-                          originEnd: new Date(e.end),
-                          deltaDays: 0,
-                          deltaMinutes: 0,
-                          targetDayIndex: null,
-                          targetMinutes: null,
-                        });
-                      }}
-                      className="event-block hoverable"
-                      style={{
-                        background: color,
-                        borderRadius: 3,
-                        padding: "1px 5px",
-                        fontSize: 10.5,
-                        fontWeight: 600,
-                        marginBottom: 2,
-                        cursor: canWrite(cal) ? "grab" : "pointer",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        opacity: dragging ? 0.4 : 1,
-                        userSelect: "none",
-                      }}
-                    >
-                      {e.title}
-                    </div>
-                  );
-                })}
+                {weekAllDay
+                  .filter((e) => sameDay(new Date(e.start), day))
+                  .map((e) => {
+                    const cal = calendarById[e.calendar_id];
+                    const color = cal?.color ?? "var(--accent)";
+                    const dragging = drag?.eventId === e.id;
+                    return (
+                      <div
+                        key={e.id}
+                        onMouseDown={(ev) => {
+                          if (ev.button !== 0 || !canWrite(cal) || !onMoveEvent) return;
+                          ev.preventDefault();
+                          ev.stopPropagation();
+                          setDrag({
+                            eventId: e.id,
+                            mode: "lane-out",
+                            startX: ev.clientX,
+                            startY: ev.clientY,
+                            originDayIndex: di,
+                            originStart: new Date(e.start),
+                            originEnd: new Date(e.end),
+                            deltaDays: 0,
+                            deltaMinutes: 0,
+                            targetDayIndex: null,
+                            targetMinutes: null,
+                          });
+                        }}
+                        style={{ marginBottom: 2, opacity: dragging ? 0.4 : 1, cursor: canWrite(cal) ? "grab" : "pointer" }}
+                      >
+                        <AllDayChip
+                          color={color}
+                          title={e.title}
+                          onOpen={() => !dragging && onSelectEvent(e)}
+                          onMenu={(mev) => onEventMenu?.(mev, e)}
+                        />
+                      </div>
+                    );
+                  })}
             </div>
           ))}
         </div>
@@ -522,21 +507,24 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                         height,
                         left: `calc(${column * widthPct}% + ${dayShift * 100}%)`,
                         width: `calc(${widthPct}% - 3px)`,
-                        background: `linear-gradient(180deg, ${tint(color.startsWith("#") ? color : "#0a84ff", 0.32)}, ${tint(color.startsWith("#") ? color : "#0a84ff", 0.15)})`,
+                        background: "var(--card-bg)",
+                        border: "1px solid var(--card-line)",
                         borderLeft: `3px solid ${color}`,
-                        borderRadius: 4,
-                        padding: "2px 5px",
+                        boxShadow: "var(--shadow-card)",
+                        borderRadius: 6,
+                        padding: "3px 6px",
                         overflow: "hidden",
                         cursor: canDrag ? "grab" : "pointer",
-                        fontSize: 10.5,
+                        fontSize: 11,
                         fontWeight: 600,
+                        color: "var(--card-ink)",
                         userSelect: "none",
                         zIndex: isDragging ? 5 : undefined,
                       }}
                     >
-                      {event.title}
-                      {height > 30 && (
-                        <div className="tabular-nums" style={{ fontSize: 10, fontWeight: 400, opacity: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <span style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{event.title}</span>
+                      {height > 32 && (
+                        <div className="tabular-nums" style={{ fontSize: 10, fontWeight: 400, color: "var(--card-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {formatTimeRange(displayStart, displayEnd)}
                         </div>
                       )}

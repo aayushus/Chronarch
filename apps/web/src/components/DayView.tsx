@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { CalendarSummary, EventSummary } from "../api/calendar";
 import { useAppearance } from "../appearance";
 import { formatHour, formatHourInZone, formatTimeRange, sameDay, startOfDay } from "../lib/dates";
-import { contrastText, tint } from "../lib/color";
+import { contrastText } from "../lib/color";
 import {
   SNAP_MINUTES,
   atMinutes,
@@ -435,21 +435,23 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                   height,
                   left: lane.left,
                   width: lane.width,
-                  background: `linear-gradient(180deg, ${tint(color.startsWith("#") ? color : "#0a84ff", 0.32)}, ${tint(color.startsWith("#") ? color : "#0a84ff", 0.15)})`,
+                  background: "var(--card-bg)",
+                  border: "1px solid var(--card-line)",
                   borderLeft: `3px solid ${color}`,
-                  borderRadius: 6,
-                  padding: "4px 8px",
+                  boxShadow: "var(--shadow-card)",
+                  borderRadius: 8,
+                  padding: "5px 9px",
                   overflow: "hidden",
                   cursor: draggable ? "grab" : "pointer",
                   outline: isSelected ? `2px solid ${color}` : "none",
                   userSelect: "none",
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--card-ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {event.title}
                 </div>
-                {height > 32 && (
-                  <div className="tabular-nums" style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                {height > 34 && (
+                  <div className="tabular-nums" style={{ fontSize: 11, color: "var(--card-muted)" }}>
                     {formatTimeRange(displayStart, displayEnd)}
                   </div>
                 )}

@@ -42,6 +42,11 @@ export default function CalendarPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const workingHours = useMemo(() => workingHoursOf(user), [user]);
+  const userInitials = useMemo(() => {
+    const src = user?.display_name?.trim() || user?.email?.split("@")[0] || "?";
+    const parts = src.replace(/[._-]+/g, " ").split(" ").filter(Boolean);
+    return ((parts[0]?.[0] ?? "?") + (parts.length > 1 ? parts[parts.length - 1][0] ?? "" : "")).toUpperCase();
+  }, [user]);
   const [calendars, setCalendars] = useState<CalendarSummary[]>([]);
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [viewMode, setViewMode] = useState<CalendarViewMode>("day");
@@ -684,6 +689,12 @@ export default function CalendarPage() {
           lastSyncedAt={lastSyncedAt}
           isSyncing={isSyncing}
           onSyncNow={handleSyncNow}
+          onOpenPalette={() => setPaletteOpen(true)}
+          onOpenIcsImport={() => {
+            setDroppedIcsContent(undefined);
+            setShowIcsModal(true);
+          }}
+          userInitials={userInitials}
           onCreateEvent={() => {
             const s = new Date(viewedDate);
             s.setHours(9, 0, 0, 0);

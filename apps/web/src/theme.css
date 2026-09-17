@@ -1,6 +1,5 @@
 :root {
-  --bg-app: #1c1c1e;
-  --bg-sidebar: rgba(23, 23, 26, 0.78);
+  --bg-app: #1c1c1e;  --bg-sidebar: rgba(23, 23, 26, 0.78);
   --bg-panel: rgba(35, 35, 38, 0.82);
   --bg-raised: #2c2c2e;
   --bg-raised-hover: #3a3a3c;
@@ -37,6 +36,14 @@
      light grey in light mode. */
   --wash-faint: rgba(255, 255, 255, 0.08);
 
+  /* Mondays card language: white floating event cards on any theme —
+     colored top/progress bar, ink title, muted meta, hairline border. */
+  --card-bg: #ffffff;
+  --card-ink: #2b2b2e;
+  --card-muted: #6e6e73;
+  --card-line: #e9e9ee;
+  --shadow-card: 0 2px 10px rgba(20, 20, 30, 0.08);
+
   /* Wall palette (kiosk Skylight look): always light, like the hardware —
      independent of the app theme. */
   --wall-page: #eceae4;
@@ -48,9 +55,10 @@
   --wall-well: #faf9f6;
 }
 
-/* Light theme (Chronarch design philosophy: tokens only, no component changes) */
+/* Light theme (Mondays design language: paper canvas, white cards,
+   hairline grid, royal-blue actions) */
 [data-theme="light"] {
-  --bg-app: #f2f2f6;
+  --bg-app: #f6f6f8;
   --bg-sidebar: rgba(255, 255, 255, 0.72);
   --bg-panel: rgba(255, 255, 255, 0.85);
   --bg-raised: #ffffff;

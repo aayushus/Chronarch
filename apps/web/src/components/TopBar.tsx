@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
 
 import Icon from "./Icon";
 
-export type CalendarViewMode = "day" | "week" | "month" | "year" | "agenda";
+export type CalendarViewMode = "day" | "week" | "month" | "agenda" | "year";
 
 interface Props {
   viewedDate: Date;
@@ -11,11 +12,16 @@ interface Props {
   onToday: () => void;
   onShift: (delta: number) => void;
   onCreateEvent: () => void;
+  onOpenPalette: () => void;
+  onOpenIcsImport?: () => void;
+  userInitials: string;
   lastSyncedAt?: string | null;
   isSyncing?: boolean;
   onSyncNow?: () => void;
 }
 
+/** Mondays header: command bar + New Event split-button + sync/avatar
+ * cluster on top; date title + underlined view tabs + Today nav below. */
 export default function TopBar({
   viewedDate,
   viewMode,
@@ -23,10 +29,14 @@ export default function TopBar({
   onToday,
   onShift,
   onCreateEvent,
+  onOpenPalette,
+  onOpenIcsImport,
+  userInitials,
   lastSyncedAt,
   isSyncing,
   onSyncNow,
 }: Props) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const endOfAgenda = new Date(viewedDate);
   endOfAgenda.setDate(endOfAgenda.getDate() + 13);
   const dateLabel =
@@ -35,81 +45,67 @@ export default function TopBar({
       : viewMode === "agenda"
       ? `${viewedDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${endOfAgenda.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`
       : viewedDate.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
-  const weekdayLabel = viewedDate.toLocaleDateString(undefined, { weekday: "long" });
 
   const syncLabel = lastSyncedAt ? formatTimeAgo(new Date(lastSyncedAt)) : "Ready";
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        flexWrap: "wrap",
-        gap: "8px 16px",
-        rowGap: 8,
-        padding: "12px 24px",
-        borderBottom: "1px solid var(--border-subtle)",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0, flexShrink: 1 }}>
-        <button onClick={onCreateEvent} title="New event (N)" className="icon-btn hoverable" style={{ ...circleBtnStyle, flexShrink: 0 }}>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <line x1="7" y1="2" x2="7" y2="12" />
-            <line x1="2" y1="7" x2="12" y2="7" />
-          </svg>
+    <div style={{ borderBottom: "1px solid var(--border-subtle)", padding: "10px 24px 0" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <button
+          onClick={onOpenPalette}
+          className="hoverable"
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            background: "var(--bg-raised)",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: 8,
+            padding: "7px 12px",
+            color: "var(--text-tertiary)",
+            fontSize: 13,
+            cursor: "pointer",
+            minWidth: 0,
+          }}
+        >
+          <Icon name="search" size={14} />
+          <span style={{ flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            Search or type a command
+          </span>
+          <kbd>⌘F</kbd>
         </button>
-        <div style={{ minWidth: 0 }}>
-          <div
-            className="date-header tabular-nums"
-            style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+
+        <div style={{ display: "flex", flexShrink: 0, position: "relative" }}>
+          <button onClick={onCreateEvent} className="btn-primary hoverable" style={{ borderRadius: "8px 0 0 8px", padding: "7px 14px" }}>
+            <span style={{ fontSize: 14, lineHeight: 1 }}>+</span>
+            <span>New Event</span>
+          </button>
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label="More create options"
+            className="btn-primary hoverable"
+            style={{ borderRadius: "0 8px 8px 0", padding: "7px 10px", borderLeft: "1px solid rgba(255,255,255,0.3)" }}
           >
-            {dateLabel}
-          </div>
-          {viewMode === "day" && (
-            <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{weekdayLabel}</div>
+            <Icon name="chevronRight" size={13} />
+          </button>
+          {menuOpen && onOpenIcsImport && (
+            <div style={{ position: "absolute", top: 36, right: 0, background: "var(--bg-panel)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-pop)", padding: 4, zIndex: 50, minWidth: 180 }}>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onOpenIcsImport();
+                }}
+                className="hoverable"
+                style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", background: "none", border: "none", borderRadius: 6, padding: "8px 10px", fontSize: 13, color: "var(--text-primary)", cursor: "pointer" }}
+              >
+                <Icon name="upload" size={13} />
+                Import .ics file
+              </button>
+            </div>
           )}
         </div>
-      </div>
 
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 4,
-          background: "var(--bg-raised)",
-          borderRadius: 8,
-          padding: 3,
-          flexShrink: 0,
-          maxWidth: "100%",
-          overflowX: "auto",
-        }}
-      >
-        {((["day", "week", "month", "agenda", "year"] as CalendarViewMode[])).map((mode) => (
-          <button
-            key={mode}
-            onClick={() => onViewModeChange(mode)}
-            className="hoverable"
-            style={{
-              border: "none",
-              borderRadius: 6,
-              padding: "6px 12px",
-              fontSize: 13,
-              cursor: "pointer",
-              fontWeight: 500,
-              whiteSpace: "nowrap",
-              background: viewMode === mode ? "var(--accent)" : "transparent",
-              color: viewMode === mode ? "#fff" : "var(--text-secondary)",
-              transition: "var(--transition-fast)",
-            }}
-          >
-            {mode.charAt(0).toUpperCase() + mode.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-        {/* Sync status & trigger */}
         {onSyncNow && (
           <button
             onClick={onSyncNow}
@@ -122,37 +118,76 @@ export default function TopBar({
               gap: 6,
               background: "var(--bg-raised)",
               border: "1px solid var(--border-subtle)",
-              borderRadius: 6,
+              borderRadius: 16,
               color: "var(--text-secondary)",
               fontSize: 12,
-              padding: "5px 10px",
+              padding: "6px 12px",
               cursor: isSyncing ? "wait" : "pointer",
-              marginRight: 4,
+              flexShrink: 0,
             }}
           >
-            <span
-              style={{
-                display: "inline-flex",
-                transform: isSyncing ? "rotate(360deg)" : "none",
-                transition: isSyncing ? "transform 1s linear infinite" : "none",
-                fontSize: 13,
-              }}
-            >
+            <span style={{ display: "inline-flex", fontSize: 13 }}>
               <Icon name="refresh" size={13} />
             </span>
             <span>{isSyncing ? "Syncing…" : `Synced ${syncLabel}`}</span>
           </button>
         )}
 
-        <button onClick={onToday} className="hoverable" style={navBtnStyle}>
-          Today
-        </button>
-        <button onClick={() => onShift(-1)} className="hoverable" style={navBtnStyle} title="Previous" aria-label="Previous">
-          <Icon name="chevronLeft" size={14} />
-        </button>
-        <button onClick={() => onShift(1)} className="hoverable" style={navBtnStyle} title="Next" aria-label="Next">
-          <Icon name="chevronRight" size={14} />
-        </button>
+        <Link
+          to="/settings"
+          title="Account & settings"
+          style={{
+            width: 30, height: 30, borderRadius: "50%", background: "var(--accent)", color: "#fff",
+            fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center",
+            justifyContent: "center", textDecoration: "none", flexShrink: 0,
+          }}
+        >
+          {userInitials || "?"}
+        </Link>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginTop: 10, flexWrap: "wrap" }}>
+        <div className="date-header tabular-nums" style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.01em", paddingBottom: 8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {dateLabel}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 2, overflowX: "auto", maxWidth: "100%" }}>
+          {(["day", "week", "month", "agenda", "year"] as CalendarViewMode[]).map((mode) => {
+            const active = viewMode === mode;
+            return (
+              <button
+                key={mode}
+                onClick={() => onViewModeChange(mode)}
+                className="hoverable"
+                style={{
+                  border: "none",
+                  background: "none",
+                  padding: "8px 12px",
+                  fontSize: 13,
+                  fontWeight: active ? 600 : 500,
+                  color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                  borderBottom: active ? "2px solid var(--text-primary)" : "2px solid transparent",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 6, paddingBottom: 6, flexShrink: 0 }}>
+          <button onClick={onToday} className="hoverable" style={navBtnStyle}>
+            Today
+          </button>
+          <button onClick={() => onShift(-1)} className="hoverable" style={navBtnStyle} title="Previous" aria-label="Previous">
+            <Icon name="chevronLeft" size={14} />
+          </button>
+          <button onClick={() => onShift(1)} className="hoverable" style={navBtnStyle} title="Next" aria-label="Next">
+            <Icon name="chevronRight" size={14} />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -169,28 +204,14 @@ function formatTimeAgo(date: Date): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-const circleBtnStyle: React.CSSProperties = {
-  width: 28,
-  height: 28,
-  borderRadius: "50%",
-  border: "none",
-  background: "var(--accent)",
-  color: "#fff",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 0,
-  cursor: "pointer",
-};
-
 const navBtnStyle: React.CSSProperties = {
-  background: "var(--bg-raised)",
+  background: "none",
   border: "none",
-  borderRadius: 6,
-  color: "var(--text-primary)",
-  fontSize: 14,
+  color: "var(--text-secondary)",
+  fontSize: 13,
+  fontWeight: 500,
   cursor: "pointer",
-  padding: "6px 10px",
+  padding: "6px 8px",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",

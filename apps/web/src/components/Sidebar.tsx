@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { CalendarSummary } from "../api/calendar";
 import Icon from "./Icon";
+import { avatarInitials } from "./EventCard";
 import MiniMonth from "./MiniMonth";
 
 interface Props {
@@ -59,12 +60,12 @@ export default function Sidebar({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "14px 16px 10px",
+          padding: "16px 16px 12px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <img src="/logo.svg" alt="" width={20} height={20} style={{ borderRadius: 5 }} />
-          <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: -0.2 }}>Chronarch</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <img src="/logo.svg" alt="" width={22} height={22} style={{ borderRadius: 6 }} />
+          <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.01em", fontFamily: "Georgia, 'Times New Roman', serif" }}>Chronarch</span>
         </div>
       </div>
 
@@ -122,6 +123,18 @@ export default function Sidebar({
       <div style={{ height: 1, background: "var(--border-subtle)", margin: "0 8px 6px" }} />
 
       <div style={{ flex: 1, overflowY: "auto", padding: "4px 8px" }}>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color: "var(--text-tertiary)",
+            padding: "6px 10px 4px",
+          }}
+        >
+          Calendars
+        </div>
         {groups.size === 0 && (
           <div style={{ textAlign: "center", padding: "20px 8px" }}>
             <div
@@ -230,19 +243,30 @@ export default function Sidebar({
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
+          gap: 10,
           padding: "10px 12px",
           borderTop: "1px solid var(--border-subtle)",
         }}
       >
         <span
           style={{
+            width: 28, height: 28, borderRadius: "50%", background: "var(--accent)", color: "#fff",
+            fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center",
+            justifyContent: "center", flexShrink: 0,
+          }}
+        >
+          {avatarInitials(userDisplayName)}
+        </span>
+        <span
+          style={{
+            flex: 1,
             fontSize: 12,
             fontWeight: 600,
             color: "var(--text-secondary)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
+            minWidth: 0,
           }}
           title={userDisplayName}
         >
@@ -253,21 +277,15 @@ export default function Sidebar({
           className="hoverable"
           title="Account & settings"
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            color: "var(--text-secondary)",
-            textDecoration: "none",
-            fontSize: 12,
+            display: "inline-flex",
+            color: "var(--text-tertiary)",
             borderRadius: 6,
-            padding: "5px 8px",
-            marginRight: -8,
+            padding: 6,
           }}
         >
           <span aria-hidden style={{ display: "inline-flex" }}>
-            <Icon name="settings" size={13} />
+            <Icon name="settings" size={14} />
           </span>
-          Settings
         </Link>
       </div>
     </aside>

@@ -14,6 +14,7 @@ Logo files: [`apps/web/public/logo.svg`](apps/web/public/logo.svg).
 ## Color
 
 Dark theme is the primary (and for MVP, only) theme, matching the macOS Calendar reference the UI is modeled on.
+Light theme follows the Mondays card language (paper canvas, white floating event cards) and is the default for new installs; both re-theme through tokens alone.
 
 | Token | Value | Use |
 |---|---|---|

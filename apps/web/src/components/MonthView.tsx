@@ -1,8 +1,9 @@
 import React from "react";
 
 import { CalendarSummary, EventSummary } from "../api/calendar";
-import { contrastText } from "../lib/color";
 import { WEEKDAY_SHORT, sameDay, startOfMonth } from "../lib/dates";
+import { AllDayChip, EventCard } from "./EventCard";
+import { monthTime } from "../lib/dates";
 
 interface Props {
   monthAnchor: Date;
@@ -14,8 +15,7 @@ interface Props {
   onEmptyMenu?: (e: React.MouseEvent, at: Date) => void;
 }
 
-export default function MonthView({ monthAnchor, events, calendarById, onSelectEvent, onSelectDay, onEventMenu, onEmptyMenu }: Props) {
-  const monthStart = startOfMonth(monthAnchor);
+export default function MonthView({ monthAnchor, events, calendarById, onSelectEvent, onSelectDay, onEventMenu, onEmptyMenu }: Props) {  const monthStart = startOfMonth(monthAnchor);
   const gridStart = new Date(monthStart);
   const leadDays = (monthStart.getDay() + 6) % 7;
   gridStart.setDate(gridStart.getDate() - leadDays);
@@ -28,15 +28,17 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
   const today = new Date();
 
   return (
-    <div className="cal-wash view-enter" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: "1px solid var(--border-subtle)" }}>
+    <div className="cal-wash view-enter" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
         {WEEKDAY_SHORT.map((w, i) => (
           <div key={i} style={{ padding: "8px 0", textAlign: "center", fontSize: 11, color: "var(--text-tertiary)" }}>
             {w}
           </div>
         ))}
       </div>
-      <div style={{ flex: 1, display: "grid", gridTemplateRows: "repeat(6, 1fr)" }}>
+      {/* Internal scroll: short viewports scroll the grid, never the page. */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+      <div style={{ display: "grid", gridTemplateRows: "repeat(6, minmax(118px, 1fr))", minHeight: "100%" }}>
         {Array.from({ length: 6 }, (_, week) => (
           <div key={week} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: "1px solid var(--border-subtle)" }}>
             {days.slice(week * 7, week * 7 + 7).map((d) => {
@@ -59,6 +61,8 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                     padding: 6,
                     cursor: "pointer",
                     overflow: "hidden",
+                    minHeight: 0,
+                    minWidth: 0,
                     opacity: isCurrentMonth ? 1 : 0.4,
                   }}
                 >
@@ -73,47 +77,41 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                   >
                     {d.getDate()}
                   </div>
-                  {dayEvents.slice(0, 3).map((e) => {
+                  {dayEvents.slice(0, 2).map((e) => {
                     const cal = calendarById[e.calendar_id];
                     const color = cal?.color ?? "var(--accent)";
-                    return (
-                      <div
-                        key={e.id}
-                        onClick={(ev) => {
-                          ev.stopPropagation();
-                          onSelectEvent(e);
-                        }}
-                        onContextMenu={(ev) => {
-                          ev.preventDefault();
-                          ev.stopPropagation();
-                          onEventMenu?.(ev, e);
-                        }}
-                        className="event-block"
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 600,
-                          color: contrastText(color.startsWith("#") ? color : "#0a84ff"),
-                          background: color,
-                          borderRadius: 3,
-                          padding: "1px 4px",
-                          marginBottom: 2,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {e.title}
+                    return e.all_day ? (
+                      <div key={e.id} style={{ marginBottom: 4, minWidth: 0 }}>
+                        <AllDayChip
+                          color={color}
+                          title={e.title}
+                          onOpen={() => onSelectEvent(e)}
+                          onMenu={(ev) => onEventMenu?.(ev, e)}
+                        />
+                      </div>
+                    ) : (
+                      <div key={e.id} style={{ marginBottom: 4, minWidth: 0 }}>
+                        <EventCard
+                          compact
+                          color={color}
+                          title={e.title}
+                          meta={monthTime(e.start, e.end)}
+                          attendees={e.attendees}
+                          onOpen={() => onSelectEvent(e)}
+                          onMenu={(ev) => onEventMenu?.(ev, e)}
+                        />
                       </div>
                     );
                   })}
-                  {dayEvents.length > 3 && (
-                    <div style={{ fontSize: 9, color: "var(--text-tertiary)" }}>+{dayEvents.length - 3} more</div>
+                  {dayEvents.length > 2 && (
+                    <div style={{ fontSize: 9, color: "var(--text-tertiary)" }}>+{dayEvents.length - 2} more</div>
                   )}
                 </div>
               );
             })}
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

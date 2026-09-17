@@ -30,7 +30,7 @@ function stored<T extends string>(key: string, fallback: T): T {
 
 export function AppearanceProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() =>
-    stored<Theme>("chronarch_theme", "dark") === "light" ? "light" : "dark"
+    stored<Theme>("chronarch_theme", "light") === "dark" ? "dark" : "light"
   );
   const [density, setDensityState] = useState<Density>(() =>
     stored<Density>("chronarch_density", "comfortable") === "compact" ? "compact" : "comfortable"

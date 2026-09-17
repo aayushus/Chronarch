@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 
 import { CalendarSummary, EventSummary } from "../api/calendar";
 import { sameDay } from "../lib/dates";
+import { AllDayChip, EventCard } from "./EventCard";
 import EventWeather from "./EventWeather";
 
 interface Props {
@@ -93,37 +94,19 @@ export default function AgendaView({ days, events, calendarById, onSelectEvent, 
                 const start = new Date(e.start);
                 const end = new Date(e.end);
                 return (
-                  <button
-                    key={e.id}
-                    onClick={() => onSelectEvent(e)}
-                    className="hoverable"
-                    style={{
-                      display: "flex",
-                      gap: 10,
-                      width: "100%",
-                      textAlign: "left",
-                      background: "transparent",
-                      border: "none",
-                      borderRadius: 6,
-                      padding: "5px 6px",
-                      marginLeft: -6,
-                      cursor: "pointer",
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    <span style={{ width: 3, borderRadius: 2, background: color, flexShrink: 0, alignSelf: "stretch" }} />
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: "block", fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {e.title}
-                      </span>
-                      <span style={{ display: "block", fontSize: 11.5, color: "var(--text-secondary)", marginTop: 1 }}>
-                        {e.all_day ? "All day" : `${fmtTime(start)} – ${fmtTime(end)}`}
-                        {e.location ? ` · ${e.location}` : ""}
-                        {e.attendees?.length ? ` · ${e.attendees.length} attendee${e.attendees.length === 1 ? "" : "s"}` : ""}
-                        <EventWeather location={e.location ?? null} start={e.start} />
-                      </span>
-                    </span>
-                  </button>
+                  <div key={e.id} style={{ marginBottom: 8 }}>
+                    {e.all_day ? (
+                      <AllDayChip color={color} title={e.title} onOpen={() => onSelectEvent(e)} />
+                    ) : (
+                      <EventCard
+                        color={color}
+                        title={e.title}
+                        meta={<>{`${fmtTime(start)} – ${fmtTime(end)}`}{e.location ? ` · ${e.location}` : ""}<EventWeather location={e.location ?? null} start={e.start} /></>}
+                        attendees={e.attendees}
+                        onOpen={() => onSelectEvent(e)}
+                      />
+                    )}
+                  </div>
                 );
               })}
             </div>

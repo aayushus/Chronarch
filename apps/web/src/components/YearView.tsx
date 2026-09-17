@@ -80,8 +80,9 @@ export default function YearView({ year, events, calendarById, selectedDate, onS
         <div
           key={monthStart.getMonth()}
           style={{
-            background: "var(--bg-raised)",
-            border: "1px solid var(--border-subtle)",
+            background: "var(--card-bg)",
+            border: "1px solid var(--card-line)",
+            boxShadow: "var(--shadow-card)",
             borderRadius: "var(--radius-md)",
             padding: "10px 12px 12px",
           }}
