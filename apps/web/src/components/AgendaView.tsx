@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 
 import { CalendarSummary, EventSummary } from "../api/calendar";
 import { sameDay } from "../lib/dates";
+import EventWeather from "./EventWeather";
 
 interface Props {
   days: Date[];
@@ -119,6 +120,7 @@ export default function AgendaView({ days, events, calendarById, onSelectEvent, 
                         {e.all_day ? "All day" : `${fmtTime(start)} – ${fmtTime(end)}`}
                         {e.location ? ` · ${e.location}` : ""}
                         {e.attendees?.length ? ` · ${e.attendees.length} attendee${e.attendees.length === 1 ? "" : "s"}` : ""}
+                        <EventWeather location={e.location ?? null} start={e.start} />
                       </span>
                     </span>
                   </button>

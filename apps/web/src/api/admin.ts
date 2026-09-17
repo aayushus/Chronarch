@@ -477,3 +477,47 @@ export function adminDeclineBooking(id: string): Promise<BookingEntry> {
 export function adminCancelBooking(id: string): Promise<BookingEntry> {
   return apiFetch<BookingEntry>(`/booking-links/bookings/${id}/cancel`, { method: "POST" });
 }
+
+// --- Kiosk wall displays ---
+
+export interface KioskDisplay {
+  id: string;
+  name: string;
+  location_label: string;
+  sleep_start: string;
+  sleep_end: string;
+  active: boolean;
+  url_path: string;
+  last_seen_at: string | null;
+  created_at: string;
+  token?: string;
+}
+
+export function kioskListDisplays(): Promise<KioskDisplay[]> {
+  return apiFetch<KioskDisplay[]>("/kiosk");
+}
+
+export function kioskCreateDisplay(body: {
+  name: string;
+  location_label?: string;
+  sleep_start?: string;
+  sleep_end?: string;
+}): Promise<KioskDisplay> {
+  return apiFetch<KioskDisplay>("/kiosk", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function kioskUpdateDisplay(id: string, body: Partial<KioskDisplay>): Promise<KioskDisplay> {
+  return apiFetch<KioskDisplay>(`/kiosk/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+export function kioskRotateDisplay(id: string): Promise<KioskDisplay> {
+  return apiFetch<KioskDisplay>(`/kiosk/${id}/rotate`, { method: "POST" });
+}
+
+export function kioskPairWithCode(code: string): Promise<KioskDisplay> {
+  return apiFetch<KioskDisplay>("/kiosk/pair", { method: "POST", body: JSON.stringify({ code }) });
+}
+
+export function kioskDeleteDisplay(id: string): Promise<void> {
+  return apiFetch<void>(`/kiosk/${id}`, { method: "DELETE" });
+}

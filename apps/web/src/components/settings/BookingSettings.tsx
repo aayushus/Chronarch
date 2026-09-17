@@ -7,6 +7,7 @@ import Icon from "../Icon";
 import { useToast } from "../Toast";
 
 import {
+  AdminAccount,
   AdminCalendar,
   BookingEntry,
   BookingLink,
@@ -16,11 +17,19 @@ import {
   adminCreateBookingLink,
   adminDeclineBooking,
   adminDeleteBookingLink,
+  adminListAccounts,
   adminListBookingLinks,
   adminListCalendars,
   adminListBookings,
   adminUpdateBookingLink,
 } from "../../api/admin";
+import {
+  hasUnownedWritable,
+  ownedWritableCalendars,
+  selectionIsStale,
+  slugHint,
+  stepValid as wizardStepValid,
+} from "./bookingWizard";
 
 const DURATIONS = [15, 30, 45, 60];
 
@@ -44,6 +53,7 @@ export default function BookingSettings() {
   const { toast } = useToast();
   const [links, setLinks] = useState<BookingLink[]>([]);
   const [calendars, setCalendars] = useState<AdminCalendar[]>([]);
+  const [accounts, setAccounts] = useState<AdminAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showWizard, setShowWizard] = useState(false);
@@ -54,10 +64,11 @@ export default function BookingSettings() {
   const canManage = user?.role === "admin" || (user?.permissions ?? []).includes("booking.manage");
 
   function load() {
-    Promise.all([adminListBookingLinks(), adminListCalendars()])
-      .then(([l, c]) => {
+    Promise.all([adminListBookingLinks(), adminListCalendars(), adminListAccounts().catch(() => [] as AdminAccount[])])
+      .then(([l, c, a]) => {
         setLinks(l);
         setCalendars(c);
+        setAccounts(a);
       })
       .catch((e) => setError(friendlyError(e)))
       .finally(() => setLoading(false));
@@ -257,6 +268,8 @@ export default function BookingSettings() {
       {showWizard && (
         <LinkWizard
           calendars={calendars}
+          ownedAccountIds={new Set(accounts.filter((a) => a.owner_user_id === user?.id).map((a) => a.id))}
+          accountsLoaded={accounts.length > 0}
           onClose={() => setShowWizard(false)}
           onCreated={() => {
             setShowWizard(false);
@@ -271,7 +284,7 @@ export default function BookingSettings() {
 
 const STEP_LABELS = ["Basics", "Calendar", "Rules", "Share"];
 
-function LinkWizard({ calendars, onClose, onCreated }: { calendars: AdminCalendar[]; onClose: () => void; onCreated: (link: BookingLink) => void }) {
+function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCreated }: { calendars: AdminCalendar[]; ownedAccountIds: Set<string>; accountsLoaded: boolean; onClose: () => void; onCreated: (link: BookingLink) => void }) {
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -290,7 +303,15 @@ function LinkWizard({ calendars, onClose, onCreated }: { calendars: AdminCalenda
   const [created, setCreated] = useState<BookingLink | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const writable = calendars.filter((c) => c.writable);
+  const writable = ownedWritableCalendars(calendars, ownedAccountIds);
+  const showUnownedNote = hasUnownedWritable(calendars, ownedAccountIds);
+
+  useEffect(() => {
+    if (selectionIsStale(calendarId, writable)) {
+      setCalendarId("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calendars, accountsLoaded]);
 
   useEffect(() => {
     const value = slug.trim().toLowerCase();
@@ -311,9 +332,12 @@ function LinkWizard({ calendars, onClose, onCreated }: { calendars: AdminCalenda
   }, [slug]);
 
   function stepValid(): boolean {
-    if (step === 0) return title.trim().length > 0 && slugState.ok === true && duration >= 5;
-    if (step === 1) return calendarId.length > 0;
-    return true;
+    return wizardStepValid(step, {
+      title,
+      slugOk: slugState.ok,
+      duration,
+      calendarId,
+    });
   }
 
   async function handleCreate() {
@@ -382,9 +406,14 @@ function LinkWizard({ calendars, onClose, onCreated }: { calendars: AdminCalenda
                 <span style={{ fontSize: 12, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>/book/</span>
                 <input id="link-slug" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="acme-intro" className="input-standard" style={{ flex: 1, fontSize: 13 }} />
               </div>
-              <div style={{ fontSize: 11.5, marginTop: 5, minHeight: 16, color: slugState.ok ? "var(--success)" : slugState.reason ? "var(--danger)" : "var(--text-tertiary)" }}>
-                {slugState.checking ? "Checking…" : slugState.ok ? "Available." : (slugState.reason ?? "Lowercase letters, numbers, hyphens.")}
-              </div>
+              {(() => {
+                const hint = slugHint(slug, slugState);
+                return (
+                  <div style={{ fontSize: 11.5, marginTop: 5, minHeight: 16, color: hint.tone === "ok" ? "var(--success)" : hint.tone === "error" ? "var(--danger)" : "var(--text-tertiary)" }}>
+                    {hint.text}
+                  </div>
+                );
+              })()}
             </div>
             <div>
               <span style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Duration</span>
@@ -406,7 +435,18 @@ function LinkWizard({ calendars, onClose, onCreated }: { calendars: AdminCalenda
               Bookings land on this calendar with the booker invited.
             </p>
             {writable.length === 0 ? (
-              <p style={{ fontSize: 12, color: "var(--warning)" }}>No writable calendars available.</p>
+              <div>
+                <p style={{ fontSize: 12, color: "var(--warning)", margin: "0 0 6px" }}>
+                  {accountsLoaded
+                    ? "No calendars you own yet — connect your Google or Microsoft account in Settings → Accounts first. Booking links must land on your own calendar."
+                    : "Loading your calendars…"}
+                </p>
+                {showUnownedNote && (
+                  <p style={{ fontSize: 11.5, color: "var(--text-tertiary)", margin: 0 }}>
+                    Other calendars exist in this workspace, but booking links can only use calendars under your own connected account.
+                  </p>
+                )}
+              </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {writable.map((c) => (

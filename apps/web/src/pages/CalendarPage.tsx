@@ -5,15 +5,12 @@ import {
   CalendarSummary,
   ConflictInfo,
   EventSummary,
-  QuickAddDraft,
   createEvent,
   deleteEvent,
   getConflicts,
   getEvent,
   listCalendars,
   moveEvent,
-  quickAddCreate,
-  quickAddParse,
   updateEvent,
 } from "../api/calendar";
 import { useNavigate } from "react-router-dom";
@@ -26,7 +23,6 @@ import CopilotDrawer from "../components/CopilotDrawer";
 import EventDetailPanel from "../components/EventDetailPanel";
 import IcsImportModal from "../components/IcsImportModal";
 import QuickCreateModal, { CreateDraft } from "../components/QuickCreateModal";
-import QuickAddModal from "../components/QuickAddModal";
 import Sidebar from "../components/Sidebar";
 import { useToast } from "../components/Toast";
 import TopBar, { CalendarViewMode } from "../components/TopBar";
@@ -63,9 +59,6 @@ export default function CalendarPage() {
   const [showIcsModal, setShowIcsModal] = useState(false);
   const [droppedIcsContent, setDroppedIcsContent] = useState<string | undefined>(undefined);
   const [copilotOpen, setCopilotOpen] = useState(false);
-  const [quickAddText, setQuickAddText] = useState("");
-  const [quickAddParsing, setQuickAddParsing] = useState(false);
-  const [quickAddDraft, setQuickAddDraft] = useState<QuickAddDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
@@ -236,30 +229,6 @@ export default function CalendarPage() {
     } catch (e) {
       setError(friendlyError(e));
     }
-  }
-
-  // Natural-language quick-add (BRD §32): parse free text, confirm the
-  // draft in a modal, then commit with attendees via /quick-add/create.
-  async function handleQuickAddSubmit() {
-    const text = quickAddText.trim();
-    if (!text || quickAddParsing) return;
-    setQuickAddParsing(true);
-    setError(null);
-    try {
-      setQuickAddDraft(await quickAddParse(text));
-    } catch (e) {
-      setError(friendlyError(e));
-    } finally {
-      setQuickAddParsing(false);
-    }
-  }
-
-  async function handleQuickAddConfirm(calendarId: string, draft: QuickAddDraft) {
-    await quickAddCreate(calendarId, draft);
-    setQuickAddDraft(null);
-    setQuickAddText("");
-    invalidateEventsCache();
-    setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
   }
 
   async function handleDelete(eventId: string, scope = "series", instanceStart?: string) {
@@ -724,30 +693,7 @@ export default function CalendarPage() {
 
         <div style={{ height: 2, background: eventsLoading ? "var(--accent)" : "transparent", transition: "background 0.15s" }} />
 
-        {/* Natural-language quick-add entry (BRD §32) */}
-        <div style={{ display: "flex", gap: 8, padding: "8px 24px 0" }}>
-          <input
-            value={quickAddText}
-            onChange={(e) => setQuickAddText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void handleQuickAddSubmit();
-              }
-            }}
-            placeholder="Quick add: Lunch with John tomorrow at noon…"
-            className="input-standard"
-            style={{ flex: 1 }}
-          />
-          <button
-            onClick={() => void handleQuickAddSubmit()}
-            disabled={quickAddParsing || !quickAddText.trim()}
-            className="btn-secondary hoverable"
-            style={{ fontSize: 13, whiteSpace: "nowrap" }}
-          >
-            {quickAddParsing ? "Parsing…" : "✨ Quick Add"}
-          </button>
-        </div>
+        {/* Natural-language quick-add lives on the kiosk wall now. */}
 
         {error && (
           <div style={{ color: "var(--danger)", fontSize: 12, padding: "6px 24px" }}>{error}</div>
@@ -924,16 +870,6 @@ export default function CalendarPage() {
           initialCalendarId={createDraft.calendarId}
           onClose={() => setCreateDraft(null)}
           onCreate={handleCreate}
-        />
-      )}
-
-      {quickAddDraft && (
-        <QuickAddModal
-          key={`${quickAddDraft.start}-${quickAddDraft.end}-${quickAddDraft.title}`}
-          calendars={calendars}
-          initialDraft={quickAddDraft}
-          onClose={() => setQuickAddDraft(null)}
-          onConfirm={handleQuickAddConfirm}
         />
       )}
 

@@ -11,6 +11,8 @@ import CalendarPage from "./pages/CalendarPage";
 import SettingsPage from "./pages/SettingsPage";
 import BookPage from "./pages/BookPage";
 import CancelBookingPage from "./pages/CancelBookingPage";
+import KioskPage from "./pages/KioskPage";
+import KioskPairPage from "./pages/KioskPairPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -40,6 +42,9 @@ function App() {
           {/* Public booking surface — no auth shell by design. */}
           <Route path="/book/:slug" element={<BookPage />} />
           <Route path="/book/cancel/:token" element={<CancelBookingPage />} />
+          {/* Wall display — token capability, no auth shell by design. */}
+          <Route path="/kiosk/pair" element={<KioskPairPage />} />
+          <Route path="/kiosk/:token" element={<KioskPage />} />
           <Route
             path="/"
             element={

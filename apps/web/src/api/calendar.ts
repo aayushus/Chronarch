@@ -158,7 +158,10 @@ export interface ContactEntry {
 }
 
 export function searchContacts(q: string): Promise<{ contacts: ContactEntry[] }> {
-  return apiFetch<{ contacts: ContactEntry[] }>(`/contacts/search?q=${encodeURIComponent(q)}`);
+  // Backend caps at 50 and sorts most-met-first: booking-created rows start
+  // at event_count 1, so a small default limit would bury them. Ask for the
+  // full page.
+  return apiFetch<{ contacts: ContactEntry[] }>(`/contacts/search?q=${encodeURIComponent(q)}&limit=50`);
 }
 
 export function createContact(body: {

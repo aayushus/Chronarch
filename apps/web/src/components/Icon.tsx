@@ -23,6 +23,12 @@ const PATHS: Record<string, React.ReactNode> = {
       <circle cx="12" cy="10" r="2.5" />
     </>
   ),
+  monitor: (
+    <>
+      <rect x="2" y="4" width="20" height="13" rx="2" />
+      <path d="M8 21h8M12 17v4" />
+    </>
+  ),
   sparkles: <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />,
   upload: <path d="M12 16V4m0 0L8 8m4-4l4 4M4 20h16" />,
   settings: (
@@ -103,6 +109,12 @@ const PATHS: Record<string, React.ReactNode> = {
     <>
       <path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" />
       <path d="M9 12l2 2 4-4" />
+    </>
+  ),
+  key: (
+    <>
+      <circle cx="8" cy="15" r="4" />
+      <path d="M11 12l9-9m-4 4l3 3" />
     </>
   ),
   grid: (

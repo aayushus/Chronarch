@@ -39,3 +39,21 @@ async def session():
         yield s
 
     await engine.dispose()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _fresh_redis_client():
+    """Drop the cached Redis client before each test.
+
+    `app.auth.get_redis_client` caches one global client, and each async
+    test runs on its own event loop — reusing a client bound to a closed
+    loop makes Redis-vs-memory-fallback routing nondeterministic per call
+    (a write can land in Redis while the follow-up read falls back to
+    memory, or vice versa). A fresh client per test binds to the current
+    loop, so every call in the test takes the same path.
+    """
+    import app.auth as auth_mod
+
+    auth_mod._redis_client = None
+    yield
+    auth_mod._redis_client = None

@@ -23,6 +23,7 @@ from .audit import AuditEntry
 from .mcp_credential import MCPCredential
 from .oauth_config import OAuthProviderConfig
 from .ai_settings import AILiteLLMSettings
+from .kiosk import KioskDisplay
 
 __all__ = [
     "Base",
@@ -52,4 +53,5 @@ __all__ = [
     "MCPCredential",
     "OAuthProviderConfig",
     "AILiteLLMSettings",
+    "KioskDisplay",
 ]

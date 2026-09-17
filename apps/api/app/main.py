@@ -22,8 +22,10 @@ from .routers import (
     copilot_router,
     events_router,
     health,
+    kiosk_router,
     mcp_keys_router,
     public_booking_router,
+    public_kiosk_router,
     quick_add_router,
     webhooks_router,
 )
@@ -65,5 +67,7 @@ app.include_router(contacts_router.router)
 app.include_router(quick_add_router.router)
 app.include_router(booking_links_router.router)
 app.include_router(public_booking_router.router)
+app.include_router(kiosk_router.router)
+app.include_router(public_kiosk_router.router)
 
 
