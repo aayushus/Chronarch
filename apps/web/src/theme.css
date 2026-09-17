@@ -36,13 +36,14 @@
      light grey in light mode. */
   --wash-faint: rgba(255, 255, 255, 0.08);
 
-  /* Mondays card language: white floating event cards on any theme —
-     colored top/progress bar, ink title, muted meta, hairline border. */
-  --card-bg: #ffffff;
-  --card-ink: #2b2b2e;
-  --card-muted: #6e6e73;
-  --card-line: #e9e9ee;
-  --shadow-card: 0 2px 10px rgba(20, 20, 30, 0.08);
+  /* Mondays card language: floating event cards on any theme — colored
+     top/progress bar, ink title, muted meta, hairline border. Dark values
+     here; light overrides below. */
+  --card-bg: #262628;
+  --card-ink: #f5f5f7;
+  --card-muted: #a1a1a8;
+  --card-line: #38383c;
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.45);
 
   /* Wall palette (kiosk Skylight look): always light, like the hardware —
      independent of the app theme. */
@@ -76,6 +77,12 @@
   --wash-deep: rgba(0, 0, 0, 0.045);
   --wash-lift: rgba(10, 132, 255, 0.07);
   --wash-faint: rgba(0, 0, 0, 0.055);
+  /* Mondays light cards: paper-white floats on the light canvas. */
+  --card-bg: #ffffff;
+  --card-ink: #2b2b2e;
+  --card-muted: #6e6e73;
+  --card-line: #e9e9ee;
+  --shadow-card: 0 2px 10px rgba(20, 20, 30, 0.08);
 }
 
 [data-theme="light"] .modal-backdrop {

@@ -66,8 +66,8 @@ export interface CountdownCandidate {
   id: string;
   title: string;
   start: string;
-  all_day: boolean;
-  masked: boolean;
+  all_day?: boolean;
+  masked?: boolean;
 }
 
 /** Hero countdowns: distant-future (≥2 days out), unmasked events first —
@@ -76,7 +76,7 @@ export function pickCountdowns(events: CountdownCandidate[], now: Date, max = 3)
   return events
     .map((e) => ({ e, days: daysUntil(e.start, now) }))
     .filter(({ e, days }) => days >= 2 && !e.masked)
-    .sort((a, b) => (Number(b.e.all_day) - Number(a.e.all_day)) || (a.days - b.days))
+    .sort((a, b) => (Number(!!b.e.all_day) - Number(!!a.e.all_day)) || (a.days - b.days))
     .slice(0, max)
     .map(({ e, days }) => ({ id: e.id, title: e.title, days }));
 }

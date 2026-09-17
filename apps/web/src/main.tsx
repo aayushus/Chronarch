@@ -10,6 +10,7 @@ import LoginPage from "./pages/LoginPage";
 import CalendarPage from "./pages/CalendarPage";
 import SettingsPage from "./pages/SettingsPage";
 import BookPage from "./pages/BookPage";
+import BetaPage from "./pages/BetaPage";
 import CancelBookingPage from "./pages/CancelBookingPage";
 import KioskPage from "./pages/KioskPage";
 import KioskPairPage from "./pages/KioskPairPage";
@@ -45,11 +46,28 @@ function App() {
           {/* Wall display — token capability, no auth shell by design. */}
           <Route path="/kiosk/pair" element={<KioskPairPage />} />
           <Route path="/kiosk/:token" element={<KioskPage />} />
+          {/* Beta command center is the main experience; classic kept at /classic. */}
           <Route
             path="/"
             element={
               <RequireAuth>
+                <BetaPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/classic"
+            element={
+              <RequireAuth>
                 <CalendarPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/beta"
+            element={
+              <RequireAuth>
+                <BetaPage />
               </RequireAuth>
             }
           />
