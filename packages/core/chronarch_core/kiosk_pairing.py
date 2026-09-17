@@ -59,12 +59,15 @@ class PairingStore:
 
     async def _read(self, pairing_id: str) -> dict | None:
         if self._redis is not None:
-            try:
-                raw = await self._redis.get(self._key(pairing_id))
-                if raw is not None:
-                    return json.loads(raw)
-            except Exception:
-                pass
+            # Redis is the only place a pairing created in Redis-mode ever
+            # lives (create() doesn't also write to _memory on success), so
+            # a transient error here must propagate rather than fall
+            # through to an always-empty _memory — otherwise a network
+            # blip reads back as "pairing expired" instead of a retryable
+            # failure.
+            raw = await self._redis.get(self._key(pairing_id))
+            if raw is not None:
+                return json.loads(raw)
         held = self._memory.get(pairing_id)
         if held is None:
             return None

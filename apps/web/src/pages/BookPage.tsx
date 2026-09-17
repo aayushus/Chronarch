@@ -33,10 +33,13 @@ function tzDayKey(iso: string, tz: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
 }
 
-/** YYYY-MM-DD of a calendar cell (noon to avoid DST edges) in a given timezone. */
+/** YYYY-MM-DD of a calendar cell in a given timezone, matching how
+ * MobileWeekView keys its own day cells (tzDayKey on the real instant) —
+ * anchoring at local noon first and reformatting in `tz` rolled the date
+ * whenever the viewer's local zone and the selected booking timezone
+ * differed by more than 12h. */
 function cellKey(d: Date, tz: string): string {
-  const noon = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12);
-  return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(noon);
+  return tzDayKey(d.toISOString(), tz);
 }
 
 function localKey(d: Date): string {
@@ -438,8 +441,15 @@ function DesktopMonthView(props: {
     setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() + delta, 1));
   }
 
+  // Derived from the pickedDay key itself, not from byDay's slot list — a
+  // day with zero remaining slots (e.g. the last one was just taken by
+  // another booker) must still show its own date, not silently fall back
+  // to "today".
   const pickedLabel = pickedDay
-    ? new Date((byDay.get(pickedDay)?.[0]?.start ?? new Date().toISOString())).toLocaleDateString(undefined, { weekday: "short", day: "numeric", timeZone: tz }).replace(",", "")
+    ? (() => {
+        const [y, m, d] = pickedDay.split("-").map(Number);
+        return new Date(y, m - 1, d, 12).toLocaleDateString(undefined, { weekday: "short", day: "numeric" }).replace(",", "");
+      })()
     : "";
 
   return (

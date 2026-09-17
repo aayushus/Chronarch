@@ -59,3 +59,31 @@ export function packOverlaps<T>(
 
   return result;
 }
+
+/**
+ * Day-grid lane geometry for one packed event. Percentages apply to the
+ * post-gutter region (`--lane-region`), never the full grid width — the
+ * old formula (`left: 58px + column * width%`) pushed every lane past the
+ * right edge and made the whole page scroll horizontally.
+ *
+ * `gutterPx` / `padRightPx` mirror the grid: 58px hour gutter, 8px right
+ * pad. `gapPx` separates adjacent lanes.
+ */
+export function dayLane(
+  column: number,
+  columnCount: number,
+  gutterPx = 58,
+  padRightPx = 8,
+  gapPx = 6,
+): { left: string; width: string; /** 0..1 fraction of the region the lane's right edge reaches */ rightEdge: number } {
+  const safeCount = Math.max(1, columnCount);
+  const safeColumn = Math.min(Math.max(0, column), safeCount - 1);
+  const startFrac = safeColumn / safeCount;
+  const spanFrac = 1 / safeCount;
+  const region = `100% - ${gutterPx + padRightPx}px`;
+  return {
+    left: `calc(${gutterPx}px + (${region}) * ${startFrac})`,
+    width: `calc((${region}) * ${spanFrac} - ${gapPx}px)`,
+    rightEdge: startFrac + spanFrac,
+  };
+}

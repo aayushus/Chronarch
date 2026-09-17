@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { friendlyError } from "../../api/client";
 import EmptyState from "../EmptyState";
+import { SectionHeader } from "../ui";
 
 import {
   AdminAccount,
@@ -172,10 +173,10 @@ export default function AccountsSettings() {
       {/* Header section */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
         <div>
-          <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Accounts</h2>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5, maxWidth: 640 }}>
-            Connected Google, Microsoft, CalDAV, and ICS calendars. Synchronizes multi-organization schedules, backfilling the last 90 days and the next 365 days of events.
-          </p>
+          <SectionHeader
+            title="Accounts"
+            description="Connected Google, Microsoft, CalDAV, and ICS calendars. Synchronizes multi-organization schedules, backfilling the last 90 days and the next 365 days of events."
+          />
         </div>
         <button
           onClick={() => setWizardOpen(true)}
@@ -204,7 +205,7 @@ export default function AccountsSettings() {
             marginBottom: 20,
             background: banner.kind === "success" ? "rgba(48, 209, 88, 0.15)" : "rgba(255, 69, 58, 0.15)",
             border: `1px solid ${banner.kind === "success" ? "var(--success)" : "var(--danger)"}`,
-            color: banner.kind === "success" ? "#30d158" : "#ff453a",
+            color: banner.kind === "success" ? "var(--success)" : "var(--danger)",
             fontWeight: 500,
           }}
         >

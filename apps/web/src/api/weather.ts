@@ -94,6 +94,13 @@ function writeCache<T>(key: string, value: T, ttlMs: number): void {
   }
 }
 
+// In-flight request dedup: several agenda rows (or an agenda row plus a
+// kiosk header) can resolve the same location/day at the same moment,
+// before either has had a chance to write the localStorage cache —
+// without this, each one fires its own network request.
+const geoInFlight = new Map<string, Promise<GeoHit | null>>();
+const dayInFlight = new Map<string, Promise<DayWeather | null>>();
+
 /** Resolve "Edmonton" / "Hall B" → coords. Returns null when unresolvable
  * (vague room names simply get no chip — never an error). */
 export async function geocodeLocation(name: string): Promise<GeoHit | null> {
@@ -102,6 +109,14 @@ export async function geocodeLocation(name: string): Promise<GeoHit | null> {
   const key = geoCacheKey(query);
   const cached = readCache<GeoHit>(key);
   if (cached) return cached;
+  const pending = geoInFlight.get(key);
+  if (pending) return pending;
+  const promise = _geocodeLocation(query, key).finally(() => geoInFlight.delete(key));
+  geoInFlight.set(key, promise);
+  return promise;
+}
+
+async function _geocodeLocation(query: string, key: string): Promise<GeoHit | null> {
   try {
     const res = await fetch(
       `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`,
@@ -130,6 +145,14 @@ export async function getDayWeather(lat: number, lon: number, dateISO: string): 
   const key = dayCacheKey(lat, lon, dateISO);
   const cached = readCache<DayWeather>(key);
   if (cached) return cached;
+  const pending = dayInFlight.get(key);
+  if (pending) return pending;
+  const promise = _getDayWeather(lat, lon, dateISO, key).finally(() => dayInFlight.delete(key));
+  dayInFlight.set(key, promise);
+  return promise;
+}
+
+async function _getDayWeather(lat: number, lon: number, dateISO: string, key: string): Promise<DayWeather | null> {
   try {
     const params = new URLSearchParams({
       latitude: String(lat),

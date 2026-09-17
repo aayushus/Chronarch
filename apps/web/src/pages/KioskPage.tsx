@@ -28,25 +28,23 @@ interface KioskEvent {
   end: string;
   all_day: boolean;
   location: string | null;
+  description: string | null;
   calendar_id: string;
   calendar_name: string;
   calendar_color: string;
 }
 
-interface QuickDraft {
-  title: string;
-  start: string;
-  end: string;
-  all_day?: boolean;
-  location?: string | null;
-}
+type ViewMode = "week" | "agenda";
+const VIEW_MODE_KEY = "chronarch:kiosk:viewMode";
+const IDLE_RELOAD_MS = 60 * 60_000;
 
-/* Skylight-style light palette for the wall. */
-const INK = "#2b2b2e";
-const MUTED = "#8a8a93";
-const FAINT = "#b9b9c0";
-const CARD = "#ffffff";
-const PAGE = "#eceae4";
+/* Skylight-style wall palette — tokens live in theme.css (`--wall-*`),
+   always light like the hardware, independent of the app theme. */
+const INK = "var(--wall-ink)";
+const MUTED = "var(--wall-muted)";
+const FAINT = "var(--wall-faint)";
+const CARD = "var(--wall-card)";
+const PAGE = "var(--wall-page)";
 
 const POLL_MS = 60_000;
 const WAKE_OVERRIDE_MS = 2 * 60_000;
@@ -76,15 +74,41 @@ export default function KioskPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [wakeUntil, setWakeUntil] = useState(0);
   const [headerWeather, setHeaderWeather] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    try {
+      return localStorage.getItem(VIEW_MODE_KEY) === "agenda" ? "agenda" : "week";
+    } catch {
+      return "week";
+    }
+  });
+  const [selectedEvent, setSelectedEvent] = useState<KioskEvent | null>(null);
 
-  // Quick Add (lives here now — removed from the main calendar page).
-  const [qaText, setQaText] = useState("");
-  const [qaDateHint, setQaDateHint] = useState<Date | null>(null);
-  const [qaParsing, setQaParsing] = useState(false);
-  const [qaDraft, setQaDraft] = useState<QuickDraft | null>(null);
-  const [qaError, setQaError] = useState<string | null>(null);
-  const [qaDone, setQaDone] = useState<string | null>(null);
-  const qaInputRef = useRef<HTMLInputElement>(null);
+  function setViewModeAndPersist(mode: ViewMode) {
+    setViewMode(mode);
+    try {
+      localStorage.setItem(VIEW_MODE_KEY, mode);
+    } catch {
+      // Storage full/blocked — the toggle still works this session.
+    }
+  }
+
+  // Recover from any long-running drift (stuck network state, memory
+  // creep) the way kiosk-browser products do: reload after a stretch of
+  // no touch input at all, not just on a timer while in active use.
+  const idleReload = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    function resetIdle() {
+      if (idleReload.current) clearTimeout(idleReload.current);
+      idleReload.current = setTimeout(() => window.location.reload(), IDLE_RELOAD_MS);
+    }
+    resetIdle();
+    const events: (keyof WindowEventMap)[] = ["pointerdown", "touchstart", "keydown"];
+    events.forEach((ev) => window.addEventListener(ev, resetIdle));
+    return () => {
+      if (idleReload.current) clearTimeout(idleReload.current);
+      events.forEach((ev) => window.removeEventListener(ev, resetIdle));
+    };
+  }, []);
 
   const browserTz = useMemo(() => {
     try {
@@ -182,58 +206,6 @@ export default function KioskPage() {
     });
   }
 
-  function addForDay(day: Date) {
-    setQaDateHint(day);
-    setQaDraft(null);
-    setQaError(null);
-    qaInputRef.current?.focus();
-    qaInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-
-  async function submitQuickAdd() {
-    const text = qaText.trim();
-    if (!token || !text || qaParsing) return;
-    setQaParsing(true);
-    setQaError(null);
-    setQaDone(null);
-    try {
-      const dated = qaDateHint
-        ? `${text} on ${qaDateHint.toLocaleDateString(undefined, { month: "long", day: "numeric" })}`
-        : text;
-      const draft = await apiFetch<QuickDraft>(`/kiosk-display/${token}/quick-add/parse`, {
-        method: "POST",
-        body: JSON.stringify({ text: dated, timezone: browserTz }),
-      });
-      setQaDraft(draft);
-    } catch (e) {
-      setQaError(friendlyError(e));
-    } finally {
-      setQaParsing(false);
-    }
-  }
-
-  async function confirmQuickAdd() {
-    if (!token || !qaDraft) return;
-    setQaParsing(true);
-    setQaError(null);
-    try {
-      await apiFetch(`/kiosk-display/${token}/quick-add/create`, {
-        method: "POST",
-        body: JSON.stringify({ draft: qaDraft, timezone: browserTz }),
-      });
-      setQaDraft(null);
-      setQaText("");
-      setQaDateHint(null);
-      setQaDone("Added to your calendar.");
-      setTimeout(() => setQaDone(null), 3000);
-      void load();
-    } catch (e) {
-      setQaError(friendlyError(e));
-    } finally {
-      setQaParsing(false);
-    }
-  }
-
   if (error && !meta) {
     return (
       <div style={{ minHeight: "100vh", background: PAGE, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
@@ -264,10 +236,10 @@ export default function KioskPage() {
   const rangeLabel = `${weekDays[0].toLocaleDateString(undefined, { month: "long", day: "numeric" })} – ${weekDays[6].toLocaleDateString(undefined, { month: "long", day: "numeric" })}`;
 
   return (
-    <div style={{ minHeight: "100vh", background: PAGE, color: INK, padding: "28px 32px 120px" }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto", background: CARD, borderRadius: 20, padding: "20px 28px 28px", boxShadow: "0 8px 30px rgba(0,0,0,0.08)" }}>
+    <div style={{ height: "100vh", background: PAGE, color: INK, padding: "24px 28px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", maxWidth: 1200, width: "100%", margin: "0 auto", background: CARD, borderRadius: 20, padding: "20px 28px", boxShadow: "0 8px 30px rgba(0,0,0,0.08)", overflow: "hidden" }}>
         {/* Header: date/time/weather left, controls right. */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12, flexShrink: 0 }}>
           <div style={{ fontSize: 19, fontWeight: 700 }}>
             {now.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
             <span style={{ fontWeight: 400, color: MUTED, marginLeft: 10 }}>
@@ -278,12 +250,28 @@ export default function KioskPage() {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
-            <button onClick={() => setFilterOpen((v) => !v)} style={{ border: "1px solid #e3e1da", background: "#fff", borderRadius: 16, padding: "6px 14px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>
+            <div style={{ display: "flex", border: "1px solid #e3e1da", borderRadius: 16, overflow: "hidden" }}>
+              <button
+                onClick={() => setViewModeAndPersist("week")}
+                aria-pressed={viewMode === "week"}
+                style={{ border: "none", background: viewMode === "week" ? INK : "#fff", color: viewMode === "week" ? "#fff" : INK, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+              >
+                Week
+              </button>
+              <button
+                onClick={() => setViewModeAndPersist("agenda")}
+                aria-pressed={viewMode === "agenda"}
+                style={{ border: "none", background: viewMode === "agenda" ? INK : "#fff", color: viewMode === "agenda" ? "#fff" : INK, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+              >
+                Agenda
+              </button>
+            </div>
+            <button onClick={() => setFilterOpen((v) => !v)} style={{ border: "1px solid #e3e1da", background: "#fff", borderRadius: 16, padding: "10px 16px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>
               ⊘ Filter{hiddenIds.size > 0 ? ` (${calendars.length - hiddenIds.size}/${calendars.length})` : ""}
             </button>
-            <button onClick={() => setWeekOffset((v) => v - 1)} aria-label="Previous week" style={{ border: "none", background: "transparent", fontSize: 18, color: MUTED, cursor: "pointer", padding: "4px 8px" }}>‹</button>
-            <button onClick={() => setWeekOffset(0)} style={{ border: "none", background: "transparent", fontSize: 13, fontWeight: 700, color: INK, cursor: "pointer", padding: "4px 8px" }}>Today</button>
-            <button onClick={() => setWeekOffset((v) => v + 1)} aria-label="Next week" style={{ border: "none", background: "transparent", fontSize: 18, color: MUTED, cursor: "pointer", padding: "4px 8px" }}>›</button>
+            <button onClick={() => setWeekOffset((v) => v - 1)} aria-label="Previous week" style={{ border: "none", background: "transparent", fontSize: 20, color: MUTED, cursor: "pointer", padding: "10px 14px" }}>‹</button>
+            <button onClick={() => setWeekOffset(0)} style={{ border: "none", background: "transparent", fontSize: 14, fontWeight: 700, color: INK, cursor: "pointer", padding: "10px 14px" }}>Today</button>
+            <button onClick={() => setWeekOffset((v) => v + 1)} aria-label="Next week" style={{ border: "none", background: "transparent", fontSize: 20, color: MUTED, cursor: "pointer", padding: "10px 14px" }}>›</button>
             {filterOpen && (
               <div style={{ position: "absolute", top: 36, right: 70, background: "#fff", border: "1px solid #e3e1da", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 8, zIndex: 10, minWidth: 200 }}>
                 {calendars.map((c) => {
@@ -303,7 +291,7 @@ export default function KioskPage() {
 
         {/* Per-calendar strips. */}
         {calendars.length > 0 && (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, flexShrink: 0 }}>
             {calendars.map((c) => {
               const todayCount = (byDay.get(localKey(new Date())) ?? []).filter((e) => e.calendar_id === c.id).length;
               const dimmed = hiddenIds.has(c.id);
@@ -318,7 +306,7 @@ export default function KioskPage() {
 
         {/* Countdowns. */}
         {countdowns.length > 0 && (
-          <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+          <div style={{ display: "flex", gap: 10, marginBottom: 18, flexShrink: 0 }}>
             {countdowns.map((c) => (
               <div key={c.id} style={{ flex: 1, background: tint("#0a84ff", 0.1), border: "1px solid rgba(10, 132, 255, 0.25)", borderRadius: 10, padding: "10px 16px", textAlign: "center" }}>
                 <div style={{ fontSize: 24, fontWeight: 800 }}>{c.days}d</div>
@@ -328,105 +316,118 @@ export default function KioskPage() {
           </div>
         )}
 
-        {/* Week grid. */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 10 }}>
-          {weekDays.map((day) => {
-            const items = byDay.get(localKey(day)) ?? [];
-            const isToday = localKey(day) === localKey(now);
-            return (
-              <div key={localKey(day)} style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 1 }}>
-                  {day.toLocaleDateString(undefined, { weekday: "short" })}{" "}
-                  <span style={{ fontWeight: 400 }}>{day.getDate()}</span>
-                  {isToday && (
-                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: "#ff453a", color: "#fff", fontSize: 11, fontWeight: 700, marginLeft: 6 }}>
-                      {day.getDate()}
-                    </span>
-                  )}
+        {viewMode === "week" ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 10, flex: 1, minHeight: 0 }}>
+            {weekDays.map((day) => {
+              const items = byDay.get(localKey(day)) ?? [];
+              const isToday = localKey(day) === localKey(now);
+              return (
+                <div key={localKey(day)} style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 2, flexShrink: 0 }}>
+                    {day.toLocaleDateString(undefined, { weekday: "short" })}{" "}
+                    <span style={{ fontWeight: 400 }}>{day.getDate()}</span>
+                    {isToday && (
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 20, height: 20, borderRadius: "50%", background: "#ff453a", color: "#fff", fontSize: 12, fontWeight: 700, marginLeft: 6 }}>
+                        {day.getDate()}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8, flexShrink: 0 }}>
+                    {items.length === 0 ? "No events" : `${items.length} event${items.length === 1 ? "" : "s"}`}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, minHeight: 0, overflowY: "auto" }}>
+                    {items.map((e) => (
+                      <button
+                        key={e.id}
+                        onClick={() => setSelectedEvent(e)}
+                        style={{ background: tint(e.calendar_color, 0.28), border: "none", borderRadius: 10, padding: "10px 12px", minWidth: 0, minHeight: 44, textAlign: "left", cursor: "pointer", color: "inherit", font: "inherit" }}
+                      >
+                        <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35 }}>{e.title}</div>
+                        <div style={{ fontSize: 12.5, color: "#6b6b73", marginTop: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {fmtRange(e)}
+                            {!e.masked && e.location ? ` · ${e.location}` : ""}
+                            {!e.masked && e.location ? <EventWeather location={e.location} start={e.start} color="#6b6b73" /> : null}
+                          </span>
+                          <span title={e.calendar_name} style={{ width: 20, height: 20, borderRadius: "50%", background: e.calendar_color, color: "#fff", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                            {(e.calendar_name || "?")[0]?.toUpperCase()}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ fontSize: 11.5, color: MUTED, marginBottom: 8 }}>
-                  {items.length === 0 ? "No events" : `${items.length} event${items.length === 1 ? "" : "s"}`}
-                  <button onClick={() => addForDay(day)} style={{ border: "none", background: "none", color: FAINT, fontSize: 11.5, cursor: "pointer", marginLeft: 8, padding: 0 }}>
-                    + Add event
-                  </button>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {items.map((e) => (
-                    <div key={e.id} style={{ background: tint(e.calendar_color, 0.28), borderRadius: 10, padding: "9px 12px", minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.35 }}>{e.title}</div>
-                      <div style={{ fontSize: 11.5, color: "#6b6b73", marginTop: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {fmtRange(e)}
-                          {!e.masked && e.location ? ` · ${e.location}` : ""}
-                          {!e.masked && e.location ? <EventWeather location={e.location} start={e.start} color="#6b6b73" /> : null}
-                        </span>
-                        <span title={e.calendar_name} style={{ width: 18, height: 18, borderRadius: "50%", background: e.calendar_color, color: "#fff", fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 18, flex: 1, minHeight: 0, overflowY: "auto" }}>
+            {weekDays.map((day) => {
+              const items = byDay.get(localKey(day)) ?? [];
+              if (items.length === 0) return null;
+              return (
+                <div key={localKey(day)}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: MUTED, marginBottom: 8 }}>{dayLabel(day, now)}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {items.map((e) => (
+                      <button
+                        key={e.id}
+                        onClick={() => setSelectedEvent(e)}
+                        style={{ display: "flex", alignItems: "center", gap: 14, background: tint(e.calendar_color, 0.28), border: "none", borderRadius: 12, padding: "12px 16px", minHeight: 44, textAlign: "left", cursor: "pointer", color: "inherit", font: "inherit" }}
+                      >
+                        <span style={{ width: 22, height: 22, borderRadius: "50%", background: e.calendar_color, color: "#fff", fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                           {(e.calendar_name || "?")[0]?.toUpperCase()}
                         </span>
-                      </div>
-                    </div>
-                  ))}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 15, fontWeight: 600 }}>{e.title}</div>
+                          <div style={{ fontSize: 13, color: "#6b6b73", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {fmtRange(e)}
+                            {!e.masked && e.location ? ` · ${e.location}` : ""}
+                            {!e.masked && e.location ? <EventWeather location={e.location} start={e.start} color="#6b6b73" /> : null}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-        <div style={{ fontSize: 12, color: FAINT, marginTop: 14 }}>{rangeLabel}</div>
+              );
+            })}
+            {weekDays.every((day) => (byDay.get(localKey(day)) ?? []).length === 0) && (
+              <div style={{ fontSize: 14, color: MUTED, textAlign: "center", padding: "24px 0" }}>Nothing on the calendar this week.</div>
+            )}
+          </div>
+        )}
+        <div style={{ fontSize: 13, color: FAINT, marginTop: 10, flexShrink: 0 }}>{rangeLabel}</div>
       </div>
 
-      {/* Quick Add lives here now. */}
-      <div style={{ maxWidth: 1200, margin: "16px auto 0", background: CARD, borderRadius: 20, padding: "16px 28px", boxShadow: "0 8px 30px rgba(0,0,0,0.08)" }}>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            ref={qaInputRef}
-            value={qaText}
-            onChange={(e) => setQaText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void submitQuickAdd();
-              }
-            }}
-            placeholder={qaDateHint ? `Add for ${dayLabel(qaDateHint, now)}… e.g. Dentist at 3pm` : "Quick add: Lunch with John tomorrow at noon…"}
-            aria-label="Quick add event"
-            style={{ flex: 1, border: "1px solid #e3e1da", borderRadius: 12, padding: "10px 16px", fontSize: 14, color: INK, background: "#faf9f6", outline: "none" }}
-          />
-          <button
-            onClick={() => void submitQuickAdd()}
-            disabled={qaParsing || !qaText.trim()}
-            style={{ border: "none", borderRadius: 12, padding: "10px 22px", fontSize: 14, fontWeight: 700, background: "#2b2b2e", color: "#fff", cursor: qaParsing || !qaText.trim() ? "default" : "pointer", opacity: qaParsing || !qaText.trim() ? 0.5 : 1, whiteSpace: "nowrap" }}
-          >
-            {qaParsing ? "Parsing…" : "✨ Add"}
-          </button>
-        </div>
-        {qaDateHint && !qaDraft && (
-          <div style={{ fontSize: 12, color: MUTED, marginTop: 8 }}>
-            Adding to {dayLabel(qaDateHint, now)} ·{" "}
-            <button onClick={() => setQaDateHint(null)} style={{ border: "none", background: "none", color: MUTED, cursor: "pointer", textDecoration: "underline", padding: 0, fontSize: 12 }}>
-              clear
-            </button>
-          </div>
-        )}
-        {qaError && <div style={{ fontSize: 13, color: "#c62828", marginTop: 10 }}>{qaError}</div>}
-        {qaDone && <div style={{ fontSize: 13, color: "#2e7d32", marginTop: 10 }}>{qaDone}</div>}
-        {qaDraft && (
-          <div style={{ marginTop: 12, background: tint("#0a84ff", 0.1), border: "1px solid rgba(10, 132, 255, 0.3)", borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>{qaDraft.title}</div>
-              <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>
-                {new Date(qaDraft.start).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                {qaDraft.location ? ` · ${qaDraft.location}` : ""} · default calendar
-              </div>
+      {selectedEvent && (
+        <div
+          onClick={() => setSelectedEvent(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, zIndex: 20 }}
+        >
+          <div onClick={(ev) => ev.stopPropagation()} style={{ background: CARD, borderRadius: 20, padding: "24px 28px", maxWidth: 440, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.3 }}>{selectedEvent.title}</div>
+              <button onClick={() => setSelectedEvent(null)} aria-label="Close" style={{ border: "none", background: "#f2f1ec", borderRadius: "50%", width: 36, height: 36, fontSize: 16, color: INK, cursor: "pointer", flexShrink: 0 }}>✕</button>
             </div>
-            <button onClick={() => setQaDraft(null)} style={{ border: "1px solid #e3e1da", background: "#fff", borderRadius: 10, padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: INK }}>
-              Cancel
-            </button>
-            <button onClick={() => void confirmQuickAdd()} disabled={qaParsing} style={{ border: "none", borderRadius: 10, padding: "8px 20px", fontSize: 13, fontWeight: 700, background: "#2b2b2e", color: "#fff", cursor: "pointer", opacity: qaParsing ? 0.5 : 1 }}>
-              {qaParsing ? "Adding…" : "Confirm"}
-            </button>
+            <div style={{ fontSize: 15, color: MUTED, marginTop: 10 }}>
+              {selectedEvent.all_day ? "All day" : `${fmtTime(selectedEvent.start)} – ${fmtTime(selectedEvent.end)}`}
+              {" · "}
+              {new Date(selectedEvent.start).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+            </div>
+            {!selectedEvent.masked && selectedEvent.location && (
+              <div style={{ fontSize: 14, color: INK, marginTop: 12 }}>📍 {selectedEvent.location}</div>
+            )}
+            {!selectedEvent.masked && selectedEvent.description && (
+              <div style={{ fontSize: 14, color: INK, marginTop: 12, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{selectedEvent.description}</div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16 }}>
+              <span style={{ width: 12, height: 12, borderRadius: "50%", background: selectedEvent.calendar_color, flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: MUTED }}>{selectedEvent.calendar_name}</span>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

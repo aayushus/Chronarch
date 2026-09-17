@@ -245,32 +245,3 @@ async def test_agenda_start_and_calendars(session):
     assert exc.value.status_code == 422
 
 
-async def test_kiosk_quick_add_create(session):
-    from chronarch_core.models.event import UnifiedEvent
-
-    user, _ = await _host(session)
-    created = await kiosk.create_display(KioskCreate(name="Hall"), user=user, session=session)
-    out = await pub.kiosk_quick_add_create(
-        created["token"],
-        pub.KioskQuickAddCreate(draft={
-            "title": "Dentist", "start": "2026-09-24T15:00:00+00:00",
-            "end": "2026-09-24T15:30:00+00:00"}),
-        session=session)
-    assert out["title"] == "Dentist" and out["calendar_name"] == "Work"
-    stored = await session.get(UnifiedEvent, out["id"])
-    assert stored is not None and stored.title == "Dentist"
-
-    agenda = await pub.display_agenda(
-        created["token"], start="2026-09-24T00:00:00+00:00", days=1, session=session)
-    assert "Dentist" in {e["title"] for e in agenda["events"]}
-
-
-async def test_kiosk_quick_add_parse_empty(session):
-    from fastapi import HTTPException
-
-    user, _ = await _host(session)
-    created = await kiosk.create_display(KioskCreate(name="Hall"), user=user, session=session)
-    with pytest.raises(HTTPException) as exc:
-        await pub.kiosk_quick_add_parse(
-            created["token"], pub.KioskQuickAddParse(text="   "), session=session)
-    assert exc.value.status_code == 422

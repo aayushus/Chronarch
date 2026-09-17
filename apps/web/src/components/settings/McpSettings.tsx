@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { friendlyError } from "../../api/client";
 import EmptyState from "../EmptyState";
+import { Badge, SectionHeader } from "../ui";
 
 import { useAuth } from "../../api/auth";
 import {
@@ -139,28 +140,11 @@ export default function McpSettings() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>
-              Model Context Protocol (MCP)
-            </h2>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                padding: "2px 8px",
-                borderRadius: 12,
-                background: activeCreds.length > 0 ? "rgba(40, 200, 64, 0.15)" : "rgba(255, 159, 10, 0.15)",
-                color: activeCreds.length > 0 ? "var(--success)" : "var(--warning)",
-                border: `1px solid ${activeCreds.length > 0 ? "rgba(40, 200, 64, 0.3)" : "rgba(255, 159, 10, 0.3)"}`,
-              }}
-            >
-              {activeCreds.length} Active {activeCreds.length === 1 ? "Client" : "Clients"}
-            </span>
-          </div>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
-            Scoped access tokens for external AI clients like Claude Desktop, Cursor, and ChatGPT.
-            Provider OAuth tokens are never exposed — agents only receive granular calendar permissions.
-          </p>
+          <SectionHeader
+            title="Model Context Protocol (MCP)"
+            badge={<Badge tone={activeCreds.length > 0 ? "success" : "warning"}>{activeCreds.length} Active {activeCreds.length === 1 ? "Client" : "Clients"}</Badge>}
+            description="Scoped access tokens for external AI clients like Claude Desktop, Cursor, and ChatGPT. Provider OAuth tokens are never exposed — agents only receive granular calendar permissions."
+          />
         </div>
 
         <button

@@ -13,6 +13,7 @@ import {
   adminRemoveRoleMember,
   adminUpdateRole,
 } from "../../api/admin";
+import { SectionHeader } from "../ui";
 
 export default function RolesSettings() {
   const [roles, setRoles] = useState<RoleInfo[]>([]);
@@ -130,11 +131,10 @@ export default function RolesSettings() {
   return (
     <div>
       <div style={{ marginBottom: 22 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Roles</h2>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5, maxWidth: 640 }}>
-          Custom permission bundles for delegates. Admins always have every permission;
-          calendar sharing stays on the Delegates page, not here.
-        </p>
+        <SectionHeader
+          title="Roles"
+          description="Custom permission bundles for delegates. Admins always have every permission; calendar sharing stays on the Delegates page, not here."
+        />
       </div>
 
       {banner && (

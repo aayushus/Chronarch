@@ -3,6 +3,7 @@ import { friendlyError } from "../../api/client";
 
 import Icon, { IconName } from "../Icon";
 import EmptyState from "../EmptyState";
+import { Badge, SectionHeader } from "../ui";
 import { AuditEntry, adminListAuditLog } from "../../api/admin";
 
 interface ActionMeta {
@@ -235,28 +236,11 @@ export default function AuditLogSettings() {
     <div>
       {/* Header */}
       <div style={{ marginBottom: 22 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>
-            Audit Log
-          </h2>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              padding: "2px 8px",
-              borderRadius: 12,
-              background: "rgba(10, 132, 255, 0.12)",
-              color: "var(--primary)",
-              border: "1px solid rgba(10, 132, 255, 0.25)",
-            }}
-          >
-            Append-Only · Cryptographically Scrubbed
-          </span>
-        </div>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
-          Immutable ledger recording every modification across Admin UI, Delegate UI, ICS Import,
-          Copilot, and MCP tools. Sensitive authorization secrets are stripped before persistence.
-        </p>
+        <SectionHeader
+          title="Audit Log"
+          badge={<Badge tone="info">Append-Only · Cryptographically Scrubbed</Badge>}
+          description="Immutable ledger recording every modification across Admin UI, Delegate UI, ICS Import, Copilot, and MCP tools. Sensitive authorization secrets are stripped before persistence."
+        />
       </div>
 
       {error && (

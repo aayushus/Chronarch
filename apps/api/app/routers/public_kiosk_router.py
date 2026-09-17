@@ -110,6 +110,7 @@ async def display_agenda(
             "start": e.start, "end": e.end,
             "all_day": bool(e.all_day),
             "location": None if masked else e.location,
+            "description": None if masked else e.description,
             "calendar_id": e.calendar_id,
             "calendar_name": cal.name if cal else "",
             "calendar_color": cal.color if cal else "#0a84ff",
@@ -165,61 +166,3 @@ async def _kiosk_host(session: AsyncSession, token: str) -> tuple[KioskDisplay, 
     return display, host
 
 
-class KioskQuickAddParse(BaseModel):
-    text: str
-    timezone: str | None = None
-
-
-@router.post("/{token}/quick-add/parse", dependencies=[Depends(kiosk_limiter)])
-async def kiosk_quick_add_parse(
-    token: str, body: KioskQuickAddParse,
-    session: AsyncSession = Depends(get_db_session),
-):
-    """NL parse with zero side effects (same engine as /quick-add/parse)."""
-    from . import quick_add_router as qa
-
-    _, host = await _kiosk_host(session, token)
-    return await qa.quick_add_parse(
-        qa.QuickAddParseRequest(text=body.text, timezone=body.timezone),
-        user=host, session=session, client_timezone=body.timezone or "UTC")
-
-
-class KioskQuickAddCreate(BaseModel):
-    draft: dict
-    timezone: str | None = None
-
-
-@router.post("/{token}/quick-add/create", dependencies=[Depends(kiosk_limiter)])
-async def kiosk_quick_add_create(
-    token: str, body: KioskQuickAddCreate,
-    session: AsyncSession = Depends(get_db_session),
-):
-    """Commit a confirmed draft to the owner's default (or first writable)
-    calendar. The wall acts as the owner — token revocation removes access."""
-    from . import quick_add_router as qa
-
-    _, host = await _kiosk_host(session, token)
-    owner_ids = await _booking.host_calendar_ids(session, host.id)
-    owned = list((await session.execute(
-        select(Calendar).where(Calendar.id.in_(owner_ids)))).scalars()) \
-        if owner_ids else []
-    writable = [c for c in owned if c.provider_writable]
-    target = next((c for c in writable if c.is_default), None) \
-        or (writable[0] if writable else None)
-    if target is None:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            "No writable calendar to add to — connect one first.")
-    try:
-        draft = qa.QuickAddDraft(**body.draft)
-    except Exception:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            "That draft is no longer valid — parse it again.")
-    event = await qa.quick_add_create(
-        qa.QuickAddCreateRequest(calendar_id=target.id, draft=draft),
-        user=host, session=session,
-        client_timezone=body.timezone or "UTC")
-    return {
-        "id": event.id, "title": event.title,
-        "start": event.start, "end": event.end,
-        "calendar_name": target.name, "calendar_color": target.color,
-    }

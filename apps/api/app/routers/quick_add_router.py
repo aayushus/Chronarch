@@ -236,6 +236,18 @@ async def quick_add_create(
         )
     is_owner, grant = await _resolve_owner_and_grant(session, user, body.calendar_id)
     ctx = build_auth_context(user, actor_type_for(user))
+    conflicts = await ai_tools.get_conflicts(
+        session, ctx,
+        window_start=draft.start, window_end=draft.end,
+        calendar_ids=[body.calendar_id],
+        owner_calendar_ids={body.calendar_id} if is_owner else None,
+        grants_by_calendar={body.calendar_id: grant} if grant else None,
+    )
+    if conflicts:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"This overlaps {conflicts[0]['title']!r} on this calendar. Adjust the time and try again.",
+        )
     try:
         event = await ai_tools.create_event(
             session, ctx, calendar_id=body.calendar_id, title=draft.title,

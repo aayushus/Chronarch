@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { friendlyError } from "../../api/client";
 import { useAuth } from "../../api/auth";
+import { Badge, SectionHeader } from "../ui";
 import {
   AISettings,
   adminClearAISettings,
@@ -311,28 +312,11 @@ export default function AiSettings() {
     <div>
       {/* Page Header */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>
-            AI & Copilot
-          </h2>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              padding: "2px 8px",
-              borderRadius: 12,
-              background: anyKeyConfigured ? "rgba(40, 200, 64, 0.15)" : "rgba(255, 159, 10, 0.15)",
-              color: anyKeyConfigured ? "var(--success)" : "var(--warning)",
-              border: `1px solid ${anyKeyConfigured ? "rgba(40, 200, 64, 0.3)" : "rgba(255, 159, 10, 0.3)"}`,
-            }}
-          >
-            {anyKeyConfigured ? "AI Connected" : "API Key Required"}
-          </span>
-        </div>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
-          Configure intelligence models powering the in-app calendar copilot and smart scheduling assistance.
-          External AI assistants like Claude Desktop connect independently via MCP.
-        </p>
+        <SectionHeader
+          title="AI & Copilot"
+          badge={<Badge tone={anyKeyConfigured ? "success" : "warning"}>{anyKeyConfigured ? "AI Connected" : "API Key Required"}</Badge>}
+          description="Configure intelligence models powering the in-app calendar copilot and smart scheduling assistance. External AI assistants like Claude Desktop connect independently via MCP."
+        />
       </div>
 
       {saved && (

@@ -11,6 +11,7 @@ import {
 } from "../../api/calendar";
 import EmptyState from "../EmptyState";
 import Icon from "../Icon";
+import { ErrorBanner, SectionHeader } from "../ui";
 import { useToast } from "../Toast";
 
 type Tab = "all" | "frequent" | "needs_name";
@@ -111,22 +112,11 @@ export default function ContactsSettings({ onOpenAccounts }: { onOpenAccounts?: 
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Contacts</h2>
-            <span
-              style={{
-                fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12,
-                background: "rgba(10, 132, 255, 0.12)", color: "var(--primary)",
-                border: "1px solid rgba(10, 132, 255, 0.25)",
-              }}
-            >
-              {contacts.length} {contacts.length === 1 ? "Person" : "People"}
-            </span>
-          </div>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5, maxWidth: 640 }}>
-            People from your invites, collected automatically as calendars sync — plus anyone you add by hand.
-            Quick-add and the assistant resolve names against this list.
-          </p>
+          <SectionHeader
+            title="Contacts"
+            count={{ value: contacts.length, singular: "Person", plural: "People" }}
+            description="People from your invites, collected automatically as calendars sync — plus anyone you add by hand. Quick-add and the assistant resolve names against this list."
+          />
         </div>
         <button
           onClick={() => setEditing("new")}
@@ -138,11 +128,7 @@ export default function ContactsSettings({ onOpenAccounts }: { onOpenAccounts?: 
         </button>
       </div>
 
-      {error && (
-        <div style={{ fontSize: 13, borderRadius: "var(--radius-sm)", padding: "10px 14px", marginBottom: 20, background: "rgba(255, 69, 58, 0.15)", border: "1px solid var(--danger)", color: "var(--danger)" }}>
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
       <div style={{ position: "relative", marginBottom: 12 }}>
         <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-tertiary)", display: "inline-flex" }}>

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../api/auth";
 import { apiFetch, friendlyError } from "../../api/client";
 import { useAppearance } from "../../appearance";
+import { SectionHeader } from "../ui";
 
 const COMMON_TIMEZONES = [
   "UTC",
@@ -105,11 +106,10 @@ export default function AccountSettings() {
   return (
     <div>
       <div style={{ marginBottom: 22 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Account</h2>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
-          Signed in as <strong style={{ color: "var(--text-primary)" }}>{user?.email}</strong>
-          {user?.role === "admin" ? " · Administrator" : " · Delegate"}
-        </p>
+        <SectionHeader
+          title="Account"
+          description={<>Signed in as <strong style={{ color: "var(--text-primary)" }}>{user?.email}</strong>{user?.role === "admin" ? " · Administrator" : " · Delegate"}</>}
+        />
       </div>
 
       {error && <div style={{ color: "var(--danger)", fontSize: 13, marginBottom: 16 }}>{error}</div>}

@@ -7,6 +7,7 @@ import {
   adminUpdateUser,
 } from "../../api/admin";
 import { useAuth } from "../../api/auth";
+import { SectionHeader } from "../ui";
 
 export default function UsersSettings() {
   const { user: currentUser } = useAuth();
@@ -77,28 +78,11 @@ export default function UsersSettings() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>
-              Users & Identities
-            </h2>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                padding: "2px 8px",
-                borderRadius: 12,
-                background: "rgba(10, 132, 255, 0.12)",
-                color: "var(--primary)",
-                border: "1px solid rgba(10, 132, 255, 0.25)",
-              }}
-            >
-              {stats.total} {stats.total === 1 ? "Account" : "Accounts"}
-            </span>
-          </div>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
-            Manage admins, delegates, and custom role memberships.
-            Roles govern settings access; calendar sharing lives on the Delegates page.
-          </p>
+          <SectionHeader
+            title="Users & Identities"
+            count={{ value: stats.total, singular: "Account" }}
+            description="Manage admins, delegates, and custom role memberships. Roles govern settings access; calendar sharing lives on the Delegates page."
+          />
         </div>
 
         <button

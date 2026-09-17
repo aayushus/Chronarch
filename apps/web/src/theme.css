@@ -11,6 +11,8 @@
   --text-tertiary: #636366;
   --accent: #0a84ff;
   --accent-dim: #0a84ff33;
+  /* Alias: older components reference --primary (same hue). */
+  --primary: var(--accent);
   --danger: #ff453a;
   --success: #30d158;
   --warning: #ff9f0a;
@@ -34,6 +36,16 @@
   /* Faint neutral chip (inactive badges, code chips): white in dark mode,
      light grey in light mode. */
   --wash-faint: rgba(255, 255, 255, 0.08);
+
+  /* Wall palette (kiosk Skylight look): always light, like the hardware —
+     independent of the app theme. */
+  --wall-page: #eceae4;
+  --wall-card: #ffffff;
+  --wall-ink: #2b2b2e;
+  --wall-muted: #8a8a93;
+  --wall-faint: #b9b9c0;
+  --wall-line: #e3e1da;
+  --wall-well: #faf9f6;
 }
 
 /* Light theme (Chronarch design philosophy: tokens only, no component changes) */

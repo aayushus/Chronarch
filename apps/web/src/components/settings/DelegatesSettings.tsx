@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { friendlyError } from "../../api/client";
 import EmptyState from "../EmptyState";
 import Icon, { IconName } from "../Icon";
+import { ErrorBanner, SectionHeader } from "../ui";
 import { useToast } from "../Toast";
 
 import {
@@ -280,22 +281,11 @@ export default function DelegatesSettings() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Delegates</h2>
-            <span
-              style={{
-                fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12,
-                background: "rgba(10, 132, 255, 0.12)", color: "var(--primary)",
-                border: "1px solid rgba(10, 132, 255, 0.25)",
-              }}
-            >
-              {delegations.length} {delegations.length === 1 ? "Pairing" : "Pairings"}
-            </span>
-          </div>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5, maxWidth: 640 }}>
-            Pair an executive with an assistant, then grant access calendar by calendar.
-            An assistant only ever sees what a grant allows.
-          </p>
+          <SectionHeader
+            title="Delegates"
+            count={{ value: delegations.length, singular: "Pairing" }}
+            description="Pair an executive with an assistant, then grant access calendar by calendar. An assistant only ever sees what a grant allows."
+          />
         </div>
         <button
           onClick={() => setShowCreate(true)}
@@ -307,11 +297,7 @@ export default function DelegatesSettings() {
         </button>
       </div>
 
-      {error && (
-        <div style={{ fontSize: 13, borderRadius: "var(--radius-sm)", padding: "10px 14px", marginBottom: 20, background: "rgba(255, 69, 58, 0.15)", border: "1px solid var(--danger)", color: "var(--danger)" }}>
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
       {/* Summary */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>

@@ -4,6 +4,7 @@ import { friendlyError } from "../../api/client";
 import { useAuth } from "../../api/auth";
 import EmptyState from "../EmptyState";
 import Icon from "../Icon";
+import { Badge, ErrorBanner, SectionHeader } from "../ui";
 import { useToast } from "../Toast";
 
 import {
@@ -34,18 +35,13 @@ import {
 const DURATIONS = [15, 30, 45, 60];
 
 function StatusPill({ status }: { status: BookingEntry["status"] }) {
-  const styles: Record<BookingEntry["status"], { bg: string; fg: string; label: string }> = {
-    pending: { bg: "rgba(255, 159, 10, 0.14)", fg: "var(--warning)", label: "Needs approval" },
-    confirmed: { bg: "rgba(48, 209, 88, 0.14)", fg: "var(--success)", label: "Confirmed" },
-    cancelled: { bg: "var(--bg-app)", fg: "var(--text-tertiary)", label: "Cancelled" },
-    declined: { bg: "var(--bg-app)", fg: "var(--text-tertiary)", label: "Declined" },
-  };
-  const style = styles[status];
-  return (
-    <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 9px", borderRadius: 10, whiteSpace: "nowrap", background: style.bg, color: style.fg }}>
-      {style.label}
-    </span>
-  );
+  const tone = status === "pending" ? "warning" as const
+    : status === "confirmed" ? "success" as const
+    : "neutral" as const;
+  const label = status === "pending" ? "Needs approval"
+    : status === "confirmed" ? "Confirmed"
+    : status === "cancelled" ? "Cancelled" : "Declined";
+  return <Badge tone={tone}>{label}</Badge>;
 }
 
 export default function BookingSettings() {
@@ -140,15 +136,11 @@ export default function BookingSettings() {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Booking</h2>
-            <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12, background: "rgba(10, 132, 255, 0.12)", color: "var(--primary)", border: "1px solid rgba(10, 132, 255, 0.25)" }}>
-              {links.length} {links.length === 1 ? "Link" : "Links"}
-            </span>
-          </div>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5, maxWidth: 640 }}>
-            Public links anyone can book from — no account needed. Bookings land on your calendar with an invite sent.
-          </p>
+          <SectionHeader
+            title="Booking"
+            count={{ value: links.length, singular: "Link" }}
+            description="Public links anyone can book from — no account needed. Bookings land on your calendar with an invite sent."
+          />
         </div>
         {canManage && (
           <button
@@ -162,11 +154,7 @@ export default function BookingSettings() {
         )}
       </div>
 
-      {error && (
-        <div style={{ fontSize: 13, borderRadius: "var(--radius-sm)", padding: "10px 14px", marginBottom: 20, background: "rgba(255, 69, 58, 0.15)", border: "1px solid var(--danger)", color: "var(--danger)" }}>
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
       {links.length === 0 ? (
         <EmptyState
@@ -191,16 +179,8 @@ export default function BookingSettings() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link.title}</span>
-                      {!link.active && (
-                        <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10, background: "var(--bg-app)", color: "var(--text-tertiary)" }}>
-                          Paused
-                        </span>
-                      )}
-                      {pending > 0 && (
-                        <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10, background: "rgba(255, 159, 10, 0.14)", color: "var(--warning)" }}>
-                          {pending} to review
-                        </span>
-                      )}
+                      {!link.active && <Badge tone="neutral">Paused</Badge>}
+                      {pending > 0 && <Badge tone="warning">{pending} to review</Badge>}
                     </div>
                     <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
                       /book/{link.slug} · {link.duration_minutes} min{link.approval_required ? " · approves each booking" : ""}

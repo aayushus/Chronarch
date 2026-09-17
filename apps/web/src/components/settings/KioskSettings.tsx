@@ -4,6 +4,7 @@ import { friendlyError } from "../../api/client";
 import { useAuth } from "../../api/auth";
 import EmptyState from "../EmptyState";
 import Icon from "../Icon";
+import { Badge, ErrorBanner, SectionHeader } from "../ui";
 import { useToast } from "../Toast";
 
 import {
@@ -133,17 +134,13 @@ export default function KioskSettings() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Kiosk</h2>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5, maxWidth: 640 }}>
-          Read-only wall displays — no login needed. Private events always show as Busy. Revoke the link to decommission a screen.
-        </p>
+        <SectionHeader
+          title="Kiosk"
+          description="Read-only wall displays — no login needed. Private events always show as Busy. Revoke the link to decommission a screen."
+        />
       </div>
 
-      {error && (
-        <div style={{ fontSize: 13, borderRadius: "var(--radius-sm)", padding: "10px 14px", marginBottom: 20, background: "rgba(255, 69, 58, 0.15)", border: "1px solid var(--danger)", color: "var(--danger)" }}>
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
       {displays.length === 0 ? (
         <EmptyState
@@ -161,11 +158,7 @@ export default function KioskSettings() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
-                  {!d.active && (
-                    <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10, background: "var(--bg-app)", color: "var(--text-tertiary)" }}>
-                      Off
-                    </span>
-                  )}
+                  {!d.active && <Badge tone="neutral">Off</Badge>}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
                   {d.url_path}{d.location_label ? ` · ${d.location_label}` : ""} · sleeps {d.sleep_start}–{d.sleep_end} · seen {formatSeen(d.last_seen_at)}
@@ -194,7 +187,7 @@ export default function KioskSettings() {
 
       {canManage && (
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
-          <form onSubmit={handlePair} style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: 18, display: "flex", flexDirection: "column", gap: 12, maxWidth: 340, flex: 1, minWidth: 260 }}>
+          <form onSubmit={handlePair} style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: 18, display: "flex", flexDirection: "column", gap: 12, flex: "2 1 260px" }}>
             <div style={{ fontSize: 14, fontWeight: 700 }}>Pair with code</div>
             <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: 0, lineHeight: 1.5 }}>
               Open <code>/kiosk/pair</code> on the wall display and enter the 6-digit code it shows.
@@ -212,7 +205,7 @@ export default function KioskSettings() {
               {pairing ? "Pairing…" : "Pair display"}
             </button>
           </form>
-          <form onSubmit={handleCreate} style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: 18, display: "flex", flexDirection: "column", gap: 12, maxWidth: 520, flex: 2, minWidth: 280 }}>
+          <form onSubmit={handleCreate} style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: 18, display: "flex", flexDirection: "column", gap: 12, flex: "3 1 300px" }}>
             <div style={{ fontSize: 14, fontWeight: 700 }}>Pair manually</div>
           <div>
             <label htmlFor="kiosk-name" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Name</label>

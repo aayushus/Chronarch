@@ -30,9 +30,10 @@ class RateLimiter:
 
     def _get_identifier(self, request: Request) -> str:
         if self.by_ip:
-            forwarded = request.headers.get("x-forwarded-for")
-            if forwarded:
-                return forwarded.split(",")[0].strip()
+            # request.client.host is the TCP peer address, set by the ASGI
+            # server itself and not spoofable by the caller. X-Forwarded-For
+            # is client-supplied and would let a caller reset their own
+            # rate-limit bucket on every request by sending a new value.
             return request.client.host if request.client else "127.0.0.1"
         # If not by IP, use authenticated user id if present, else fallback to IP
         user = getattr(request.state, "user", None)

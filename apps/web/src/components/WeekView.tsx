@@ -20,6 +20,10 @@ const HOUR_HEIGHT = 44;
 const START_HOUR = 0;
 const END_HOUR = 24;
 const GUTTER_WIDTH = 56;
+// Below this, an event column's text is unreadable (title + time both
+// clip to a couple of characters) — a busy day scrolls horizontally
+// within its own column instead of squeezing every event past legibility.
+const MIN_COLUMN_WIDTH = 70;
 
 interface Props {
   weekAnchor: Date;
@@ -382,9 +386,14 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
               (e) => new Date(e.start),
               (e) => new Date(e.end)
             );
+            const maxColumns = laidOut.reduce((m, { columnCount }) => Math.max(m, columnCount), 1);
+            const innerMinWidth = maxColumns * MIN_COLUMN_WIDTH;
             return (
               <div
                 key={day.toISOString()}
+                style={{ position: "relative", height: hours.length * HOUR_H, overflowX: "auto", overflowY: "hidden", borderLeft: "1px solid var(--border-subtle)" }}
+              >
+              <div
                 onMouseDown={(e) => beginCreate(dayIndex, e)}
                 onContextMenu={(e) => {
                   e.preventDefault();
@@ -393,7 +402,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                   const mins = snap(minutesFromY(e.clientY, rect.top, HOUR_H, START_HOUR, END_HOUR));
                   onEmptyMenu(e, atMinutes(days[dayIndex], mins));
                 }}
-                style={{ position: "relative", height: hours.length * HOUR_H, borderLeft: "1px solid var(--border-subtle)" }}
+                style={{ position: "relative", height: "100%", minWidth: innerMinWidth }}
               >
                 {hours.map((h, i) => (
                   <div key={h} style={{ position: "absolute", top: i * HOUR_H, left: 0, right: 0, borderTop: "1px solid var(--border-subtle)" }} />
@@ -557,6 +566,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                     </div>
                   );
                 })}
+              </div>
               </div>
             );
           })}

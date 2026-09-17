@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .models.account import Account
 from .models.booking import Booking, BookingLink, new_booker_token
 from .models.calendar import Calendar
-from .models.enums import ActorType, BookingStatus, UserRole
+from .models.enums import ActorType, BookingStatus
 from .models.user import User
 from .permissions import AuthContext
 
@@ -36,9 +36,12 @@ def _now() -> datetime:
 
 
 def host_context(host: User) -> AuthContext:
+    # is_admin is always False here: this context drives AI-gated calendar
+    # reads/writes on public booking surfaces, and admin's is_admin bypass
+    # would leak other tenants' calendars into the host's own booking data.
     return AuthContext(
         user_id=host.id, role=host.role, actor_type=ActorType.SYSTEM,
-        is_admin=host.role == UserRole.ADMIN,
+        is_admin=False,
     )
 
 

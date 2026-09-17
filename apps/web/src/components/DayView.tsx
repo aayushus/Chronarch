@@ -12,7 +12,7 @@ import {
   snapDown,
   yFromMinutes,
 } from "../lib/gridMath";
-import { packOverlaps } from "../lib/layout";
+import { packOverlaps, dayLane } from "../lib/layout";
 
 const HOUR_HEIGHT = 56;
 const START_HOUR = 0;
@@ -271,7 +271,7 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
         })}
       </div>
 
-      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", position: "relative" }}>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", overflowX: "hidden", position: "relative" }}>
         <div
           ref={gridRef}
           onMouseDown={beginCreate}
@@ -406,7 +406,10 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
             const height = Math.max(20, ((displayEnd.getTime() - displayStart.getTime()) / 60000 / 60) * HOUR_H - 2);
             const cal = calendarById[event.calendar_id];
             const color = cal?.color ?? "var(--accent)";
-            const widthPct = 100 / columnCount;
+            // Lane geometry is measured from the gutter (lib/layout dayLane):
+            // percentages apply to the post-gutter region, never the full
+            // grid width — otherwise lanes bleed past the right edge.
+            const lane = dayLane(column, columnCount);
             const isSelected = event.id === selectedEventId;
             const draggable = canWrite(cal) && !!onMoveEvent;
 
@@ -430,8 +433,8 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                   position: "absolute",
                   top,
                   height,
-                  left: `calc(58px + ${column * widthPct}%)`,
-                  width: `calc(${widthPct}% - 10px)`,
+                  left: lane.left,
+                  width: lane.width,
                   background: `linear-gradient(180deg, ${tint(color.startsWith("#") ? color : "#0a84ff", 0.32)}, ${tint(color.startsWith("#") ? color : "#0a84ff", 0.15)})`,
                   borderLeft: `3px solid ${color}`,
                   borderRadius: 6,
