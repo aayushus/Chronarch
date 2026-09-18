@@ -1,7 +1,7 @@
 /** Beta helper tests. */
 import { describe, expect, it } from "vitest";
 
-import { dayStats, formatMinutes, greeting } from "./beta";
+import { dayStats, formatMinutes, greeting } from "./focus";
 
 describe("greeting", () => {
   it("tracks the daypart", () => {

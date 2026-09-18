@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { friendlyError } from "../api/client";
 
 import {
@@ -11,45 +12,56 @@ import {
   getEvent,
   listCalendars,
   moveEvent,
+  triggerCalendarSync,
   updateEvent,
 } from "../api/calendar";
-import { useNavigate } from "react-router-dom";
-
 import { canSeeSettings, useAuth, workingHoursOf } from "../api/auth";
-import ConflictConfirmModal from "../components/ConflictConfirmModal";
-import EventContextMenu from "../components/EventContextMenu";
-import Palette, { PaletteAction } from "../components/Palette";
-import CopilotDrawer from "../components/CopilotDrawer";
-import EventDetailPanel from "../components/EventDetailPanel";
-import IcsImportModal from "../components/IcsImportModal";
-import QuickCreateModal, { CreateDraft } from "../components/QuickCreateModal";
-import Sidebar from "../components/Sidebar";
 import { useToast } from "../components/Toast";
-import TopBar, { CalendarViewMode } from "../components/TopBar";
+import ConflictConfirmModal from "../components/ConflictConfirmModal";
+import CopilotDrawer from "../components/CopilotDrawer";
+import EventContextMenu from "../components/EventContextMenu";
+import EventDetailPanel from "../components/EventDetailPanel";
+import { avatarInitials } from "../components/EventCard";
+import IcsImportModal from "../components/IcsImportModal";
+import Icon from "../components/Icon";
+import MiniMonth from "../components/MiniMonth";
+import Palette, { PaletteAction } from "../components/Palette";
+import QuickCreateModal, { CreateDraft } from "../components/QuickCreateModal";
 import { addDays, startOfDay, startOfMonth, startOfWeek } from "../lib/dates";
+import { dayStats, formatMinutes, greeting } from "../lib/focus";
+import { pickCountdowns } from "../lib/kiosk";
 import { fetchEventsLazy, invalidateEventsCache } from "../lib/eventsCache";
 
-// Each grid view is only needed once its mode is selected — lazy-load them
-// so switching to Week/Month doesn't block on code the Day view never uses.
+export type CalendarViewMode = "day" | "week" | "month" | "agenda" | "year";
+
 const DayView = lazy(() => import("../components/DayView"));
 const WeekView = lazy(() => import("../components/WeekView"));
 const MonthView = lazy(() => import("../components/MonthView"));
 const YearView = lazy(() => import("../components/YearView"));
 const AgendaView = lazy(() => import("../components/AgendaView"));
 
+function useWide(minWidth: number): boolean {
+  const [wide, setWide] = useState(() => window.matchMedia(`(min-width: ${minWidth}px)`).matches);
+  useEffect(() => {
+    const q = window.matchMedia(`(min-width: ${minWidth}px)`);
+    const onChange = () => setWide(q.matches);
+    q.addEventListener("change", onChange);
+    return () => q.removeEventListener("change", onChange);
+  }, [minWidth]);
+  return wide;
+}
+
+/** Main calendar command center (promoted from /beta). */
 export default function CalendarPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const workingHours = useMemo(() => workingHoursOf(user), [user]);
-  const userInitials = useMemo(() => {
-    const src = user?.display_name?.trim() || user?.email?.split("@")[0] || "?";
-    const parts = src.replace(/[._-]+/g, " ").split(" ").filter(Boolean);
-    return ((parts[0]?.[0] ?? "?") + (parts.length > 1 ? parts[parts.length - 1][0] ?? "" : "")).toUpperCase();
-  }, [user]);
+  const showRails = useWide(1180);
+
   const [calendars, setCalendars] = useState<CalendarSummary[]>([]);
   const [events, setEvents] = useState<EventSummary[]>([]);
-  const [viewMode, setViewMode] = useState<CalendarViewMode>("day");
+  const [viewMode, setViewMode] = useState<CalendarViewMode>("week");
   const [viewedDate, setViewedDate] = useState(new Date());
   const [hiddenCalendarIds, setHiddenCalendarIds] = useState<Set<string>>(new Set());
   const [selectedEvent, setSelectedEvent] = useState<EventSummary | null>(null);
@@ -64,93 +76,39 @@ export default function CalendarPage() {
   const [showIcsModal, setShowIcsModal] = useState(false);
   const [droppedIcsContent, setDroppedIcsContent] = useState<string | undefined>(undefined);
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [tzPrompt, setTzPrompt] = useState<{ browserTz: string; homeTz: string } | null>(null);
-  const [tzSwitching, setTzSwitching] = useState(false);
-  const [menu, setMenu] = useState<
-    | { x: number; y: number; event: EventSummary }
-    | { x: number; y: number; event: null; createAt: Date }
-    | null
-  >(null);
+  const [now, setNow] = useState(() => new Date());
+  const [menu, setMenu] = useState<{ x: number; y: number; event: EventSummary | null; createAt?: Date } | null>(null);
   const [moveTarget, setMoveTarget] = useState<EventSummary | null>(null);
 
   useEffect(() => {
-    listCalendars().then(setCalendars).catch((e) => setError(friendlyError(e)));
-    import("../api/calendar").then(({ getSyncStatus }) => {
-      getSyncStatus()
-        .then((s) => setLastSyncedAt(s.last_synced_at))
-        .catch(() => {});
-    });
+    const clock = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(clock);
   }, []);
 
-  // Browser-vs-home timezone check (BRD §27): if this device is in a
-  // different zone than the stored home zone, ask once whether to switch.
-  // The answer is remembered per zone pair, so travel re-prompts but
-  // dismissing never nags.
   useEffect(() => {
-    if (!user) return;
-    let browserTz = "UTC";
-    try {
-      browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    } catch {
-      /* ignore */
-    }
-    const homeTz = user.home_timezone || "UTC";
-    if (browserTz === homeTz) return;
-    let dismissed = null;
-    try {
-      dismissed = localStorage.getItem("chronarch_tz_declined");
-    } catch {
-      /* private mode */
-    }
-    if (dismissed === `${browserTz}|${homeTz}`) return;
-    setTzPrompt({ browserTz, homeTz });
-  }, [user]);
+    listCalendars().then(setCalendars).catch((e) => setError(friendlyError(e)));
+  }, []);
 
-  async function handleTimezoneSwitch() {
-    if (!tzPrompt) return;
-    setTzSwitching(true);
-    try {
-      const { apiFetch } = await import("../api/client");
-      await apiFetch("/auth/me", {
-        method: "PATCH",
-        body: JSON.stringify({ home_timezone: tzPrompt.browserTz }),
+  // Deep link (?event=<id>): open the shared event on load.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const eventId = params.get("event");
+    if (!eventId) return;
+    getEvent(eventId)
+      .then((e) => {
+        setSelectedEvent(e);
+        setViewedDate(new Date(e.start));
+      })
+      .catch(() => {
+        /* stale/missing link — stay on the calendar */
       });
-      window.location.reload();
-    } catch (e) {
-      setError(friendlyError(e));
-      setTzSwitching(false);
-    }
-  }
-
-  function handleTimezoneKeep() {
-    if (!tzPrompt) return;
-    try {
-      localStorage.setItem("chronarch_tz_declined", `${tzPrompt.browserTz}|${tzPrompt.homeTz}`);
-    } catch {
-      /* private mode */
-    }
-    setTzPrompt(null);
-  }
-
-  async function handleSyncNow() {
-    setIsSyncing(true);
-    try {
-      const { triggerCalendarSync } = await import("../api/calendar");
-      const res = await triggerCalendarSync();
-      setLastSyncedAt(res.last_synced_at);
-      invalidateEventsCache();
-      const fresh = await fetchEventsLazy(rangeStart, rangeEnd);
-      setEvents(fresh);
-    } catch (e) {
-      setError(friendlyError(e));
-    } finally {
-      setIsSyncing(false);
-    }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [rangeStart, rangeEnd] = useMemo(() => {
     if (viewMode === "day") return [startOfDay(viewedDate), addDays(startOfDay(viewedDate), 1)];
@@ -162,7 +120,6 @@ export default function CalendarPage() {
       const s = startOfDay(viewedDate);
       return [s, addDays(s, 14)];
     }
-    // month fetches a padded month; year fetches the whole year for density dots
     if (viewMode === "year") {
       const s = new Date(viewedDate.getFullYear(), 0, 1);
       return [s, new Date(viewedDate.getFullYear() + 1, 0, 1)];
@@ -190,7 +147,21 @@ export default function CalendarPage() {
   }, [rangeStart.getTime(), rangeEnd.getTime()]);
 
   const calendarById = useMemo(() => Object.fromEntries(calendars.map((c) => [c.id, c])), [calendars]);
+  const calendarGroups = useMemo(() => {
+    const groups = new Map<string, { label: string; calendars: CalendarSummary[] }>();
+    for (const cal of calendars) {
+      if (!groups.has(cal.account_id)) {
+        groups.set(cal.account_id, { label: cal.account_label, calendars: [] });
+      }
+      groups.get(cal.account_id)!.calendars.push(cal);
+    }
+    return [...groups.entries()];
+  }, [calendars]);
   const visibleEvents = events.filter((e) => !hiddenCalendarIds.has(e.calendar_id));
+  const writableCalendars = useMemo(
+    () => calendars.filter((c) => c.can_create ?? c.writable),
+    [calendars]
+  );
 
   function toggleCalendar(id: string) {
     setHiddenCalendarIds((prev) => {
@@ -209,8 +180,11 @@ export default function CalendarPage() {
     else setViewedDate((d) => new Date(d.getFullYear() + delta, d.getMonth(), 1));
   }
 
-  // Grid click/drag (BRD §9.6-9.7): open the quick-create modal prefilled
-  // with the selected range instead of a blank form.
+  async function refreshEvents() {
+    invalidateEventsCache();
+    setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
+  }
+
   function handleCreateRange(start: Date, end: Date, allDay: boolean) {
     setCreateDraft({ start, end, allDay });
   }
@@ -218,12 +192,10 @@ export default function CalendarPage() {
   async function commitCreate(body: CreateDraft) {
     await createEvent(body);
     setCreateDraft(null);
-    invalidateEventsCache();
-    setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
+    await refreshEvents();
   }
 
   async function handleCreate(body: CreateDraft) {
-    // Conflict warning (BRD §25): check first, ask before committing.
     try {
       const conflicts = await getConflicts(new Date(body.start), new Date(body.end));
       if (conflicts.length > 0) {
@@ -231,6 +203,39 @@ export default function CalendarPage() {
         return;
       }
       await commitCreate(body);
+    } catch (e) {
+      setError(friendlyError(e));
+    }
+  }
+
+  async function commitMove(eventId: string, newStart: Date, newEnd: Date, allDay?: boolean) {
+    const previous = events;
+    const prevSelected = selectedEvent;
+    setEvents((prev) =>
+      prev.map((e) =>
+        e.id === eventId
+          ? { ...e, start: newStart.toISOString(), end: newEnd.toISOString(), all_day: allDay ?? e.all_day }
+          : e
+      )
+    );
+    try {
+      await moveEvent(eventId, newStart.toISOString(), newEnd.toISOString(), allDay);
+      invalidateEventsCache();
+    } catch (e) {
+      setEvents(previous);
+      setSelectedEvent(prevSelected);
+      setError(friendlyError(e));
+    }
+  }
+
+  async function handleMoveEvent(eventId: string, newStart: Date, newEnd: Date, allDay?: boolean) {
+    try {
+      const conflicts = await getConflicts(newStart, newEnd, eventId);
+      if (conflicts.length > 0) {
+        setPendingConflict({ kind: "move", eventId, start: newStart, end: newEnd, allDay, conflicts });
+        return;
+      }
+      await commitMove(eventId, newStart, newEnd, allDay);
     } catch (e) {
       setError(friendlyError(e));
     }
@@ -245,7 +250,6 @@ export default function CalendarPage() {
         setSelectedEvent(null);
         setEvents((prev) => prev.filter((e) => e.id !== eventId));
       } else {
-        // Scoped deletes keep the series row — refresh it in place.
         setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
         try {
           setSelectedEvent(await getEvent(eventId));
@@ -254,9 +258,6 @@ export default function CalendarPage() {
         }
       }
       if (doomed && scope === "series") {
-        // Undo re-creates the event from the stashed snapshot (design
-        // philosophy: every destructive action is undoable). Scoped deletes
-        // keep the series alive, so there is nothing to undo.
         const snapshot = doomed;
         toast(`Deleted “${snapshot.title}”`, {
           actionLabel: "Undo",
@@ -271,8 +272,7 @@ export default function CalendarPage() {
                 description: snapshot.description,
                 location: snapshot.location,
               });
-              invalidateEventsCache();
-              setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
+              await refreshEvents();
             } catch (e) {
               setError(friendlyError(e));
             }
@@ -282,42 +282,6 @@ export default function CalendarPage() {
     } catch (e) {
       setError(friendlyError(e));
     }
-  }
-
-  // Deep link (?event=<id>): open the shared event on load.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const eventId = params.get("event");
-    if (!eventId) return;
-    getEvent(eventId)
-      .then((e) => {
-        setSelectedEvent(e);
-        setViewedDate(new Date(e.start));
-      })
-      .catch(() => {
-        /* stale/missing link — stay on the calendar */
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const writableCalendars = useMemo(
-    () => calendars.filter((c) => c.can_create ?? c.writable),
-    [calendars]
-  );
-
-  function openEventMenu(e: React.MouseEvent, event: EventSummary) {
-    setMoveTarget(null);
-    setMenu({ x: e.clientX, y: e.clientY, event });
-  }
-
-  function openEmptyMenu(e: React.MouseEvent, at: Date) {
-    setMoveTarget(null);
-    setMenu({ x: e.clientX, y: e.clientY, event: null, createAt: at });
-  }
-
-  async function refreshEvents() {
-    invalidateEventsCache();
-    setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
   }
 
   async function handleDuplicate(event: EventSummary) {
@@ -338,27 +302,6 @@ export default function CalendarPage() {
     }
   }
 
-  async function handleMoveToCalendar(event: EventSummary, targetCalendarId: string) {
-    if (targetCalendarId === event.calendar_id) return;
-    try {
-      await createEvent({
-        calendar_id: targetCalendarId,
-        title: event.title,
-        start: event.start,
-        end: event.end,
-        all_day: event.all_day,
-        description: event.description,
-        location: event.location,
-      });
-      await deleteEvent(event.id);
-      setSelectedEvent(null);
-      await refreshEvents();
-      toast(`Moved “${event.title}” to the new calendar.`);
-    } catch (e) {
-      setError(friendlyError(e));
-    }
-  }
-
   async function handleTogglePrivate(event: EventSummary) {
     const next = event.visibility === "private" ? "standard" : "private";
     try {
@@ -371,20 +314,32 @@ export default function CalendarPage() {
     }
   }
 
-  function handleCopyLink(event: EventSummary) {
-    const url = `${window.location.origin}/?event=${event.id}`;
-    try {
-      navigator.clipboard.writeText(url);
-      toast("Event link copied.");
-    } catch {
-      setError("Couldn't access the clipboard.");
-    }
+  function openEventMenu(e: React.MouseEvent, event: EventSummary) {
+    setMoveTarget(null);
+    setMenu({ x: e.clientX, y: e.clientY, event });
+  }
+
+  function openEmptyMenu(e: React.MouseEvent, at: Date) {
+    setMoveTarget(null);
+    setMenu({ x: e.clientX, y: e.clientY, event: null, createAt: at });
+  }
+
+  function menuItemsFor(event: EventSummary | null) {
+    if (event === null) return [{ id: "new", label: "New event here" }];
+    const cal = calendarById[event.calendar_id];
+    const canWrite = !!(cal?.can_edit ?? cal?.can_reschedule ?? cal?.writable);
+    const canDelete = !!(cal?.can_delete ?? cal?.writable);
+    return [
+      { id: "details", label: "View details" },
+      { id: "duplicate", label: "Duplicate", disabled: !canWrite },
+      { id: "private", label: event.visibility === "private" ? "Make public" : "Mark private", disabled: !canWrite },
+      { id: "delete", label: "Delete", danger: true, disabled: !canDelete },
+    ];
   }
 
   function pickMenuItem(id: string) {
     if (!menu) return;
     if (menu.event === null) {
-      // Empty-slot menu.
       if (id === "new" && menu.createAt) {
         const at = menu.createAt;
         setCreateDraft({ start: at, end: new Date(at.getTime() + 30 * 60000), allDay: false });
@@ -403,123 +358,28 @@ export default function CalendarPage() {
       case "duplicate":
         if (canWrite) void handleDuplicate(event);
         break;
-      case "move":
-        if (canWrite) setMoveTarget(event);
-        break;
       case "private":
         if (canWrite) void handleTogglePrivate(event);
-        break;
-      case "copy":
-        handleCopyLink(event);
         break;
       case "delete":
         if (canDelete) void handleDelete(event.id);
         break;
     }
-    if (id !== "move") setMenu(null);
+    setMenu(null);
   }
 
-  function menuItemsFor(event: EventSummary | null) {
-    if (event === null) {
-      return [{ id: "new", label: "New event here" }];
-    }
-    const cal = calendarById[event.calendar_id];
-    const canWrite = !!(cal?.can_edit ?? cal?.can_reschedule ?? cal?.writable);
-    const canDelete = !!(cal?.can_delete ?? cal?.writable);
-    return [
-      { id: "details", label: "View details" },
-      { id: "duplicate", label: "Duplicate", disabled: !canWrite },
-      { id: "move", label: "Move to calendar…", disabled: !canWrite || writableCalendars.length < 2 },
-      {
-        id: "private",
-        label: event.visibility === "private" ? "Make public" : "Mark private",
-        disabled: !canWrite,
-      },
-      { id: "copy", label: "Copy event link" },
-      { id: "delete", label: "Delete", danger: true, disabled: !canDelete },
-    ];
-  }
-
-  async function commitMove(eventId: string, newStart: Date, newEnd: Date, allDay?: boolean) {
-    // Optimistic: reflect the drag immediately, roll back if the server
-    // rejects it (permission denied) — the drag should feel instant.
-    const previous = events;
-    const prevSelected = selectedEvent;
-    setEvents((prev) =>
-      prev.map((e) =>
-        e.id === eventId
-          ? {
-              ...e,
-              start: newStart.toISOString(),
-              end: newEnd.toISOString(),
-              all_day: allDay ?? e.all_day,
-            }
-          : e
-      )
-    );
-    if (selectedEvent?.id === eventId) {
-      setSelectedEvent((prev) =>
-        prev
-          ? { ...prev, start: newStart.toISOString(), end: newEnd.toISOString(), all_day: allDay ?? prev.all_day }
-          : prev
-      );
-    }
+  async function handleSyncNow() {
+    setIsSyncing(true);
     try {
-      await moveEvent(eventId, newStart.toISOString(), newEnd.toISOString(), allDay);
-      invalidateEventsCache();
-    } catch (e) {
-      setEvents(previous);
-      setSelectedEvent(prevSelected);
-      setError(friendlyError(e));
-    }
-  }
-
-  async function handleMoveEvent(eventId: string, newStart: Date, newEnd: Date, allDay?: boolean) {
-    // Conflict warning (BRD §25): check first (excluding the moved event so
-    // a drag doesn't conflict with itself), ask before committing.
-    try {
-      const conflicts = await getConflicts(newStart, newEnd, eventId);
-      if (conflicts.length > 0) {
-        setPendingConflict({ kind: "move", eventId, start: newStart, end: newEnd, allDay, conflicts });
-        return;
-      }
-      await commitMove(eventId, newStart, newEnd, allDay);
+      const res = await triggerCalendarSync();
+      setLastSyncedAt(res.last_synced_at);
+      await refreshEvents();
     } catch (e) {
       setError(friendlyError(e));
+    } finally {
+      setIsSyncing(false);
     }
   }
-
-  async function confirmPending() {
-    const pending = pendingConflict;
-    setPendingConflict(null);
-    if (!pending) return;
-    try {
-      if (pending.kind === "create") {
-        await commitCreate(pending.body);
-      } else {
-        await commitMove(pending.eventId, pending.start, pending.end, pending.allDay);
-      }
-    } catch (e) {
-      setError(friendlyError(e));
-    }
-  }
-
-  function backFromPending() {
-    // Return to editing: for creates, reopen the modal with the draft kept.
-    const pending = pendingConflict;
-    setPendingConflict(null);
-    if (pending?.kind === "create") {
-      setCreateDraft({
-        start: new Date(pending.body.start),
-        end: new Date(pending.body.end),
-        allDay: pending.body.all_day,
-        title: pending.body.title,
-        calendarId: pending.body.calendar_id,
-      });
-    }
-  }
-
-  const [paletteOpen, setPaletteOpen] = useState(false);
 
   const paletteActions: PaletteAction[] = useMemo(
     () => [
@@ -540,23 +400,6 @@ export default function CalendarPage() {
       { id: "view-month", title: "Switch to Month view", hint: "view", icon: "grid", run: () => setViewMode("month") },
       { id: "sync", title: "Sync all accounts now", hint: "sync", icon: "refresh", run: () => handleSyncNow() },
       { id: "copilot", title: "Ask Copilot", hint: "AI", icon: "sparkles", run: () => setCopilotOpen(true) },
-      {
-        id: "contacts",
-        title: "Open Contacts",
-        hint: "settings",
-        icon: "addressBook",
-        run: () => navigate("/settings?section=contacts"),
-      },
-      {
-        id: "import-ics",
-        title: "Import .ics file",
-        hint: "import",
-        icon: "upload",
-        run: () => {
-          setDroppedIcsContent(undefined);
-          setShowIcsModal(true);
-        },
-      },
       ...(canSeeSettings(user)
         ? [{ id: "settings", title: "Open Settings", hint: "admin", icon: "settings" as const, run: () => navigate("/settings") }]
         : []),
@@ -565,29 +408,20 @@ export default function CalendarPage() {
     [viewedDate, user?.permissions, user?.role]
   );
 
-  // Keyboard shortcuts (BRD §9.14): T/D/W/M jump views, arrows navigate,
-  // N opens quick-create, Esc closes whatever's open. Ignored while typing
-  // in a form field so they don't fight with normal text entry.
   useEffect(() => {
     function isTypingTarget(el: EventTarget | null): boolean {
       const tag = (el as HTMLElement)?.tagName;
       return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
     }
-
     function handleKeyDown(e: KeyboardEvent) {
-      // ⌘K toggles the palette from anywhere (design philosophy).
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setPaletteOpen((v) => !v);
         return;
       }
-      // Let the palette own Escape while it's open.
       if ((e.target as HTMLElement)?.closest?.(".palette-card")) return;
-      // Escape must work even while a form field has focus (e.g. the quick-create
-      // modal's title input) — every other shortcut stays suppressed while typing.
       if (e.key !== "Escape" && isTypingTarget(e.target)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-
       switch (e.key.toLowerCase()) {
         case "t":
           setViewedDate(new Date());
@@ -605,241 +439,343 @@ export default function CalendarPage() {
           setViewMode("agenda");
           break;
         case "n": {
-          e.preventDefault();
-          // Blank quick-create at the viewed date, 9:00–9:30 like before.
           const s = new Date(viewedDate);
           s.setHours(9, 0, 0, 0);
           setCreateDraft({ start: s, end: new Date(s.getTime() + 30 * 60000), allDay: false });
           break;
         }
         case "escape":
-          setCreateDraft(null);
-          setPendingConflict(null);
+          setMenu(null);
+          setMoveTarget(null);
+          setPaletteOpen(false);
           setSelectedEvent(null);
           break;
-        case "arrowleft":
-          shift(-1);
-          break;
-        case "arrowright":
-          shift(1);
-          break;
-        default:
-          return;
       }
     }
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode]);
+  }, [viewedDate]);
 
-  const selectedCalendar = selectedEvent ? calendarById[selectedEvent.calendar_id] : undefined;
+  const stats = useMemo(() => dayStats(visibleEvents, new Date(), now), [visibleEvents, now]);
+  const todayEvents = useMemo(() => {
+    const t = new Date();
+    return visibleEvents
+      .filter((e) => {
+        const s = new Date(e.start);
+        return !e.all_day && s.getFullYear() === t.getFullYear() && s.getMonth() === t.getMonth() && s.getDate() === t.getDate();
+      })
+      .sort((a, b) => +new Date(a.start) - +new Date(b.start));
+  }, [visibleEvents]);
+  const countdowns = useMemo(() => pickCountdowns(visibleEvents, now), [visibleEvents, now]);
+  const displayName = user?.display_name?.trim() || user?.email?.split("@")[0] || "?";
 
   return (
-    <div
-      style={{ display: "flex", height: "100vh", background: "var(--bg-app)" }}
-      onDragOver={(e) => {
-        if (e.dataTransfer.types.includes("Files")) {
-          e.preventDefault();
-        }
-      }}
-      onDrop={(e) => {
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-          e.preventDefault();
-          const file = e.dataTransfer.files[0];
-          if (file.name.toLowerCase().endsWith(".ics") || file.type.includes("calendar")) {
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-              const text = evt.target?.result as string;
-              setDroppedIcsContent(text);
-              setShowIcsModal(true);
-            };
-            reader.readAsText(file);
-          }
-        }
-      }}
-    >
-      <Sidebar
-        calendars={calendars}
-        hiddenCalendarIds={hiddenCalendarIds}
-        onToggleCalendar={toggleCalendar}
-        viewedDate={viewedDate}
-        selectedDate={viewedDate}
-        onSelectDate={(d) => {
-          setViewedDate(d);
-          if (viewMode !== "day" && viewMode !== "week") setViewMode("day");
-        }}
-        onMonthShift={(delta) => setViewedDate((d) => new Date(d.getFullYear(), d.getMonth() + delta, 1))}
-        userDisplayName={user?.display_name ?? ""}
-        canManageAccounts={(user?.permissions ?? []).includes("accounts.manage") || user?.role === "admin"}
-        onOpenCopilot={() => setCopilotOpen(true)}
-        onOpenIcsImport={() => {
-          setDroppedIcsContent(undefined);
-          setShowIcsModal(true);
-        }}
-      />
-
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
-        <TopBar
-          viewedDate={viewedDate}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          onToday={() => setViewedDate(new Date())}
-          onShift={shift}
-          lastSyncedAt={lastSyncedAt}
-          isSyncing={isSyncing}
-          onSyncNow={handleSyncNow}
-          onOpenPalette={() => setPaletteOpen(true)}
-          onOpenIcsImport={() => {
-            setDroppedIcsContent(undefined);
-            setShowIcsModal(true);
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "var(--bg-app)", overflow: "hidden" }}>
+      {/* Command header */}
+      <header style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 24px", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
+            {greeting(now.getHours())}, {displayName.split(" ")[0]}
+          </div>
+          <div className="tabular-nums" style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+            {now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+          </div>
+        </div>
+        <button
+          onClick={() => setPaletteOpen(true)}
+          className="hoverable"
+          style={{
+            flex: 1, display: "flex", alignItems: "center", gap: 8, background: "var(--bg-raised)",
+            border: "1px solid var(--border-subtle)", borderRadius: 10, padding: "8px 14px",
+            color: "var(--text-tertiary)", fontSize: 13, cursor: "pointer", minWidth: 0, maxWidth: 520, margin: "0 auto",
           }}
-          userInitials={userInitials}
-          onCreateEvent={() => {
-            const s = new Date(viewedDate);
-            s.setHours(9, 0, 0, 0);
-            setCreateDraft({ start: s, end: new Date(s.getTime() + 30 * 60000), allDay: false });
-          }}
-        />
+        >
+          <Icon name="search" size={14} />
+          <span style={{ flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            Jump to anything — try "lunch Friday"
+          </span>
+          <kbd>⌘K</kbd>
+        </button>
+        <button onClick={() => {
+          const s = new Date(viewedDate);
+          s.setHours(9, 0, 0, 0);
+          setCreateDraft({ start: s, end: new Date(s.getTime() + 30 * 60000), allDay: false });
+        }} className="btn-primary hoverable" style={{ flexShrink: 0 }}>
+          <span style={{ fontSize: 14, lineHeight: 1 }}>+</span>
+          <span>New Event</span>
+        </button>
+        <button
+          onClick={handleSyncNow}
+          disabled={isSyncing}
+          className="hoverable"
+          title="Sync now"
+          style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 10, color: "var(--text-secondary)", padding: "8px 10px", cursor: isSyncing ? "wait" : "pointer", flexShrink: 0, display: "inline-flex" }}
+        >
+          <Icon name="refresh" size={14} />
+        </button>
+        <Link
+          to="/settings"
+          title="Account & settings"
+          style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none", flexShrink: 0 }}
+        >
+          {avatarInitials(displayName)}
+        </Link>
+      </header>
 
-        <div style={{ height: 2, background: eventsLoading ? "var(--accent)" : "transparent", transition: "background 0.15s" }} />
+      {/* View tabs */}
+      <div style={{ display: "flex", alignItems: "center", gap: 2, padding: "0 24px", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0, overflowX: "auto" }}>
+        {(["day", "week", "month", "agenda", "year"] as CalendarViewMode[]).map((mode) => {
+          const active = viewMode === mode;
+          return (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className="hoverable"
+              style={{
+                border: "none", background: "none", padding: "10px 14px", fontSize: 13,
+                fontWeight: active ? 600 : 500,
+                color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                borderBottom: active ? "2px solid var(--text-primary)" : "2px solid transparent",
+                cursor: "pointer", whiteSpace: "nowrap",
+              }}
+            >
+              {mode.charAt(0).toUpperCase() + mode.slice(1)}
+            </button>
+          );
+        })}
+        <div style={{ flex: 1 }} />
+        <div className="tabular-nums" style={{ fontSize: 12, color: "var(--text-tertiary)", whiteSpace: "nowrap", paddingBottom: 8 }}>
+          {stats.count} meetings · {formatMinutes(stats.meetingMinutes)} booked · {formatMinutes(stats.freeMinutes)} open
+        </div>
+      </div>
 
-        {/* Natural-language quick-add lives on the kiosk wall now. */}
-
-        {error && (
-          <div style={{ color: "var(--danger)", fontSize: 12, padding: "6px 24px" }}>{error}</div>
+      <div style={{ flex: 1, display: "flex", minHeight: 0, minWidth: 0 }}>
+        {/* Focus rail: fixed sections, only the calendar list scrolls. */}
+        {showRails && (
+          <aside style={{ width: 280, minWidth: 280, borderRight: "1px solid var(--border-subtle)", overflow: "hidden", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 16, minHeight: 0 }}>
+            <div style={{ flexShrink: 0 }}>
+              <MiniMonth
+                viewedDate={viewedDate}
+                selectedDate={viewedDate}
+                onSelect={(d) => setViewedDate(d)}
+                onMonthShift={(delta) => setViewedDate((d) => new Date(d.getFullYear(), d.getMonth() + delta, 1))}
+              />
+            </div>
+            <section style={{ flexShrink: 0, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: "12px 14px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", marginBottom: 8 }}>
+                Up next
+              </div>
+              {stats.upNext ? (
+                <button
+                  onClick={() => {
+                    const found = visibleEvents.find((e) => e.id === stats.upNext!.id);
+                    if (found) {
+                      setSelectedEvent(found);
+                      setViewedDate(new Date(found.start));
+                    }
+                  }}
+                  className="hoverable"
+                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left", width: "100%" }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {stats.upNext.title}
+                  </div>
+                  <div className="tabular-nums" style={{ fontSize: 12, color: "var(--accent)", marginTop: 2 }}>
+                    {new Date(stats.upNext.start).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                  </div>
+                </button>
+              ) : (
+                <div style={{ fontSize: 13, color: "var(--text-tertiary)" }}>Clear for the rest of the day.</div>
+              )}
+            </section>
+            <section style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", padding: "0 4px 6px", flexShrink: 0 }}>
+                Calendars
+              </div>
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+                {calendarGroups.map(([accountId, group]) => (
+                  <div key={accountId} style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, color: "var(--text-tertiary)", padding: "2px 8px 3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {group.label}
+                    </div>
+                    {group.calendars.map((cal) => (
+                      <label key={cal.id} className="hoverable" style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>
+                        <input
+                          type="checkbox"
+                          checked={!hiddenCalendarIds.has(cal.id)}
+                          onChange={() => toggleCalendar(cal.id)}
+                          style={{ accentColor: cal.color, width: 14, height: 14 }}
+                        />
+                        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-primary)", minWidth: 0 }}>
+                          {cal.name}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </section>
+          </aside>
         )}
 
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-          <Suspense fallback={<ViewLoadingFallback />}>
-            {viewMode === "day" && (
-              <DayView
-                day={viewedDate}
-                events={visibleEvents}
-                calendarById={calendarById}
-                onSelectEvent={setSelectedEvent}
-                selectedEventId={selectedEvent?.id}
-                onMoveEvent={handleMoveEvent}
-                onCreateRange={handleCreateRange}
-                onEventMenu={openEventMenu}
-                onEmptyMenu={openEmptyMenu}
-                workingHours={workingHours}
-                secondaryTimezone={user?.secondary_timezone ?? null}
-              />
+        {/* Main canvas */}
+        <main style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, padding: showRails ? "16px 16px 16px 0" : 16 }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, minWidth: 0, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+            <div style={{ height: 2, background: eventsLoading ? "var(--accent)" : "transparent", transition: "background 0.15s", flexShrink: 0 }} />
+            {error && (
+              <div style={{ color: "var(--danger)", fontSize: 12, padding: "6px 16px", flexShrink: 0 }}>{error}</div>
             )}
-            {viewMode === "week" && (
-              <WeekView
-                weekAnchor={viewedDate}
-                events={visibleEvents}
-                calendarById={calendarById}
-                onSelectEvent={setSelectedEvent}
-                onSelectDay={(d) => {
-                  setViewedDate(d);
-                  setViewMode("day");
-                }}
-                onMoveEvent={handleMoveEvent}
-                onCreateRange={handleCreateRange}
-                onEventMenu={openEventMenu}
-                onEmptyMenu={openEmptyMenu}
-                workingHours={workingHours}
-                secondaryTimezone={user?.secondary_timezone ?? null}
-              />
+            <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column" }}>
+              <Suspense fallback={<div style={{ padding: 32, color: "var(--text-tertiary)", fontSize: 13 }}>Loading view…</div>}>
+                {viewMode === "day" && (
+                  <DayView
+                    day={viewedDate}
+                    events={visibleEvents}
+                    calendarById={calendarById}
+                    onSelectEvent={setSelectedEvent}
+                    selectedEventId={selectedEvent?.id}
+                    onMoveEvent={handleMoveEvent}
+                    onCreateRange={handleCreateRange}
+                    onEventMenu={openEventMenu}
+                    onEmptyMenu={openEmptyMenu}
+                    workingHours={workingHours}
+                    secondaryTimezone={user?.secondary_timezone ?? null}
+                  />
+                )}
+                {viewMode === "week" && (
+                  <WeekView
+                    weekAnchor={viewedDate}
+                    events={visibleEvents}
+                    calendarById={calendarById}
+                    onSelectEvent={setSelectedEvent}
+                    onSelectDay={(d) => {
+                      setViewedDate(d);
+                      setViewMode("day");
+                    }}
+                    onMoveEvent={handleMoveEvent}
+                    onCreateRange={handleCreateRange}
+                    onEventMenu={openEventMenu}
+                    onEmptyMenu={openEmptyMenu}
+                    workingHours={workingHours}
+                    secondaryTimezone={user?.secondary_timezone ?? null}
+                  />
+                )}
+                {viewMode === "month" && (
+                  <MonthView
+                    monthAnchor={viewedDate}
+                    events={visibleEvents}
+                    calendarById={calendarById}
+                    onSelectEvent={setSelectedEvent}
+                    onSelectDay={(d) => {
+                      setViewedDate(d);
+                      setViewMode("day");
+                    }}
+                    onEventMenu={openEventMenu}
+                    onEmptyMenu={openEmptyMenu}
+                  />
+                )}
+                {viewMode === "agenda" && (
+                  <AgendaView
+                    days={Array.from({ length: 14 }, (_, i) => addDays(startOfDay(viewedDate), i))}
+                    events={visibleEvents}
+                    calendarById={calendarById}
+                    onSelectEvent={setSelectedEvent}
+                    onSelectDay={(d) => {
+                      setViewedDate(d);
+                      setViewMode("day");
+                    }}
+                  />
+                )}
+                {viewMode === "year" && (
+                  <YearView
+                    year={viewedDate.getFullYear()}
+                    events={visibleEvents}
+                    calendarById={calendarById}
+                    selectedDate={viewedDate}
+                    onSelectDay={(d) => {
+                      setViewedDate(d);
+                      setViewMode("day");
+                    }}
+                    onSelectMonth={(d) => {
+                      setViewedDate(d);
+                      setViewMode("month");
+                    }}
+                  />
+                )}
+              </Suspense>
+            </div>
+          </div>
+        </main>
+
+        {/* Today rail */}
+        {showRails && (
+          <aside style={{ width: 300, minWidth: 300, borderLeft: "1px solid var(--border-subtle)", overflowY: "auto", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 16 }}>
+            <section>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", marginBottom: 8 }}>
+                Today
+              </div>
+              {todayEvents.length === 0 ? (
+                <div style={{ fontSize: 13, color: "var(--text-tertiary)" }}>Nothing scheduled.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {todayEvents.map((e) => {
+                    const cal = calendarById[e.calendar_id];
+                    const color = cal?.color ?? "var(--accent)";
+                    return (
+                      <button
+                        key={e.id}
+                        onClick={() => setSelectedEvent(e)}
+                        className="hoverable"
+                        style={{ textAlign: "left", background: "var(--card-bg)", border: "1px solid var(--card-line)", borderLeft: `3px solid ${color}`, borderRadius: 8, padding: "8px 12px", cursor: "pointer", minWidth: 0 }}
+                      >
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--card-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {e.title}
+                        </div>
+                        <div className="tabular-nums" style={{ fontSize: 11.5, color: "var(--card-muted)", marginTop: 2 }}>
+                          {new Date(e.start).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+            {countdowns.length > 0 && (
+              <section>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", marginBottom: 8 }}>
+                  Coming up
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {countdowns.map((c) => (
+                    <div key={c.id} style={{ display: "flex", alignItems: "baseline", gap: 10, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 8, padding: "8px 12px", minWidth: 0 }}>
+                      <span className="tabular-nums" style={{ fontSize: 16, fontWeight: 800, color: "var(--accent)" }}>{c.days}d</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
             )}
-            {viewMode === "month" && (
-              <MonthView
-                monthAnchor={viewedDate}
-                events={visibleEvents}
-                calendarById={calendarById}
-                onSelectEvent={setSelectedEvent}
-                onSelectDay={(d) => {
-                  setViewedDate(d);
-                  setViewMode("day");
-                }}
-                onEventMenu={openEventMenu}
-                onEmptyMenu={openEmptyMenu}
-              />
-            )}
-            {viewMode === "agenda" && (
-              <AgendaView
-                days={Array.from({ length: 14 }, (_, i) => addDays(startOfDay(viewedDate), i))}
-                events={visibleEvents}
-                calendarById={calendarById}
-                onSelectEvent={setSelectedEvent}
-                onSelectDay={(d) => {
-                  setViewedDate(d);
-                  setViewMode("day");
-                }}
-              />
-            )}
-            {viewMode === "year" && (
-              <YearView
-                year={viewedDate.getFullYear()}
-                events={visibleEvents}
-                calendarById={calendarById}
-                selectedDate={viewedDate}
-                onSelectDay={(d) => {
-                  setViewedDate(d);
-                  setViewMode("day");
-                }}
-                onSelectMonth={(d) => {
-                  setViewedDate(d);
-                  setViewMode("month");
-                }}
-              />
-            )}
-          </Suspense>
-        </div>
+            <button onClick={() => setCopilotOpen(true)} className="hoverable" style={{ display: "flex", alignItems: "center", gap: 9, border: "none", borderRadius: 8, padding: "10px 12px", background: "rgba(10, 132, 255, 0.12)", color: "var(--accent)", fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
+              <Icon name="sparkles" size={14} />
+              <span>Ask Copilot</span>
+            </button>
+          </aside>
+        )}
       </div>
 
       <EventDetailPanel
         event={selectedEvent}
-        calendar={selectedCalendar}
+        calendar={selectedEvent ? calendarById[selectedEvent.calendar_id] : undefined}
         onClose={() => setSelectedEvent(null)}
         onDelete={handleDelete}
-        canDelete={!!(selectedCalendar?.can_delete ?? selectedCalendar?.writable)}
-        canEdit={!!(selectedCalendar?.can_edit ?? selectedCalendar?.writable)}
+        canDelete={!!(selectedEvent && (calendarById[selectedEvent.calendar_id]?.can_delete ?? calendarById[selectedEvent.calendar_id]?.writable))}
+        canEdit={!!(selectedEvent && (calendarById[selectedEvent.calendar_id]?.can_edit ?? calendarById[selectedEvent.calendar_id]?.writable))}
         onSaved={async (updated) => {
           setSelectedEvent(updated);
-          invalidateEventsCache();
-          setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
+          await refreshEvents();
         }}
       />
-
-      {tzPrompt && (
-        <div className="modal-backdrop" onClick={handleTimezoneKeep}>
-          <div
-            className="modal-card"
-            onClick={(e) => e.stopPropagation()}
-            style={{ width: 440, maxWidth: "92vw", padding: 24 }}
-          >
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 8px" }}>
-              Timezone mismatch
-            </h3>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 6px", lineHeight: 1.5 }}>
-              This browser is in{" "}
-              <strong style={{ color: "var(--text-primary)" }}>{tzPrompt.browserTz}</strong>,
-              but your calendar is set to{" "}
-              <strong style={{ color: "var(--text-primary)" }}>{tzPrompt.homeTz}</strong>.
-            </p>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px", lineHeight: 1.5 }}>
-              Switch to the browser timezone? The page reloads to re-render everything.
-            </p>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-              <button onClick={handleTimezoneKeep} className="btn-secondary hoverable" disabled={tzSwitching}>
-                Keep {tzPrompt.homeTz}
-              </button>
-              <button
-                onClick={handleTimezoneSwitch}
-                disabled={tzSwitching}
-                className="btn-primary hoverable"
-                style={{ padding: "8px 18px" }}
-              >
-                {tzSwitching ? "Switching…" : `Switch to ${tzPrompt.browserTz}`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {menu && !moveTarget && (
         <EventContextMenu
@@ -848,25 +784,6 @@ export default function CalendarPage() {
           items={menuItemsFor(menu.event)}
           onPick={pickMenuItem}
           onClose={() => setMenu(null)}
-        />
-      )}
-
-      {menu && moveTarget && (
-        <EventContextMenu
-          x={menu.x}
-          y={menu.y}
-          items={writableCalendars
-            .filter((c) => c.id !== moveTarget.calendar_id)
-            .map((c) => ({ id: c.id, label: `→ ${c.name}` }))}
-          onPick={(id) => {
-            setMenu(null);
-            setMoveTarget(null);
-            void handleMoveToCalendar(moveTarget, id);
-          }}
-          onClose={() => {
-            setMenu(null);
-            setMoveTarget(null);
-          }}
         />
       )}
 
@@ -894,8 +811,30 @@ export default function CalendarPage() {
           }
           conflicts={pendingConflict.conflicts}
           confirmLabel={pendingConflict.kind === "create" ? "Create anyway" : "Move anyway"}
-          onConfirm={confirmPending}
-          onBack={backFromPending}
+          onConfirm={async () => {
+            const pending = pendingConflict;
+            setPendingConflict(null);
+            if (!pending) return;
+            try {
+              if (pending.kind === "create") await commitCreate(pending.body);
+              else await commitMove(pending.eventId, pending.start, pending.end, pending.allDay);
+            } catch (e) {
+              setError(friendlyError(e));
+            }
+          }}
+          onBack={() => {
+            const pending = pendingConflict;
+            setPendingConflict(null);
+            if (pending?.kind === "create") {
+              setCreateDraft({
+                start: new Date(pending.body.start),
+                end: new Date(pending.body.end),
+                allDay: pending.body.all_day,
+                title: pending.body.title,
+                calendarId: pending.body.calendar_id,
+              });
+            }
+          }}
           onDiscard={() => setPendingConflict(null)}
         />
       )}
@@ -909,8 +848,7 @@ export default function CalendarPage() {
             setDroppedIcsContent(undefined);
           }}
           onImported={() => {
-            invalidateEventsCache();
-            fetchEventsLazy(rangeStart, rangeEnd).then(setEvents);
+            refreshEvents();
           }}
         />
       )}
@@ -921,8 +859,7 @@ export default function CalendarPage() {
         viewedDate={viewedDate}
         viewMode={viewMode}
         onRefreshEvents={() => {
-          invalidateEventsCache();
-          fetchEventsLazy(rangeStart, rangeEnd).then(setEvents);
+          refreshEvents();
         }}
       />
 
@@ -930,12 +867,3 @@ export default function CalendarPage() {
     </div>
   );
 }
-
-function ViewLoadingFallback() {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-tertiary)", fontSize: 13 }}>
-      Loading…
-    </div>
-  );
-}
-

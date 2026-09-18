@@ -20,8 +20,10 @@ import {
   NAV,
   NavItem,
   SettingsSection,
+  filterNav,
   groupSections,
 } from "../components/settings/settingsNav";
+import { avatarInitials } from "../components/EventCard";
 
 const COMPONENTS: Record<SettingsSection, React.ComponentType> = {
   account: AccountSettings,
@@ -76,9 +78,63 @@ export default function SettingsPage() {
     );
   }
   const CurrentComponent = COMPONENTS[current.key];
+  const [filter, setFilter] = useState("");
+  const filtered = filterNav(items, filter);
+  const displayName = user?.display_name?.trim() || user?.email?.split("@")[0] || "?";
+
+  function jumpToFirstMatch() {
+    if (filtered.length > 0 && !filtered.some((n) => n.key === section)) {
+      setSection(filtered[0].key);
+    }
+  }
 
   return (
-    <div style={{ display: "flex", height: "100vh", background: "var(--bg-app)" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "var(--bg-app)", overflow: "hidden" }}>
+      {/* Beta-style command header */}
+      <header style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 24px", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
+        <Link
+          to="/"
+          className="hoverable"
+          title="Back to Calendar"
+          style={{ display: "inline-flex", alignItems: "center", gap: 9, textDecoration: "none", flexShrink: 0, minWidth: 0 }}
+        >
+          <span style={{ display: "inline-flex", color: "var(--text-tertiary)" }}>
+            <Icon name="chevronLeft" size={14} />
+          </span>
+          <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.01em", fontFamily: "Georgia, 'Times New Roman', serif", color: "var(--text-primary)", whiteSpace: "nowrap" }}>
+            Settings
+          </span>
+        </Link>
+        <div style={{ flex: 1, display: "flex", justifyContent: "center", minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: "7px 12px", width: "100%", maxWidth: 420 }}>
+            <Icon name="search" size={14} />
+            <input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") jumpToFirstMatch();
+                if (e.key === "Escape") setFilter("");
+              }}
+              placeholder="Find a section…"
+              aria-label="Find a settings section"
+              style={{ flex: 1, background: "none", border: "none", outline: "none", color: "var(--text-primary)", fontSize: 13, minWidth: 0 }}
+            />
+            {filter && (
+              <button onClick={() => setFilter("")} aria-label="Clear filter" style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", padding: 0, display: "inline-flex" }}>
+                <Icon name="x" size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+        <span
+          title={user?.email}
+          style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+        >
+          {avatarInitials(displayName)}
+        </span>
+      </header>
+
+      <div style={{ flex: 1, display: "flex", minHeight: 0, minWidth: 0 }}>
       <aside
         className="vibrancy"
         style={{
@@ -88,34 +144,11 @@ export default function SettingsPage() {
           borderRight: "1px solid var(--border-subtle)",
           display: "flex",
           flexDirection: "column",
+          minHeight: 0,
         }}
       >
-        <div style={{ padding: "14px 16px" }}>
-          <Link
-            to="/"
-            className="hoverable"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 12,
-              color: "var(--text-secondary)",
-              textDecoration: "none",
-              borderRadius: 6,
-              padding: "4px 6px",
-              marginLeft: -6,
-            }}
-          >
-            <span style={{ display: "inline-flex" }}>
-              <Icon name="chevronLeft" size={12} />
-            </span>
-            Back to Calendar
-          </Link>
-          <div style={{ fontSize: 15, fontWeight: 700, marginTop: 12 }}>Settings</div>
-        </div>
-
-        <nav style={{ flex: 1, padding: "4px 8px", overflowY: "auto" }}>
-          {groupSections(items).map((group, gi) => (
+        <nav style={{ flex: 1, padding: "12px 8px", overflowY: "auto" }}>
+          {groupSections(filtered).map((group, gi) => (
             <div key={group.header ?? "pinned"} style={{ marginTop: gi === 0 ? 0 : 14 }}>
               {group.header && (
                 <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", padding: "0 10px 5px" }}>
@@ -170,9 +203,13 @@ export default function SettingsPage() {
         </div>
       </aside>
 
-      <main style={{ flex: 1, overflowY: "auto", padding: "36px 48px" }}>
+      <main style={{ flex: 1, overflowY: "auto", padding: "28px 40px", minWidth: 0 }}>
         <div key={section} className="view-enter" style={{ maxWidth: 960, margin: "0 auto" }}>
-          {section === "contacts" ? (
+          {filtered.length === 0 ? (
+            <div style={{ fontSize: 13, color: "var(--text-tertiary)", padding: "32px 0", textAlign: "center" }}>
+              No sections match “{filter}”.
+            </div>
+          ) : section === "contacts" ? (
             <ContactsSettings
               onOpenAccounts={items.some((n) => n.key === "accounts") ? () => setSection("accounts") : undefined}
             />
@@ -181,6 +218,7 @@ export default function SettingsPage() {
           )}
         </div>
       </main>
+      </div>
     </div>
   );
 }

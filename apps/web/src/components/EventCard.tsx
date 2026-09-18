@@ -14,7 +14,7 @@ export interface Avatar {
   bg: string;
 }
 
-/** "Ava Reid" → "AR", "x@y.com" → "X". Shared with Sidebar/TopBar avatars. */
+/** "Ava Reid" → "AR", "x@y.com" → "X". Shared avatar helper. */
 export function avatarInitials(displayName: string): string {
   const src = (displayName || "").trim() || "?";
   const parts = src.replace(/[._-]+/g, " ").split(" ").filter(Boolean);

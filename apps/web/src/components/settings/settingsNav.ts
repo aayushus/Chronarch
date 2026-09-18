@@ -49,3 +49,13 @@ export function groupSections(items: NavItem[]): { header: NavGroup | null; item
   }
   return out;
 }
+
+/** Section finder filter: always matches labels; group names only join
+ * for queries of 3+ chars (so "AI" doesn't match "sharing"). Pure. */
+export function filterNav(items: NavItem[], query: string): NavItem[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return items;
+  return items.filter(
+    (n) => n.label.toLowerCase().includes(q) || (q.length >= 3 && (n.group ?? "").toLowerCase().includes(q)),
+  );
+}

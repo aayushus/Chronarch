@@ -77,7 +77,23 @@ export function monthTime(startISO: string, endISO: string): string {
 }
 
 export const WEEKDAY_SHORT = ["S", "M", "T", "W", "T", "F", "S"];
-export const MONTH_NAMES = [
+
+/** Monday-start mini-grid trimmed to whole weeks intersecting the month
+ * (28–35 cells instead of a fixed 42) so rails never need to scroll. */
+export function monthGridCells(year: number, month: number): Date[] {
+  const monthStart = new Date(year, month, 1);
+  const leadDays = (monthStart.getDay() + 6) % 7;
+  const gridStart = new Date(monthStart);
+  gridStart.setDate(gridStart.getDate() - leadDays);
+  const days = Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(gridStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+  const first = days.findIndex((d) => d.getMonth() === month);
+  const lastIdx = days.length - 1 - [...days].reverse().findIndex((d) => d.getMonth() === month);
+  return days.slice(Math.floor(first / 7) * 7, Math.ceil((lastIdx + 1) / 7) * 7);
+}export const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];

@@ -1,6 +1,6 @@
 import React from "react";
 
-import { WEEKDAY_SHORT, sameDay, startOfMonth } from "../lib/dates";
+import { WEEKDAY_SHORT, monthGridCells, sameDay, startOfMonth } from "../lib/dates";
 import Icon from "./Icon";
 
 interface Props {
@@ -12,15 +12,7 @@ interface Props {
 
 export default function MiniMonth({ viewedDate, selectedDate, onSelect, onMonthShift }: Props) {
   const monthStart = startOfMonth(viewedDate);
-  const gridStart = new Date(monthStart);
-  const leadDays = (monthStart.getDay() + 6) % 7; // Monday-start offset
-  gridStart.setDate(gridStart.getDate() - leadDays);
-
-  const days: Date[] = Array.from({ length: 42 }, (_, i) => {
-    const d = new Date(gridStart);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
+  const days = monthGridCells(monthStart.getFullYear(), monthStart.getMonth());
 
   const today = new Date();
 
