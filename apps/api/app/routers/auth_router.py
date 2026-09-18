@@ -77,6 +77,60 @@ async def logout(
     return LogoutResponse(status="ok")
 
 
+class SignupRequest(BaseModel):
+    email: EmailStr
+    display_name: str
+    password: str
+
+
+@router.get("/signup-status")
+async def signup_status():
+    """Whether public registration is enabled (drives the login page —
+    no secrets, safe to expose)."""
+    from .. import config as _config
+
+    return {"allowed": _config.ALLOW_SIGNUPS}
+
+
+@router.post("/signup", response_model=LoginResponse, dependencies=[Depends(login_rate_limiter)])
+async def signup(body: SignupRequest, session: AsyncSession = Depends(get_db_session)):
+    """Public self-signup, gated by ALLOW_SIGNUPS (default off).
+
+    Every signup is a workspace admin — access control lives entirely in
+    the gate (turn it off and nobody new gets in). Returns a session token
+    directly so signup flows straight into onboarding.
+    """
+    from .. import config as _config
+    from chronarch_core import rbac as _rbac
+    from chronarch_core.models.enums import UserRole
+    from chronarch_core.models.rbac import Role, RoleAssignment
+
+    if not _config.ALLOW_SIGNUPS:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Public signup is disabled on this server")
+    name = (body.display_name or "").strip()
+    if not name:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Display name cannot be blank")
+    if len(body.password) < MIN_PASSWORD_LENGTH:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Password must be at least {MIN_PASSWORD_LENGTH} characters",
+        )
+    email = str(body.email).strip().lower()
+    if (await session.execute(select(User).where(User.email == email))).scalar_one_or_none() is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "A user with that email already exists")
+
+    user = User(email=email, display_name=name, password_hash=hash_password(body.password),
+                role=UserRole.ADMIN)
+    session.add(user)
+    await session.flush()
+    # Mirror the admin-create path: admin role membership, not just the enum.
+    role_id = (await session.execute(select(Role.id).where(Role.name == _rbac.ADMIN_ROLE_NAME))).scalar_one_or_none()
+    if role_id is not None:
+        session.add(RoleAssignment(user_id=user.id, role_id=role_id))
+        await session.flush()
+    return LoginResponse(access_token=create_access_token(user.id))
+
+
 
 class MeResponse(BaseModel):
     id: str

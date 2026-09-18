@@ -458,6 +458,23 @@ export default function CalendarPage() {
   }, [viewedDate]);
 
   const stats = useMemo(() => dayStats(visibleEvents, new Date(), now), [visibleEvents, now]);
+  const [nagDismissed, setNagDismissed] = useState(() => {
+    try {
+      return localStorage.getItem("chronarch_onboarded") === "1";
+    } catch {
+      return true;
+    }
+  });
+  const showSetupNag = !nagDismissed && user?.role === "admin" && calendars.length === 0;
+
+  function dismissNag() {
+    try {
+      localStorage.setItem("chronarch_onboarded", "1");
+    } catch {
+      /* private mode */
+    }
+    setNagDismissed(true);
+  }
   const todayEvents = useMemo(() => {
     const t = new Date();
     return visibleEvents
@@ -621,6 +638,17 @@ export default function CalendarPage() {
 
         {/* Main canvas */}
         <main style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, padding: showRails ? "16px 16px 16px 0" : 16 }}>
+          {showSetupNag && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(10, 132, 255, 0.1)", border: "1px solid rgba(10, 132, 255, 0.3)", borderRadius: 10, padding: "9px 14px", marginBottom: 12, fontSize: 13, flexShrink: 0 }}>
+              <span style={{ flex: 1, minWidth: 0 }}>Welcome! Connect a calendar to bring this to life — takes about a minute.</span>
+              <Link to="/start" className="btn-primary hoverable" style={{ textDecoration: "none", padding: "5px 14px", fontSize: 12, whiteSpace: "nowrap" }}>
+                Finish setup
+              </Link>
+              <button onClick={dismissNag} aria-label="Dismiss setup nag" style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", padding: 2, display: "inline-flex" }}>
+                <Icon name="x" size={13} />
+              </button>
+            </div>
+          )}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, minWidth: 0, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
             <div style={{ height: 2, background: eventsLoading ? "var(--accent)" : "transparent", transition: "background 0.15s", flexShrink: 0 }} />
             {error && (

@@ -5,6 +5,7 @@ x-python-env: &python-env
   REDIS_URL: redis://redis:6379/0
   JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env — see .env.example}
   ALLOW_INSECURE_DEV_SECRET: ${ALLOW_INSECURE_DEV_SECRET:-}
+  ALLOW_SIGNUPS: ${ALLOW_SIGNUPS:-false}
   TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
   APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
   CORS_ORIGINS: ${CORS_ORIGINS:-${APP_BASE_URL:-http://localhost:3000}}

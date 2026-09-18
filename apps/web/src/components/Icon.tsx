@@ -65,6 +65,17 @@ const PATHS: Record<string, React.ReactNode> = {
     </>
   ),
   external: <path d="M14 4h6v6M20 4L10 14M9 5H5a1 1 0 00-1 1v13a1 1 0 001 1h13a1 1 0 001-1v-4" />,
+  google: (
+    <text x="12" y="17" textAnchor="middle" fontSize="14" fontWeight="800" fill="#4285F4" stroke="none" fontFamily="Arial, sans-serif">G</text>
+  ),
+  microsoft: (
+    <>
+      <rect x="3" y="3" width="8.5" height="8.5" fill="#f25022" stroke="none" />
+      <rect x="12.5" y="3" width="8.5" height="8.5" fill="#7fba00" stroke="none" />
+      <rect x="3" y="12.5" width="8.5" height="8.5" fill="#00a4ef" stroke="none" />
+      <rect x="12.5" y="12.5" width="8.5" height="8.5" fill="#ffb900" stroke="none" />
+    </>
+  ),
   sun: (
     <>
       <circle cx="12" cy="12" r="4" />

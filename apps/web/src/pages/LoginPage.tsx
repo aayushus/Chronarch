@@ -1,17 +1,33 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { apiFetch } from "../api/client";
 import { useAuth } from "../api/auth";
-import Icon from "../components/Icon";
 
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [signupAllowed, setSignupAllowed] = useState(false);
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    apiFetch<{ allowed: boolean }>("/auth/signup-status")
+      .then((res) => setSignupAllowed(res.allowed))
+      .catch(() => {
+        /* server unreachable — login form still works */
+      });
+  }, []);
+
+  function switchMode(next: "login" | "signup") {
+    setMode(next);
+    setError(null);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -19,8 +35,28 @@ export default function LoginPage() {
     setError(null);
     setBusy(true);
     try {
+      if (mode === "signup") {
+        await apiFetch("/auth/signup", {
+          method: "POST",
+          body: JSON.stringify({ email, display_name: name.trim(), password }),
+        });
+      }
       await login(email, password, rememberMe);
-      navigate("/");
+      // Fresh workspace? Land directly in the setup wizard instead of an
+      // empty calendar. Delegates (403 here) and connected workspaces go home.
+      try {
+        const { adminListAccounts } = await import("../api/admin");
+        const accounts = await adminListAccounts();
+        let onboarded = false;
+        try {
+          onboarded = localStorage.getItem("chronarch_onboarded") === "1";
+        } catch {
+          /* private mode */
+        }
+        navigate(accounts.length === 0 && !onboarded ? "/start" : "/");
+      } catch {
+        navigate("/");
+      }
     } catch (err) {
       // apiFetch throws "401 Unauthorized: …" for bad credentials — show a
       // clean message for that, and a distinct one for outages so users
@@ -29,6 +65,12 @@ export default function LoginPage() {
       setError(
         msg.startsWith("401")
           ? "Invalid email or password."
+          : msg.startsWith("403")
+          ? "Public signup is disabled on this server — ask your admin for an account."
+          : msg.startsWith("409")
+          ? "An account with that email already exists — sign in instead."
+          : msg.startsWith("422")
+          ? "Check the form — names can't be blank and passwords need 8+ characters."
           : "Couldn't reach the server. Check your connection and try again."
       );
       setBusy(false);
@@ -69,53 +111,42 @@ export default function LoginPage() {
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
-            gap: 18,
+            alignItems: "center",
+            gap: 14,
             background:
               "linear-gradient(160deg, rgba(10,132,255,0.22), rgba(94,92,230,0.16) 45%, transparent 75%)",
             borderRight: "1px solid var(--border-subtle)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <img src="/logo.svg" alt="" width={44} height={44} style={{ borderRadius: 11 }} />
-            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>Chronarch</div>
-          </div>
-          <div style={{ fontSize: 15, lineHeight: 1.5, color: "var(--text-secondary)" }}>
-            One calendar control plane for admins, delegates, and AI agents.
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
-            {[
-              { icon: "calendar" as const, text: "Every calendar, one week view" },
-              { icon: "users" as const, text: "Delegate safely with scoped access" },
-              { icon: "command" as const, text: "ChatGPT, Claude, and copilot ready" },
-            ].map((row) => (
-              <div key={row.text} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
-                <span
-                  style={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: 8,
-                    background: "rgba(10, 132, 255, 0.14)",
-                    color: "var(--accent)",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Icon name={row.icon} size={14} />
-                </span>
-                <span>{row.text}</span>
-              </div>
-            ))}
-          </div>
+          <img src="/logo.svg" alt="" width={64} height={64} style={{ borderRadius: 16 }} />
+          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em" }}>Chronarch</div>
         </div>
 
         {/* Form panel */}
         <div style={{ flex: "1 1 54%", padding: "40px 36px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Welcome back</div>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
+            {mode === "signup" ? "Create your account" : "Welcome back"}
+          </div>
           <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>
-            Sign in with your workspace account.
+            {mode === "signup"
+              ? "New accounts start as workspace admins."
+              : "Sign in with your workspace account."}
           </div>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {mode === "signup" && (
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+                Name
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  autoComplete="name"
+                  placeholder="Your name"
+                  className="input-standard"
+                  style={{ marginTop: 6, width: "100%", fontSize: 14, padding: "10px 12px" }}
+                />
+              </label>
+            )}
             <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
               Email
               <input
@@ -177,12 +208,18 @@ export default function LoginPage() {
               </div>
             )}
             <button type="submit" className="btn-primary" disabled={busy} style={{ marginTop: 6, padding: 11, fontSize: 14 }}>
-              {busy ? "Signing in…" : "Sign in"}
+              {busy ? (mode === "signup" ? "Creating…" : "Signing in…") : mode === "signup" ? "Create account" : "Sign in"}
             </button>
           </form>
-          <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 18, textAlign: "center" }}>
-            Self-hosted and private — your calendars never leave this server.
-          </div>
+          {signupAllowed && (
+            <div style={{ fontSize: 12.5, color: "var(--text-secondary)", marginTop: 14, textAlign: "center" }}>
+              {mode === "signup" ? (
+                <>Have an account? <button onClick={() => switchMode("login")} style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 700, fontSize: 12.5, cursor: "pointer", padding: 0 }}>Sign in</button></>
+              ) : (
+                <>New here? <button onClick={() => switchMode("signup")} style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 700, fontSize: 12.5, cursor: "pointer", padding: 0 }}>Create an account</button></>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

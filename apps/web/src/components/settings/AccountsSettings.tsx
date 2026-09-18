@@ -29,6 +29,19 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 type WizardProvider = "google" | "microsoft" | "caldav" | "ics" | null;
 
+/** True when the user arrived here mid-onboarding (OAuth round-trip) and
+ * hasn't finished setup — the success banner offers a resume link. */
+function resumingOnboarding(): boolean {
+  try {
+    return (
+      localStorage.getItem("chronarch_onboarding_step") !== null &&
+      localStorage.getItem("chronarch_onboarded") !== "1"
+    );
+  } catch {
+    return false;
+  }
+}
+
 export default function AccountsSettings() {
   const [accounts, setAccounts] = useState<AdminAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,6 +223,14 @@ export default function AccountsSettings() {
           }}
         >
           {banner.text}
+          {banner.kind === "success" && resumingOnboarding() && (
+            <>
+              {" "}
+              <a href="/start" style={{ color: "inherit", fontWeight: 700 }}>
+                Continue setup →
+              </a>
+            </>
+          )}
         </div>
       )}
 

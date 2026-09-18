@@ -9,6 +9,7 @@ import { ToastProvider } from "./components/Toast";
 import LoginPage from "./pages/LoginPage";
 import CalendarPage from "./pages/CalendarPage";
 import SettingsPage from "./pages/SettingsPage";
+import StartPage from "./pages/StartPage";
 import BookPage from "./pages/BookPage";
 import CancelBookingPage from "./pages/CancelBookingPage";
 import KioskPage from "./pages/KioskPage";
@@ -39,6 +40,15 @@ function App() {
           <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          {/* First-run wizard — skippable, delegates never enter. */}
+          <Route
+            path="/start"
+            element={
+              <RequireAuth>
+                <StartPage />
+              </RequireAuth>
+            }
+          />
           {/* Public booking surface — no auth shell by design. */}
           <Route path="/book/:slug" element={<BookPage />} />
           <Route path="/book/cancel/:token" element={<CancelBookingPage />} />

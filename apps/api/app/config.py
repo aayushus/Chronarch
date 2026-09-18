@@ -57,3 +57,8 @@ LOGIN_RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get("LOGIN_RATE_LIMIT_WINDOW_SE
 PASSWORD_RATE_LIMIT_REQUESTS = int(os.environ.get("PASSWORD_RATE_LIMIT_REQUESTS", "5"))
 PASSWORD_RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get("PASSWORD_RATE_LIMIT_WINDOW_SECONDS", "60"))
 
+# Public self-signup. Default OFF: accounts are created by an admin (or the
+# seed script). Set ALLOW_SIGNUPS=true to expose registration — every
+# signup is a workspace admin, so the gate is the access control.
+ALLOW_SIGNUPS = os.environ.get("ALLOW_SIGNUPS", "false").strip().lower() in ("1", "true", "yes")
+
