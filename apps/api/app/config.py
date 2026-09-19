@@ -62,3 +62,11 @@ PASSWORD_RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get("PASSWORD_RATE_LIMIT_WIN
 # signup is a workspace admin, so the gate is the access control.
 ALLOW_SIGNUPS = os.environ.get("ALLOW_SIGNUPS", "false").strip().lower() in ("1", "true", "yes")
 
+# SMTP Email Configuration
+SMTP_HOST = os.environ.get("SMTP_HOST", "")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", SMTP_USER or "noreply@chronarch.internal")
+SMTP_TLS = os.environ.get("SMTP_TLS", "true").lower() in ("true", "1", "yes")
+

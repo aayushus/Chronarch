@@ -103,6 +103,7 @@ async def create_user(
     user = User(
         email=body.email, display_name=body.display_name,
         password_hash=hash_password(body.password), role=body.role,
+        force_password_change=(body.role != UserRole.ADMIN),
     )
     session.add(user)
     await session.flush()

@@ -16,6 +16,23 @@ export interface CalendarSummary {
   kind: string;
   account_id: string;
   account_label: string;
+  ics_sync_interval_minutes?: number;
+}
+
+export function updateCalendar(
+  calendarId: string,
+  patch: {
+    name?: string;
+    color?: string;
+    visible?: boolean;
+    blocks_availability?: boolean;
+    ics_sync_interval_minutes?: number;
+  }
+): Promise<CalendarSummary> {
+  return apiFetch<CalendarSummary>(`/calendars/${calendarId}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
 }
 
 export interface Attendee {

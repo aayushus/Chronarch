@@ -52,10 +52,20 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    force_password_change: bool = False
 
 
 class LogoutResponse(BaseModel):
     status: str = "ok"
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
 
 
 @router.post("/login", response_model=LoginResponse, dependencies=[Depends(login_rate_limiter)])
@@ -63,7 +73,57 @@ async def login(body: LoginRequest, session: AsyncSession = Depends(get_db_sessi
     user = (await session.execute(select(User).where(User.email == body.email))).scalar_one_or_none()
     if user is None or not user.is_active or not verify_password(body.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid email or password")
-    return LoginResponse(access_token=create_access_token(user.id, remember_me=body.remember_me))
+    return LoginResponse(
+        access_token=create_access_token(user.id, remember_me=body.remember_me),
+        force_password_change=user.force_password_change,
+    )
+
+
+@router.post("/forgot-password", dependencies=[Depends(password_rate_limiter)])
+async def forgot_password(body: ForgotPasswordRequest, session: AsyncSession = Depends(get_db_session)):
+    import secrets
+    from datetime import datetime, timedelta, timezone
+    from chronarch_core.email import send_password_reset_email, is_smtp_configured
+    from ..config import APP_BASE_URL
+
+    user = (await session.execute(select(User).where(User.email == body.email))).scalar_one_or_none()
+    if user and user.is_active:
+        token = secrets.token_urlsafe(32)
+        user.reset_token = token
+        user.reset_token_expires = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+        await session.flush()
+
+        reset_url = f"{APP_BASE_URL.rstrip('/')}/login?reset_token={token}"
+        send_password_reset_email(user.email, reset_url)
+
+    # Return success regardless to prevent user enumeration
+    return {"status": "ok", "message": "If an account exists with that email, a password reset link has been sent."}
+
+
+@router.post("/reset-password", dependencies=[Depends(password_rate_limiter)])
+async def reset_password(body: ResetPasswordRequest, session: AsyncSession = Depends(get_db_session)):
+    from datetime import datetime, timezone
+
+    if len(body.new_password) < MIN_PASSWORD_LENGTH:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Password must be at least {MIN_PASSWORD_LENGTH} characters",
+        )
+
+    user = (await session.execute(select(User).where(User.reset_token == body.token))).scalar_one_or_none()
+    if user is None or not user.reset_token_expires:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid or expired reset token")
+
+    exp = datetime.fromisoformat(user.reset_token_expires)
+    if datetime.now(timezone.utc) > exp:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Reset token has expired")
+
+    user.password_hash = hash_password(body.new_password)
+    user.reset_token = None
+    user.reset_token_expires = None
+    user.force_password_change = False
+    await session.flush()
+    return {"status": "ok", "message": "Password updated successfully. You can now log in."}
 
 
 @router.post("/logout", response_model=LogoutResponse)
@@ -75,6 +135,7 @@ async def logout(
     if credentials:
         await revoke_token(credentials.credentials)
     return LogoutResponse(status="ok")
+
 
 
 class SignupRequest(BaseModel):
@@ -146,6 +207,7 @@ class MeResponse(BaseModel):
     working_days: str = "1,2,3,4,5"
     min_meeting_notice_minutes: int = 0
     meeting_buffer_minutes: int = 0
+    force_password_change: bool = False
 
 
 def _me_response(user: User, *, permissions=None, roles=None) -> MeResponse:
@@ -163,6 +225,7 @@ def _me_response(user: User, *, permissions=None, roles=None) -> MeResponse:
         working_days=user.working_days or "1,2,3,4,5",
         min_meeting_notice_minutes=user.min_meeting_notice_minutes or 0,
         meeting_buffer_minutes=user.meeting_buffer_minutes or 0,
+        force_password_change=user.force_password_change,
     )
 
 
@@ -288,5 +351,6 @@ async def change_my_password(
             f"New password must be at least {MIN_PASSWORD_LENGTH} characters",
         )
     user.password_hash = hash_password(body.new_password)
+    user.force_password_change = False
     await session.flush()
     return _me_response(user)

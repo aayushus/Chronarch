@@ -39,3 +39,4 @@ class Calendar(Base, TimestampMixin):
     privacy_mask: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     ics_subscription_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    ics_sync_interval_minutes: Mapped[int] = mapped_column(default=60, nullable=False)

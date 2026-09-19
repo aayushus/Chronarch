@@ -372,6 +372,40 @@ export default function AccountsSettings() {
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {a.provider === "ics" && (
+                      <select
+                        defaultValue="60"
+                        onChange={async (e) => {
+                          const mins = parseInt(e.target.value, 10);
+                          try {
+                            const { listCalendars, updateCalendar } = await import("../../api/calendar");
+                            const cals = await listCalendars();
+                            const sub = cals.find((c) => c.account_id === a.id);
+                            if (sub) {
+                              await updateCalendar(sub.id, { ics_sync_interval_minutes: mins });
+                              setBanner({ kind: "success", text: `Updated ${a.provider_account_email} sync frequency to ${mins} minutes.` });
+                            }
+                          } catch (err) {
+                            setError(friendlyError(err));
+                          }
+                        }}
+                        style={{
+                          background: "var(--bg-app)",
+                          border: "1px solid var(--border-subtle)",
+                          borderRadius: 6,
+                          color: "var(--text-primary)",
+                          padding: "5px 8px",
+                          fontSize: 12,
+                        }}
+                        title="Auto-refresh frequency for this subscription feed"
+                      >
+                        <option value="15">Sync every 15m</option>
+                        <option value="30">Sync every 30m</option>
+                        <option value="60">Sync every 1h</option>
+                        <option value="360">Sync every 6h</option>
+                        <option value="1440">Sync every 24h</option>
+                      </select>
+                    )}
                     {(isGoogle || isMicrosoft) && a.push_status !== "active" && (
                       <button
                         onClick={() => handleEnablePush(a)}

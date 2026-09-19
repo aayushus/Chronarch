@@ -526,6 +526,34 @@ export default function CalendarPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "var(--bg-app)", overflow: "hidden" }}>
+      {/* Re-Authentication Alert Banner */}
+      {calendars.some((c) => (c as any).sync_status === "needs_auth") && (
+        <div
+          style={{
+            background: "rgba(255, 159, 10, 0.15)",
+            borderBottom: "1px solid rgba(255, 159, 10, 0.4)",
+            padding: "8px 24px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontSize: 13,
+            color: "var(--warning)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Icon name="alert-triangle" size={16} />
+            <span>One or more connected calendar accounts require re-authentication. Sync is currently paused for those accounts.</span>
+          </div>
+          <Link
+            to="/settings?section=accounts"
+            className="btn-secondary"
+            style={{ fontSize: 12, padding: "4px 10px", background: "var(--bg-card)", color: "var(--text-primary)" }}
+          >
+            Re-connect Account
+          </Link>
+        </div>
+      )}
+
       {/* Command header */}
       <header style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 24px", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
         <div style={{ minWidth: 0 }}>

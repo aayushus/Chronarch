@@ -39,6 +39,7 @@ class CalendarOut(BaseModel):
     kind: str
     account_id: str
     account_label: str
+    ics_sync_interval_minutes: int = 60
 
     model_config = {"from_attributes": True}
 
@@ -97,6 +98,7 @@ async def list_calendars(
                 blocks_availability=c.blocks_availability,
                 kind=c.kind.value, account_id=c.account_id,
                 account_label=accounts[c.account_id].provider_account_email if c.account_id in accounts else "Unknown",
+                ics_sync_interval_minutes=getattr(c, "ics_sync_interval_minutes", 60),
             )
         )
     return out
@@ -205,3 +207,65 @@ async def trigger_user_sync(
         "accounts_synced": len(accounts),
         "errors": errors,
     }
+
+
+class CalendarUpdate(BaseModel):
+    name: str | None = None
+    color: str | None = None
+    visible: bool | None = None
+    blocks_availability: bool | None = None
+    ics_sync_interval_minutes: int | None = None
+
+
+@router.patch("/{calendar_id}", response_model=CalendarOut)
+async def update_calendar(
+    calendar_id: str,
+    body: CalendarUpdate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    from fastapi import HTTPException, status
+
+    calendar = await session.get(Calendar, calendar_id)
+    if calendar is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Calendar not found")
+
+    if body.name is not None:
+        calendar.name = body.name.strip()
+    if body.color is not None:
+        calendar.color = body.color.strip()
+    if body.visible is not None:
+        calendar.visible = body.visible
+    if body.blocks_availability is not None:
+        calendar.blocks_availability = body.blocks_availability
+    if body.ics_sync_interval_minutes is not None:
+        if body.ics_sync_interval_minutes not in (15, 30, 60, 360, 1440):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "ics_sync_interval_minutes must be 15, 30, 60, 360, or 1440")
+        calendar.ics_sync_interval_minutes = body.ics_sync_interval_minutes
+
+    await session.commit()
+    await session.refresh(calendar)
+
+    is_owner = await is_calendar_owner(session, user, calendar)
+    grant = None
+    if not is_owner and user.role == UserRole.DELEGATE:
+        grant = await get_delegation_grant(session, user.id, calendar.id)
+
+    ctx = build_auth_context(user, actor_type_for(user))
+    can_create = resolve_permission(ctx, calendar, CalendarAction.CREATE, is_owner=is_owner, delegation_grant=grant).allowed
+    can_edit = resolve_permission(ctx, calendar, CalendarAction.EDIT, is_owner=is_owner, delegation_grant=grant).allowed
+    can_reschedule = resolve_permission(ctx, calendar, CalendarAction.RESCHEDULE, is_owner=is_owner, delegation_grant=grant).allowed
+    can_delete = resolve_permission(ctx, calendar, CalendarAction.DELETE, is_owner=is_owner, delegation_grant=grant).allowed
+
+    account = await session.get(Account, calendar.account_id) if calendar.account_id else None
+
+    return CalendarOut(
+        id=calendar.id, name=calendar.name, color=calendar.color, visible=calendar.visible,
+        writable=can_reschedule, provider_writable=calendar.provider_writable,
+        can_create=can_create, can_edit=can_edit,
+        can_reschedule=can_reschedule, can_delete=can_delete,
+        blocks_availability=calendar.blocks_availability,
+        kind=calendar.kind.value, account_id=calendar.account_id,
+        account_label=account.provider_account_email if account else "Unknown",
+        ics_sync_interval_minutes=calendar.ics_sync_interval_minutes,
+    )

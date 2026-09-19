@@ -361,13 +361,34 @@ export default function CopilotDrawer({
             style={{
               color: "var(--danger)",
               fontSize: 12,
-              padding: "8px 12px",
+              padding: "10px 14px",
               borderRadius: "var(--radius-sm)",
               background: "rgba(255, 69, 58, 0.1)",
               border: "1px solid rgba(255, 69, 58, 0.3)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
             }}
           >
-            {error}
+            <div>{error}</div>
+            {(error.toLowerCase().includes("key") ||
+              error.toLowerCase().includes("model") ||
+              error.toLowerCase().includes("litellm") ||
+              error.toLowerCase().includes("provider") ||
+              error.toLowerCase().includes("configured")) && (
+              <a
+                href="/settings?section=ai"
+                onClick={onClose}
+                style={{
+                  fontSize: 11,
+                  color: "var(--accent)",
+                  fontWeight: 600,
+                  textDecoration: "underline",
+                }}
+              >
+                Go to Settings → AI / Copilot to configure provider keys
+              </a>
+            )}
           </div>
         )}
         <div ref={endRef} />

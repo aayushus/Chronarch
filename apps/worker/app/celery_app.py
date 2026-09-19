@@ -33,14 +33,30 @@ async def _reconcile_single(session, account: Account) -> dict:
 
         return await sync_caldav_account(session, account)
     elif account.provider == ProviderType.ICS:
+        from datetime import datetime, timezone
         from chronarch_core.models.calendar import Calendar
         from chronarch_core.sync.ics_sync import sync_ics_subscription_calendar
 
         cals = list((await session.execute(select(Calendar).where(Calendar.account_id == account.id))).scalars())
         stats = []
+        now = datetime.now(timezone.utc)
         for cal in cals:
-            stats.append(await sync_ics_subscription_calendar(session, cal))
-        return {"status": "ok", "ics_calendars_synced": len(cals), "details": stats}
+            # Respect configured ics_sync_interval_minutes
+            should_sync = True
+            if cal.updated_at:
+                try:
+                    last_sync = cal.updated_at.replace(tzinfo=timezone.utc) if cal.updated_at.tzinfo is None else cal.updated_at
+                    elapsed_minutes = (now - last_sync).total_seconds() / 60
+                    interval = getattr(cal, "ics_sync_interval_minutes", 60) or 60
+                    if elapsed_minutes < interval:
+                        should_sync = False
+                except Exception:
+                    should_sync = True
+
+            if should_sync:
+                res = await sync_ics_subscription_calendar(session, cal)
+                stats.append(res)
+        return {"status": "ok", "ics_calendars_synced": len(stats), "details": stats}
     return {"status": "unsupported_provider", "provider": account.provider.value}
 
 

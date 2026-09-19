@@ -154,128 +154,223 @@ export default function LoginPage() {
             Self-hosted & Enterprise Privacy Protected
           </div>
         </div>
-
-        {/* Form panel */}
-        <div style={{ flex: "1 1 52%", padding: "44px 36px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
-            Welcome back
-          </div>
-          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 24 }}>
-            Sign in with your organizational credentials.
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                background: "var(--accent)",
+                color: "#fff",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 24,
+                fontWeight: 800,
+                marginBottom: 12,
+              }}
+            >
+              C
+            </div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Sign in to Chronarch</h1>
+            <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: 0 }}>Executive calendar governance & scheduling</p>
           </div>
 
           {invitedBanner && (
             <div
               style={{
-                background: "rgba(48, 209, 88, 0.12)",
-                border: "1px solid rgba(48, 209, 88, 0.3)",
-                color: "var(--success)",
+                background: "rgba(10, 132, 255, 0.1)",
+                border: "1px solid rgba(10, 132, 255, 0.3)",
                 borderRadius: "var(--radius-sm)",
-                fontSize: 12.5,
                 padding: "10px 12px",
+                fontSize: 12.5,
+                color: "var(--accent)",
                 marginBottom: 16,
-                lineHeight: 1.5,
               }}
             >
               {invitedBanner}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
-              Email address
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="username"
-                placeholder="you@example.com"
-                className="input-standard"
-                style={{ marginTop: 6, width: "100%", fontSize: 14, padding: "10px 12px" }}
-              />
-            </label>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", position: "relative" }}>
-              Password
-              <div style={{ position: "relative", marginTop: 6 }}>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  className="input-standard"
-                  style={{ width: "100%", fontSize: 14, padding: "10px 40px 10px 12px" }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  style={{
-                    position: "absolute",
-                    right: 10,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "none",
-                    border: "none",
-                    color: "var(--text-tertiary)",
-                    cursor: "pointer",
-                    padding: 4,
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  <Icon name={showPassword ? "eye-off" : "eye"} size={16} />
-                </button>
-              </div>
-            </label>
-            <label
+          {resetMsg && (
+            <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontSize: 13,
-                color: "var(--text-secondary)",
-                cursor: "pointer",
-                userSelect: "none",
+                background: "rgba(48, 209, 88, 0.1)",
+                border: "1px solid rgba(48, 209, 88, 0.3)",
+                borderRadius: "var(--radius-sm)",
+                padding: "10px 12px",
+                fontSize: 12.5,
+                color: "var(--success)",
+                marginBottom: 16,
               }}
             >
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                style={{ accentColor: "var(--accent)", width: 14, height: 14 }}
-              />
-              Remember me for 30 days
-            </label>
+              {resetMsg}
+            </div>
+          )}
 
-            {error && (
-              <div
-                role="alert"
+          {resetToken ? (
+            <form onSubmit={handleResetSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Reset Your Password</h3>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+                New Password
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  placeholder="••••••••"
+                  className="input-standard"
+                  style={{ marginTop: 6, width: "100%", fontSize: 14, padding: "10px 12px" }}
+                />
+              </label>
+              {resetError && <div style={{ color: "var(--danger)", fontSize: 12 }}>{resetError}</div>}
+              <button type="submit" className="btn-primary" disabled={resetBusy} style={{ padding: "11px 16px", fontSize: 14, fontWeight: 600 }}>
+                {resetBusy ? "Updating…" : "Set New Password"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+                Email address
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="username"
+                  placeholder="you@example.com"
+                  className="input-standard"
+                  style={{ marginTop: 6, width: "100%", fontSize: 14, padding: "10px 12px" }}
+                />
+              </label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", position: "relative" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>Password</span>
+                  <button
+                    type="button"
+                    onClick={() => setForgotModalOpen(true)}
+                    style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 12, cursor: "pointer", padding: 0 }}
+                  >
+                    Forgot?
+                  </button>
+                </div>
+                <div style={{ position: "relative", marginTop: 6 }}>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    className="input-standard"
+                    style={{ width: "100%", fontSize: 14, padding: "10px 40px 10px 12px" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    style={{
+                      position: "absolute",
+                      right: 10,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      color: "var(--text-tertiary)",
+                      cursor: "pointer",
+                      padding: 4,
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Icon name={showPassword ? "eye-off" : "eye"} size={16} />
+                  </button>
+                </div>
+              </label>
+              <label
                 style={{
-                  color: "var(--danger)",
-                  background: "rgba(255, 69, 58, 0.1)",
-                  border: "1px solid rgba(255, 69, 58, 0.3)",
-                  borderRadius: "var(--radius-sm)",
-                  fontSize: 12.5,
-                  padding: "10px 12px",
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
+                  fontSize: 13,
+                  color: "var(--text-secondary)",
+                  cursor: "pointer",
+                  userSelect: "none",
                 }}
               >
-                <Icon name="alert-triangle" size={16} />
-                <span>{error}</span>
-              </div>
-            )}
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  style={{ accentColor: "var(--accent)", width: 14, height: 14 }}
+                />
+                Remember me for 30 days
+              </label>
 
-            <button type="submit" className="btn-primary" disabled={busy} style={{ marginTop: 8, padding: "11px 16px", fontSize: 14, fontWeight: 600 }}>
-              {busy ? "Signing in…" : "Sign in"}
-            </button>
-          </form>
+              {error && (
+                <div
+                  role="alert"
+                  style={{
+                    color: "var(--danger)",
+                    background: "rgba(255, 69, 58, 0.1)",
+                    border: "1px solid rgba(255, 69, 58, 0.3)",
+                    borderRadius: "var(--radius-sm)",
+                    fontSize: 12.5,
+                    padding: "10px 12px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <Icon name="alert-triangle" size={16} />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <button type="submit" className="btn-primary" disabled={busy} style={{ marginTop: 8, padding: "11px 16px", fontSize: 14, fontWeight: 600 }}>
+                {busy ? "Signing in…" : "Sign in"}
+              </button>
+            </form>
+          )}
         </div>
       </div>
+
+      {forgotModalOpen && (
+        <div className="cal-modal-wash" onClick={() => setForgotModalOpen(false)}>
+          <div className="cal-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400, padding: 24 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 8px 0" }}>Forgot Password</h3>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px 0" }}>
+              Enter your account email address and we'll send a link to reset your password.
+            </p>
+            {forgotMsg ? (
+              <div style={{ fontSize: 13, color: "var(--success)", background: "rgba(48, 209, 88, 0.1)", padding: 12, borderRadius: 6, marginBottom: 16 }}>
+                {forgotMsg}
+              </div>
+            ) : (
+              <form onSubmit={handleForgotSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <input
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  required
+                  placeholder="you@example.com"
+                  className="input-standard"
+                  style={{ width: "100%", fontSize: 14, padding: "10px 12px" }}
+                />
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                  <button type="button" onClick={() => setForgotModalOpen(false)} className="btn-secondary" style={{ padding: "8px 14px", fontSize: 13 }}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-primary" disabled={forgotBusy} style={{ padding: "8px 14px", fontSize: 13 }}>
+                    {forgotBusy ? "Sending…" : "Send Reset Link"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

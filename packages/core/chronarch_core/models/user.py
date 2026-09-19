@@ -25,3 +25,6 @@ class User(Base, TimestampMixin):
     working_hours_end: Mapped[str] = mapped_column(String, nullable=False, default="17:00")
     min_meeting_notice_minutes: Mapped[int] = mapped_column(default=0)
     meeting_buffer_minutes: Mapped[int] = mapped_column(default=0)
+    force_password_change: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    reset_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    reset_token_expires: Mapped[Optional[str]] = mapped_column(String, nullable=True)

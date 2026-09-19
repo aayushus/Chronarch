@@ -154,7 +154,15 @@ async def sync_microsoft_account(session: AsyncSession, account: Account) -> dic
         account.last_synced_at = datetime.now(timezone.utc).isoformat()
         account.last_sync_error = None
     except Exception as exc:
-        account.sync_status = "error"
+        import httpx
+        is_auth_error = False
+        if isinstance(exc, httpx.HTTPStatusError):
+            if exc.response.status_code in (400, 401):
+                is_auth_error = True
+        elif "invalid_grant" in str(exc).lower() or "unauthorized" in str(exc).lower():
+            is_auth_error = True
+
+        account.sync_status = "needs_auth" if is_auth_error else "error"
         account.last_sync_error = str(exc)[:500]
         raise
     finally:
