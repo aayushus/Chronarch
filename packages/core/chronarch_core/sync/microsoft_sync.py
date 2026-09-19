@@ -60,6 +60,10 @@ async def sync_microsoft_account(session: AsyncSession, account: Account) -> dic
         window_start = datetime.now(timezone.utc) - BACKFILL_PAST
         window_end = datetime.now(timezone.utc) + BACKFILL_FUTURE
 
+        import asyncio
+
+        # 1. Provision / sync calendar database rows
+        synced_calendars = []
         for i, remote_cal in enumerate(remote_calendars):
             calendar = existing_by_provider_id.get(remote_cal.provider_calendar_id)
             if calendar is None:
@@ -82,15 +86,27 @@ async def sync_microsoft_account(session: AsyncSession, account: Account) -> dic
             else:
                 calendar.name = remote_cal.name
                 calendar.provider_writable = remote_cal.writable
-
+            synced_calendars.append((calendar, remote_cal))
             calendars_synced += 1
 
-            remote_events, deleted_ids, _ = await connector.list_events(
-                remote_cal.provider_calendar_id,
+        # 2. Fetch events in parallel across all calendars using asyncio.gather (Performance 2B)
+        fetch_results = await asyncio.gather(*[
+            connector.list_events(
+                r_cal.provider_calendar_id,
                 window_start=window_start,
                 window_end=window_end,
-                calendar_writable=remote_cal.writable,
+                sync_token=account.delta_token,
+                calendar_writable=r_cal.writable,
             )
+            for _, r_cal in synced_calendars
+        ], return_exceptions=True)
+
+        for (calendar, remote_cal), res in zip(synced_calendars, fetch_results):
+            if isinstance(res, Exception):
+                continue
+            remote_events, deleted_ids, delta_link = res
+            if delta_link:
+                account.delta_token = delta_link
 
             existing_events = {
                 e.provider_event_id: e
@@ -112,7 +128,6 @@ async def sync_microsoft_account(session: AsyncSession, account: Account) -> dic
                     await session.delete(stale)
                     events_deleted += 1
 
-            # Never prune locally-created events that have not been written upstream yet.
             for provider_event_id in list(existing_events.keys()):
                 if not provider_event_id or provider_event_id.startswith("local-"):
                     continue

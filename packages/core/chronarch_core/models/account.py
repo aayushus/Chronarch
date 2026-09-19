@@ -39,3 +39,7 @@ class Account(Base, TimestampMixin):
     sync_status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
     last_synced_at: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     last_sync_error: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    # Provider incremental sync tokens (Performance 2A)
+    sync_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    delta_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)

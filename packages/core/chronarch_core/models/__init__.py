@@ -18,6 +18,7 @@ from .rbac import Role, RolePermission, RoleAssignment
 from .account import Account
 from .calendar import Calendar
 from .event import UnifiedEvent
+from .materialized_occurrence import MaterializedOccurrence
 from .delegation import Delegation, DelegationCalendarGrant
 from .audit import AuditEntry
 from .mcp_credential import MCPCredential
@@ -47,6 +48,7 @@ __all__ = [
     "Account",
     "Calendar",
     "UnifiedEvent",
+    "MaterializedOccurrence",
     "Delegation",
     "DelegationCalendarGrant",
     "AuditEntry",

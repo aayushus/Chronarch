@@ -410,22 +410,24 @@ class MicrosoftConnector(BaseConnector):
         sync_token: Optional[str] = None,
         calendar_writable: bool = True,
     ) -> tuple[list[RemoteEvent], list[str], Optional[str]]:
-        params = {
-            "startDateTime": window_start.isoformat(),
-            "endDateTime": window_end.isoformat(),
-            "$top": "250",
-        }
-        path = f"/me/calendars/{quote(calendar_id, safe='')}/calendarView"
+        if sync_token and sync_token.startswith("http"):
+            url = sync_token
+            params = {}
+        else:
+            params = {
+                "startDateTime": window_start.isoformat(),
+                "endDateTime": window_end.isoformat(),
+                "$top": "250",
+            }
+            url = f"/me/calendars/{quote(calendar_id, safe='')}/calendarView"
         events: list[RemoteEvent] = []
         deleted_ids: list[str] = []
-        next_link: Optional[str] = None
 
-        url = path
         while True:
-            resp = await self._request("GET", url, params=params if url == path else None)
+            resp = await self._request("GET", url, params=params if params else None)
             data = resp.json()
             for item in data.get("value", []):
-                if item.get("isCancelled"):
+                if item.get("isCancelled") or item.get("@removed"):
                     if item.get("id"):
                         deleted_ids.append(item["id"])
                     continue
@@ -434,6 +436,7 @@ class MicrosoftConnector(BaseConnector):
             if not next_link:
                 break
             url = next_link
+            params = {}
 
         delta_token = data.get("@odata.deltaLink")
         return events, deleted_ids, delta_token

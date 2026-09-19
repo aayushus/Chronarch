@@ -10,7 +10,10 @@ import { EventSummary, listEvents } from "../api/calendar";
 const cache = new Map<string, Promise<EventSummary[]>>();
 
 function keyFor(start: Date, end: Date): string {
-  return `${start.toISOString()}_${end.toISOString()}`;
+  // Performance 3B: Bucket keys by Year-Month-Day range boundary to allow view switching reuse
+  const s = `${start.getFullYear()}-${start.getMonth() + 1}-${start.getDate()}`;
+  const e = `${end.getFullYear()}-${end.getMonth() + 1}-${end.getDate()}`;
+  return `${s}_${e}`;
 }
 
 export function fetchEventsLazy(start: Date, end: Date): Promise<EventSummary[]> {

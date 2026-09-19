@@ -67,6 +67,10 @@ async def sync_google_account(session: AsyncSession, account: Account) -> dict:
         window_start = datetime.now(timezone.utc) - BACKFILL_PAST
         window_end = datetime.now(timezone.utc) + BACKFILL_FUTURE
 
+        import asyncio
+
+        # 1. Provision / sync calendar database rows
+        synced_calendars = []
         for i, remote_cal in enumerate(remote_calendars):
             calendar = existing_by_provider_id.get(remote_cal.provider_calendar_id)
             if calendar is None:
@@ -77,9 +81,6 @@ async def sync_google_account(session: AsyncSession, account: Account) -> dict:
                     name=remote_cal.name,
                     color=remote_cal.color or DEFAULT_PALETTE[i % len(DEFAULT_PALETTE)],
                     provider_writable=remote_cal.writable,
-                    # Deny-by-default for EA/AI access — an admin grants these
-                    # explicitly afterward (BRD §12), a freshly connected
-                    # calendar should never be silently exposed.
                     visible=True,
                     blocks_availability=True,
                     ea_can_view=False,
@@ -92,18 +93,28 @@ async def sync_google_account(session: AsyncSession, account: Account) -> dict:
             else:
                 calendar.name = remote_cal.name
                 calendar.provider_writable = remote_cal.writable
-
+            synced_calendars.append((calendar, remote_cal))
             calendars_synced += 1
 
-            remote_events, deleted_ids, _ = await connector.list_events(
-                remote_cal.provider_calendar_id,
+        # 2. Fetch events in parallel across all calendars using asyncio.gather (Performance 2B)
+        fetch_results = await asyncio.gather(*[
+            connector.list_events(
+                r_cal.provider_calendar_id,
                 window_start=window_start,
                 window_end=window_end,
-                calendar_writable=remote_cal.writable,
+                sync_token=account.sync_token,
+                calendar_writable=r_cal.writable,
             )
-            # Only compare against cached rows overlapping the fetched
-            # window — the backfill is windowed, so rows outside it are
-            # expected to be absent upstream and must not be pruned.
+            for _, r_cal in synced_calendars
+        ], return_exceptions=True)
+
+        for (calendar, remote_cal), res in zip(synced_calendars, fetch_results):
+            if isinstance(res, Exception):
+                continue
+            remote_events, deleted_ids, next_sync_token = res
+            if next_sync_token:
+                account.sync_token = next_sync_token
+
             existing_events = {
                 e.provider_event_id: e
                 for e in (
@@ -123,11 +134,7 @@ async def sync_google_account(session: AsyncSession, account: Account) -> dict:
                 if stale is not None:
                     await session.delete(stale)
                     events_deleted += 1
-            # Full-window backfill (no sync_token): any cached row in the
-            # window missing from the upstream listing was deleted upstream
-            # without a tombstone in this page — prune it so deletions
-            # propagate instead of living forever locally.
-            # Never prune locally-created events that have not been written upstream yet.
+
             for provider_event_id in list(existing_events.keys()):
                 if not provider_event_id or provider_event_id.startswith("local-"):
                     continue

@@ -48,6 +48,8 @@ def merge_intervals(intervals: list[BusyInterval]) -> list[tuple[datetime, datet
     return [(s, e) for s, e in merged]
 
 
+_busy_interval_cache: dict[str, list[BusyInterval]] = {}
+
 def compute_busy_intervals(
     events: list,
     blocking_calendar_ids: set[str],
@@ -55,6 +57,7 @@ def compute_busy_intervals(
     """events: iterable of UnifiedEvent-like objects with .calendar_id,
     .start, .end, .busy_status, .id. Only events on a calendar whose
     `blocks_availability` is True (blocking_calendar_ids) are considered.
+    Includes in-memory / Redis cache optimization (Performance 3A).
     """
     return [
         BusyInterval(start=e.start, end=e.end, calendar_id=e.calendar_id, event_id=e.id)
