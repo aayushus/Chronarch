@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { apiFetch, friendlyError } from "../api/client";
 import { useAuth } from "../api/auth";
 import {
+  adminAddIcsSubscription,
   adminCreateUser,
   adminGetGoogleConnectUrl,
   adminGetMicrosoftConnectUrl,
@@ -11,8 +12,8 @@ import {
   adminListOAuthConfigs,
   adminSaveOAuthConfig,
 } from "../api/admin";
+import { listCalendars, previewIcs, importIcsEvent } from "../api/calendar";
 import Icon from "../components/Icon";
-import { Badge } from "../components/ui";
 import {
   ONBOARD_DONE_KEY,
   ONBOARD_STEP_KEY,
@@ -20,7 +21,6 @@ import {
   canProceed,
   clearFlag,
   providerStatus,
-  readFlag,
   stepIndex,
   writeFlag,
   type OAuthStatus,
@@ -48,8 +48,6 @@ function tempPassword(): string {
   return Array.from(bytes, (b) => chars[b % chars.length]).join("");
 }
 
-/** First-run wizard (/start): welcome → connect → you → share → done.
- * Skippable at every step; delegates never enter (nothing to connect). */
 export default function StartPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -64,28 +62,47 @@ export default function StartPage() {
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Connect step: keys live here (never a Settings trip).
+  // Connect step states
   const [oauthConfigs, setOauthConfigs] = useState<OAuthStatus[] | null>(null);
-  const [guideFor, setGuideFor] = useState<"google" | "microsoft" | null>(null);
-  const [credId, setCredId] = useState("");
-  const [credSecret, setCredSecret] = useState("");
-  const [credTenant, setCredTenant] = useState("");
-  const [savingCreds, setSavingCreds] = useState(false);
+
+  // Google OAuth Credentials
+  const [googleClientId, setGoogleClientId] = useState("");
+  const [googleClientSecret, setGoogleClientSecret] = useState("");
+  const [savingGoogle, setSavingGoogle] = useState(false);
+
+  // Microsoft OAuth Credentials
+  const [msClientId, setMsClientId] = useState("");
+  const [msClientSecret, setMsClientSecret] = useState("");
+  const [msTenantId, setMsTenantId] = useState("");
+  const [savingMs, setSavingMs] = useState(false);
+
   const [connecting, setConnecting] = useState<"google" | "microsoft" | null>(null);
 
-  // Step 3: profile.
+  // ICS Subscription & File Upload states
+  const [icsFeedUrl, setIcsFeedUrl] = useState("");
+  const [icsFeedName, setIcsFeedName] = useState("");
+  const [addingFeed, setAddingFeed] = useState(false);
+  const [feedSuccess, setFeedSuccess] = useState<string | null>(null);
+
+  const [uploadingIcs, setUploadingIcs] = useState(false);
+  const [icsUploadSuccess, setIcsUploadSuccess] = useState<string | null>(null);
+
+  // Preferences & AI Copilot Step
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
   const [timezone, setTimezone] = useState(user?.home_timezone || browserZone());
   const [whStart, setWhStart] = useState("09:00");
   const [whEnd, setWhEnd] = useState("17:00");
-  const [saving, setSaving] = useState(false);
+  const [workingDays, setWorkingDays] = useState("1,2,3,4,5");
+  const [meetingBuffer, setMeetingBuffer] = useState<number>(0);
+  const [copilotAutoOpen, setCopilotAutoOpen] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
 
-  // Step 4: EA invite.
+  // Executive Assistant (EA) Invite Step
   const [eaName, setEaName] = useState("");
   const [eaEmail, setEaEmail] = useState("");
-  const [eaPassword, setEaPassword] = useState<string | null>(null);
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     try {
@@ -114,8 +131,6 @@ export default function StartPage() {
 
   useEffect(() => {
     void refreshAccounts();
-    // OAuth round-trips leave the tab: re-check whenever it regains focus
-    // so newly connected accounts appear with no manual refresh button.
     function onFocus() {
       if (document.visibilityState === "visible") void refreshAccounts();
     }
@@ -125,13 +140,11 @@ export default function StartPage() {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (user && !displayName) setDisplayName(user.display_name ?? "");
     if (user?.home_timezone) setTimezone(user.home_timezone);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.email]);
 
   function finish() {
@@ -140,31 +153,128 @@ export default function StartPage() {
     window.location.href = "/";
   }
 
-  function skipAll() {
-    finish();
+  async function connectOAuth(provider: "google" | "microsoft") {
+    if (connecting) return;
+    setConnecting(provider);
+    setError(null);
+    try {
+      try {
+        localStorage.setItem(ONBOARD_STEP_KEY, String(stepIndex("connect")));
+      } catch {
+        /* private mode */
+      }
+      const url = provider === "google" ? await adminGetGoogleConnectUrl() : await adminGetMicrosoftConnectUrl();
+      window.location.href = url;
+    } catch (e) {
+      setError(friendlyError(e));
+      setConnecting(null);
+    }
   }
 
-  function CopyValue({ value, label }: { value: string; label: string }) {
-    const [copiedUrl, setCopiedUrl] = useState(false);
-    return (
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%" }}>
-        <code style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 6, padding: "3px 8px", fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260 }} title={value}>
-          {value}
-        </code>
-        <button
-          onClick={() => { void navigator.clipboard.writeText(value); setCopiedUrl(true); setTimeout(() => setCopiedUrl(false), 1500); }}
-          aria-label={`Copy ${label}`}
-          className="hoverable"
-          style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 11.5, fontWeight: 700, cursor: "pointer", padding: 0, whiteSpace: "nowrap" }}
-        >
-          {copiedUrl ? "Copied" : "Copy"}
-        </button>
-      </span>
-    );
+  async function saveAndConnectGoogle(e: React.FormEvent) {
+    e.preventDefault();
+    if (savingGoogle || connecting) return;
+    setSavingGoogle(true);
+    setError(null);
+    try {
+      await adminSaveOAuthConfig("google", {
+        client_id: googleClientId.trim() || undefined,
+        client_secret: googleClientSecret.trim() || undefined,
+      });
+      await connectOAuth("google");
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setSavingGoogle(false);
+    }
   }
 
-  async function saveProfile(next: OnboardStep) {
-    setSaving(true);
+  async function saveAndConnectMicrosoft(e: React.FormEvent) {
+    e.preventDefault();
+    if (savingMs || connecting) return;
+    setSavingMs(true);
+    setError(null);
+    try {
+      await adminSaveOAuthConfig("microsoft", {
+        client_id: msClientId.trim() || undefined,
+        client_secret: msClientSecret.trim() || undefined,
+        tenant_id: msTenantId.trim() || null,
+      });
+      await connectOAuth("microsoft");
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setSavingMs(false);
+    }
+  }
+
+  async function handleAddIcsFeed(e: React.FormEvent) {
+    e.preventDefault();
+    if (!icsFeedUrl.trim() || addingFeed) return;
+    setAddingFeed(true);
+    setError(null);
+    setFeedSuccess(null);
+    try {
+      const res = await adminAddIcsSubscription({
+        name: icsFeedName.trim() || "Subscribed Feed",
+        url: icsFeedUrl.trim(),
+      });
+      setFeedSuccess(`Subscribed calendar "${res.name}" successfully!`);
+      setIcsFeedUrl("");
+      setIcsFeedName("");
+      await refreshAccounts();
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setAddingFeed(false);
+    }
+  }
+
+  async function handleIcsFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingIcs(true);
+    setError(null);
+    setIcsUploadSuccess(null);
+    try {
+      const text = await file.text();
+      const parsed = await previewIcs(text);
+      if (parsed.events.length === 0) {
+        setError("No valid events found in the uploaded .ics file.");
+        setUploadingIcs(false);
+        return;
+      }
+      const userCals = await listCalendars();
+      const writableCals = userCals.filter((c) => c.can_create || c.writable);
+      if (writableCals.length === 0) {
+        setError("Importing events from a local .ics file requires a connected writable calendar (e.g. Google Calendar or Microsoft 365). Connect an account above first, or use 'Option A: Subscribe to Feed URL' for external read-only feeds.");
+        setUploadingIcs(false);
+        return;
+      }
+      const targetCal = writableCals[0];
+      for (const ev of parsed.events) {
+        await importIcsEvent({
+          calendar_id: targetCal.id,
+          title: ev.title,
+          start: ev.start,
+          end: ev.end,
+          timezone: ev.timezone,
+          description: ev.description,
+          location: ev.location,
+          all_day: ev.all_day,
+        });
+      }
+      setIcsUploadSuccess(`Imported ${parsed.events.length} event(s) into "${targetCal.name}".`);
+      await refreshAccounts();
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setUploadingIcs(false);
+    }
+  }
+
+  async function savePreferences(next: OnboardStep) {
+    setSavingProfile(true);
     setError(null);
     try {
       await apiFetch("/auth/me", {
@@ -174,55 +284,20 @@ export default function StartPage() {
           home_timezone: timezone,
           working_hours_start: whStart,
           working_hours_end: whEnd,
+          working_days: workingDays,
+          meeting_buffer_minutes: meetingBuffer,
         }),
       });
+      try {
+        localStorage.setItem("chronarch_copilot_auto_open", copilotAutoOpen ? "1" : "0");
+      } catch {
+        /* private mode */
+      }
       setStep(next);
     } catch (e) {
       setError(friendlyError(e));
     } finally {
-      setSaving(false);
-    }
-  }
-
-  async function saveAndConnect(provider: "google" | "microsoft") {
-    if (savingCreds || connecting) return;
-    setSavingCreds(true);
-    setError(null);
-    try {
-      const updated = await adminSaveOAuthConfig(provider, {
-        client_id: credId.trim() || undefined,
-        client_secret: credSecret.trim() || undefined,
-        tenant_id: provider === "microsoft" ? credTenant.trim() || null : undefined,
-      });
-      setOauthConfigs((prev) => {
-        const rest = (prev ?? []).filter((c) => c.provider !== provider);
-        return [...rest, {
-          provider,
-          client_id_configured: updated.client_id_configured,
-          client_secret_configured: updated.client_secret_configured,
-        }];
-      });
-      setCredId("");
-      setCredSecret("");
-      setCredTenant("");
-      setConnecting(provider);
-      try {
-        // Full-page OAuth round-trip: persist the step, resume after the
-        // callback lands back in Settings (see AccountsSettings banner).
-        try {
-          localStorage.setItem(ONBOARD_STEP_KEY, String(stepIndex("connect")));
-        } catch {
-          /* private mode */
-        }
-        const url = provider === "google" ? await adminGetGoogleConnectUrl() : await adminGetMicrosoftConnectUrl();
-        window.location.href = url;
-      } finally {
-        setConnecting(null);
-      }
-    } catch (e) {
-      setError(friendlyError(e));
-    } finally {
-      setSavingCreds(false);
+      setSavingProfile(false);
     }
   }
 
@@ -232,63 +307,20 @@ export default function StartPage() {
     setInviting(true);
     setError(null);
     try {
-      const password = tempPassword();
+      const pwd = tempPassword();
       await adminCreateUser({
         email,
         display_name: eaName.trim() || email.split("@")[0],
-        password,
+        password: pwd,
         role: "delegate",
       });
-      setEaPassword(password);
+      const link = `${window.location.origin}/login?invited_email=${encodeURIComponent(email)}&temp_pass=${encodeURIComponent(pwd)}`;
+      setInviteToken(link);
     } catch (e) {
       setError(friendlyError(e));
     } finally {
       setInviting(false);
     }
-  }
-
-  function providerCard(provider: "google" | "microsoft", title: string) {
-    const status = providerStatus(oauthConfigs, provider);
-    const guideOpen = guideFor === provider;
-    const origin = window.location.origin;
-    const callback = `${origin}/api/v1/admin/accounts/${provider}/callback`;
-    return (
-      <div key={provider} style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: "12px 14px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ width: 30, height: 30, borderRadius: 8, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Icon name={provider} size={17} />
-          </span>
-          <span style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ display: "block", fontSize: 13.5, fontWeight: 700 }}>{title}</span>
-            <span style={{ display: "block", fontSize: 11.5, color: "var(--text-tertiary)", marginTop: 1 }}>
-              {status === "saved" ? "Keys saved — connect anytime" : status === "needed" ? "Paste your keys below, then connect" : "Checking…"}
-            </span>
-          </span>
-          {status !== "unknown" && (
-            <Badge tone={status === "saved" ? "info" : "warning"}>{status === "saved" ? "Saved" : "Needed"}</Badge>
-          )}
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-          <input value={credId} onChange={(e) => setCredId(e.target.value)} placeholder={provider === "google" ? "Client ID (…apps.googleusercontent.com)" : "Application (client) ID"} aria-label={`${title} client ID`} autoComplete="off" className="input-standard" style={{ width: "100%", fontSize: 12.5 }} />
-          <input value={credSecret} onChange={(e) => setCredSecret(e.target.value)} placeholder={provider === "google" ? "Client secret" : "Client secret (Value, not Secret ID)"} aria-label={`${title} client secret`} autoComplete="off" type="password" className="input-standard" style={{ width: "100%", fontSize: 12.5 }} />
-          {provider === "microsoft" && (
-            <input value={credTenant} onChange={(e) => setCredTenant(e.target.value)} placeholder="Directory (tenant) ID — use 'common' for personal accounts" aria-label="Microsoft tenant ID" autoComplete="off" className="input-standard" style={{ width: "100%", fontSize: 12.5 }} />
-          )}
-        </div>
-        <button onClick={() => setGuideFor(guideOpen ? null : provider)} style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "8px 0 0", textAlign: "left" }}>
-          {guideOpen ? "▾ Hide: how do I get these?" : "▸ How do I get these?"}
-        </button>
-        {guideOpen && <KeyGuide provider={provider} origin={origin} callback={callback} />}
-        <button
-          onClick={() => void saveAndConnect(provider)}
-          disabled={savingCreds || connecting !== null || !credId.trim() || !credSecret.trim()}
-          className="btn-primary hoverable"
-          style={{ width: "100%", marginTop: 10, padding: "9px 12px", fontSize: 13, opacity: savingCreds || connecting !== null || !credId.trim() || !credSecret.trim() ? 0.5 : 1 }}
-        >
-          {connecting === provider ? "Opening provider…" : savingCreds ? "Saving…" : `Save & Connect ${provider === "google" ? "Google" : "Microsoft"}`}
-        </button>
-      </div>
-    );
   }
 
   if (user && user.role !== "admin") {
@@ -306,35 +338,33 @@ export default function StartPage() {
   }
 
   const idx = stepIndex(step);
-  const state = { accountCount, displayName };
-  const canNext = canProceed(step, state);
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-app)", display: "flex", justifyContent: "center", padding: "48px 20px" }}>
-      <div style={{ width: 560, maxWidth: "100%" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+      <div style={{ width: 640, maxWidth: "100%" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <div style={{ display: "flex", gap: 6 }}>
             {STEPS.map((s, i) => (
-              <span key={s} style={{ width: 28, height: 4, borderRadius: 2, background: i <= idx ? "var(--accent)" : "var(--border)" }} />
+              <span key={s} style={{ width: 32, height: 4, borderRadius: 2, background: i <= idx ? "var(--accent)" : "var(--border)" }} />
             ))}
           </div>
-          <button onClick={skipAll} style={{ background: "none", border: "none", color: "var(--text-tertiary)", fontSize: 12, cursor: "pointer" }}>
+          <button onClick={finish} style={{ background: "none", border: "none", color: "var(--text-tertiary)", fontSize: 12, cursor: "pointer" }}>
             Skip setup
           </button>
         </div>
 
-        <div style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: 28 }}>
+        <div style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: 32 }}>
           {step === "welcome" && (
             <>
               <div style={{ fontSize: 13, color: "var(--text-tertiary)", marginBottom: 6 }}>Welcome to Chronarch</div>
               <h1 style={{ fontSize: 26, fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em" }}>
-                One calendar for every calendar.
+                Unified Calendar & AI Copilot Platform
               </h1>
-              <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, margin: "0 0 20px" }}>
-                Four steps, starting with your first calendar connection.
+              <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, margin: "0 0 24px" }}>
+                Set up your connected calendars, provider OAuth keys, work schedule, AI copilot preferences, and assistant access in a few easy steps.
               </p>
-              <button onClick={() => setStep("connect")} className="btn-primary hoverable" style={{ padding: "10px 24px" }}>
-                Begin →
+              <button onClick={() => setStep("connect")} className="btn-primary hoverable" style={{ padding: "10px 24px", fontSize: 14, fontWeight: 600 }}>
+                Get Started →
               </button>
             </>
           )}
@@ -342,131 +372,395 @@ export default function StartPage() {
           {step === "connect" && (
             <>
               <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Connect your calendars</h1>
-              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 18px", lineHeight: 1.5 }}>
-                Link as many as you like — work, personal, shared, even several accounts from the same
-                provider. Each connection opens the provider and brings you back here; repeat for the next one.
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px", lineHeight: 1.5 }}>
+                Provide your provider OAuth credentials or import ICS feeds directly below.
               </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-                {providerCard("google", "Google / Workspace")}
-                {providerCard("microsoft", "Microsoft 365 / Outlook")}
-                <Link to="/settings?section=accounts" className="btn-secondary hoverable" style={{ justifyContent: "flex-start", padding: "12px 16px", textDecoration: "none" }}>
-                  <Icon name="calendar" size={15} />
-                  CalDAV or ICS feed — advanced setup
-                </Link>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
+                {/* Google Provider Card */}
+                <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(10, 132, 255, 0.12)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                        <Icon name="google" size={18} />
+                      </span>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700 }}>Google Workspace / Gmail</div>
+                        <div style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>
+                          {providerStatus(oauthConfigs, "google") === "saved" ? "OAuth Credentials Saved" : "Provide Console Client ID & Secret below"}
+                        </div>
+                      </div>
+                    </div>
+                    {providerStatus(oauthConfigs, "google") === "saved" && (
+                      <button
+                        onClick={() => void connectOAuth("google")}
+                        disabled={connecting !== null}
+                        className="btn-primary hoverable"
+                        style={{ padding: "6px 14px", fontSize: 12.5 }}
+                      >
+                        {connecting === "google" ? "Connecting…" : "Connect Google Account"}
+                      </button>
+                    )}
+                  </div>
+
+                  <OAuthGuideHelper provider="google" />
+
+                  <form onSubmit={saveAndConnectGoogle} style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+                    <input
+                      value={googleClientId}
+                      onChange={(e) => setGoogleClientId(e.target.value)}
+                      placeholder="Google Client ID (...apps.googleusercontent.com)"
+                      className="input-standard"
+                      style={{ width: "100%", fontSize: 12.5 }}
+                    />
+                    <input
+                      type="password"
+                      value={googleClientSecret}
+                      onChange={(e) => setGoogleClientSecret(e.target.value)}
+                      placeholder="Google Client Secret"
+                      className="input-standard"
+                      style={{ width: "100%", fontSize: 12.5 }}
+                    />
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                      <a href="https://console.cloud.google.com" target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: "var(--accent)" }}>
+                        Open Google Cloud Console ↗
+                      </a>
+                      <button
+                        type="submit"
+                        disabled={savingGoogle || connecting !== null}
+                        className="btn-primary hoverable"
+                        style={{ padding: "6px 14px", fontSize: 12.5 }}
+                      >
+                        {savingGoogle ? "Saving Keys…" : "Save Keys & Connect"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* Microsoft Provider Card */}
+                <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(48, 209, 88, 0.12)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                        <Icon name="microsoft" size={18} />
+                      </span>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700 }}>Microsoft 365 / Outlook</div>
+                        <div style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>
+                          {providerStatus(oauthConfigs, "microsoft") === "saved" ? "OAuth Credentials Saved" : "Provide Entra ID Client ID & Secret below"}
+                        </div>
+                      </div>
+                    </div>
+                    {providerStatus(oauthConfigs, "microsoft") === "saved" && (
+                      <button
+                        onClick={() => void connectOAuth("microsoft")}
+                        disabled={connecting !== null}
+                        className="btn-primary hoverable"
+                        style={{ padding: "6px 14px", fontSize: 12.5 }}
+                      >
+                        {connecting === "microsoft" ? "Connecting…" : "Connect Microsoft Account"}
+                      </button>
+                    )}
+                  </div>
+
+                  <OAuthGuideHelper provider="microsoft" />
+
+                  <form onSubmit={saveAndConnectMicrosoft} style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+                    <input
+                      value={msClientId}
+                      onChange={(e) => setMsClientId(e.target.value)}
+                      placeholder="Microsoft Application (client) ID"
+                      className="input-standard"
+                      style={{ width: "100%", fontSize: 12.5 }}
+                    />
+                    <input
+                      type="password"
+                      value={msClientSecret}
+                      onChange={(e) => setMsClientSecret(e.target.value)}
+                      placeholder="Microsoft Client Secret Value"
+                      className="input-standard"
+                      style={{ width: "100%", fontSize: 12.5 }}
+                    />
+                    <input
+                      value={msTenantId}
+                      onChange={(e) => setMsTenantId(e.target.value)}
+                      placeholder="Directory (tenant) ID (default: common)"
+                      className="input-standard"
+                      style={{ width: "100%", fontSize: 12.5 }}
+                    />
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                      <a href="https://entra.microsoft.com" target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: "var(--accent)" }}>
+                        Open Microsoft Entra ID Portal ↗
+                      </a>
+                      <button
+                        type="submit"
+                        disabled={savingMs || connecting !== null}
+                        className="btn-primary hoverable"
+                        style={{ padding: "6px 14px", fontSize: 12.5 }}
+                      >
+                        {savingMs ? "Saving Keys…" : "Save Keys & Connect"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text-secondary)" }}>
+
+              {/* ICS Feed Subscription & Local File Upload */}
+              <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 16, marginBottom: 20 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                  <Icon name="calendar" size={16} />
+                  <span>ICS Feed Subscription & Local File Import</span>
+                </div>
+
+                <form onSubmit={handleAddIcsFeed} style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>Subscribe to ICS Feed URL</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      value={icsFeedName}
+                      onChange={(e) => setIcsFeedName(e.target.value)}
+                      placeholder="Feed Name"
+                      className="input-standard"
+                      style={{ flex: "1 1 140px", fontSize: 12.5 }}
+                    />
+                    <input
+                      value={icsFeedUrl}
+                      onChange={(e) => setIcsFeedUrl(e.target.value)}
+                      placeholder="https://example.com/calendar.ics"
+                      className="input-standard"
+                      style={{ flex: "2 1 200px", fontSize: 12.5 }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={addingFeed || !icsFeedUrl.trim()}
+                      className="btn-secondary hoverable"
+                      style={{ padding: "6px 14px", fontSize: 12.5, opacity: addingFeed || !icsFeedUrl.trim() ? 0.5 : 1 }}
+                    >
+                      {addingFeed ? "Subscribing…" : "Subscribe"}
+                    </button>
+                  </div>
+                  {feedSuccess && <div style={{ fontSize: 12, color: "var(--success)" }}>✓ {feedSuccess}</div>}
+                </form>
+
+                <div style={{ borderTop: "1px dashed var(--border-subtle)", paddingTop: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+                    Upload local .ics file
+                  </div>
+                  <label className="btn-secondary hoverable" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 12.5, cursor: "pointer" }}>
+                    <Icon name="upload" size={14} />
+                    <span>{uploadingIcs ? "Importing .ics…" : "Choose .ics File"}</span>
+                    <input type="file" accept=".ics" onChange={handleIcsFileUpload} style={{ display: "none" }} disabled={uploadingIcs} />
+                  </label>
+                  {icsUploadSuccess && <div style={{ fontSize: 12, color: "var(--success)", marginTop: 6 }}>✓ {icsUploadSuccess}</div>}
+                </div>
+              </div>
+
+              <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>
                 {checking ? (
                   "Checking connected accounts…"
                 ) : accountCount > 0 ? (
-                  <span><strong style={{ color: "var(--success)" }}>{accountCount} connected ✓</strong> — add another below, or continue.</span>
+                  <span style={{ color: "var(--success)", fontWeight: 700 }}>✓ {accountCount} account(s) connected</span>
                 ) : (
-                  "None connected yet — pick a provider above."
+                  "No accounts connected yet — you can continue and manage accounts anytime in Settings."
                 )}
               </div>
-              {error && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 10 }}>{error}</div>}
-              <WizardFooter back={() => setStep("welcome")} next={() => setStep("you")} nextLabel="Continue" canNext />
+
+              {error && <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 12 }}>{error}</div>}
+
+              <WizardFooter back={() => setStep("welcome")} next={() => setStep("preferences")} nextLabel="Continue" canNext />
             </>
           )}
 
-          {step === "you" && (
+          {step === "preferences" && (
             <>
-              <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em" }}>About you</h1>
-              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 18px", lineHeight: 1.5 }}>
-                Used for booking pages, invites, and nailing timezones.
+              <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Personalization & AI Copilot</h1>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px", lineHeight: 1.5 }}>
+                Configure your timezone, work schedule, buffer rules, and copilot settings.
               </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}>
                 <div>
-                  <label htmlFor="ob-name" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Display name</label>
-                  <input id="ob-name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="e.g. Aayush" autoFocus className="input-standard" style={{ width: "100%", fontSize: 13 }} />
+                  <label htmlFor="ob-name" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Display Name</label>
+                  <input
+                    id="ob-name"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="Your name"
+                    className="input-standard"
+                    style={{ width: "100%", fontSize: 13 }}
+                  />
                 </div>
+
                 <div>
-                  <label htmlFor="ob-tz" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Home timezone</label>
-                  <select id="ob-tz" value={TIMEZONES.includes(timezone) ? timezone : "UTC"} onChange={(e) => setTimezone(e.target.value)} className="input-standard" style={{ width: "100%", fontSize: 13 }}>
+                  <label htmlFor="ob-tz" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Home Timezone</label>
+                  <select
+                    id="ob-tz"
+                    value={TIMEZONES.includes(timezone) ? timezone : "UTC"}
+                    onChange={(e) => setTimezone(e.target.value)}
+                    className="input-standard"
+                    style={{ width: "100%", fontSize: 13 }}
+                  >
                     {TIMEZONES.map((z) => (
-                      <option key={z} value={z}>{z}{z === browserZone() ? " (browser)" : ""}</option>
+                      <option key={z} value={z}>{z}{z === browserZone() ? " (browser auto-detected)" : ""}</option>
                     ))}
                   </select>
                 </div>
+
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <div>
-                    <label htmlFor="ob-wh1" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Work starts</label>
+                    <label htmlFor="ob-wh1" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Work Starts</label>
                     <input id="ob-wh1" type="time" value={whStart} onChange={(e) => setWhStart(e.target.value)} className="input-standard" style={{ width: "100%", fontSize: 13 }} />
                   </div>
                   <div>
-                    <label htmlFor="ob-wh2" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Work ends</label>
+                    <label htmlFor="ob-wh2" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Work Ends</label>
                     <input id="ob-wh2" type="time" value={whEnd} onChange={(e) => setWhEnd(e.target.value)} className="input-standard" style={{ width: "100%", fontSize: 13 }} />
                   </div>
                 </div>
+
+                <div>
+                  <label htmlFor="ob-wd" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Working Days</label>
+                  <select
+                    id="ob-wd"
+                    value={workingDays}
+                    onChange={(e) => setWorkingDays(e.target.value)}
+                    className="input-standard"
+                    style={{ width: "100%", fontSize: 13 }}
+                  >
+                    <option value="1,2,3,4,5">Monday – Friday (Standard Work Week)</option>
+                    <option value="0,1,2,3,4,5,6">Everyday (Sun – Sat)</option>
+                    <option value="0,1,2,3,4">Sunday – Thursday</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="ob-buffer" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Meeting Buffer Time</label>
+                  <select
+                    id="ob-buffer"
+                    value={meetingBuffer}
+                    onChange={(e) => setMeetingBuffer(Number(e.target.value))}
+                    className="input-standard"
+                    style={{ width: "100%", fontSize: 13 }}
+                  >
+                    <option value={0}>No buffer (0 min)</option>
+                    <option value={5}>5 minutes buffer</option>
+                    <option value={10}>10 minutes buffer</option>
+                    <option value={15}>15 minutes buffer</option>
+                  </select>
+                </div>
+
+                <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 14 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
+                    <input
+                      type="checkbox"
+                      checked={copilotAutoOpen}
+                      onChange={(e) => setCopilotAutoOpen(e.target.checked)}
+                      style={{ accentColor: "var(--accent)", width: 16, height: 16 }}
+                    />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>Auto-open AI Copilot Drawer</div>
+                      <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+                        Keep the contextual AI assistant ready alongside your calendar view.
+                      </div>
+                    </div>
+                  </label>
+                </div>
               </div>
-              {error && <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 10 }}>{error}</div>}
-              <WizardFooter back={() => setStep("connect")} next={() => void saveProfile("share")} nextLabel={saving ? "Saving…" : "Continue"} canNext={canNext && !saving} />
+
+              {error && <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 12 }}>{error}</div>}
+
+              <WizardFooter
+                back={() => setStep("connect")}
+                next={() => void savePreferences("share")}
+                nextLabel={savingProfile ? "Saving…" : "Continue"}
+                canNext={!savingProfile}
+              />
             </>
           )}
 
           {step === "share" && (
             <>
-              <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Share it (optional)</h1>
-              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 18px", lineHeight: 1.5 }}>
-                All optional — each opens full setup elsewhere. Or skip straight to done.
+              <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Executive Delegation</h1>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px", lineHeight: 1.5 }}>
+                Invite an Executive Assistant (EA) or delegate manager to handle scheduling on your behalf.
               </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
-                <a href="/settings?section=booking" target="_blank" rel="noreferrer" className="hoverable" style={{ display: "block", background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 8, padding: "12px 16px", textDecoration: "none" }}>
-                  <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>📅 Booking link</span>
-                  <span style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>Let anyone book time — opens Booking setup in a new tab.</span>
-                </a>
-                <a href="/settings?section=kiosk" target="_blank" rel="noreferrer" className="hoverable" style={{ display: "block", background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 8, padding: "12px 16px", textDecoration: "none" }}>
-                  <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>🖥️ Wall display</span>
-                  <span style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>Pair a hallway tablet — opens Kiosk setup in a new tab.</span>
-                </a>
-                <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 8, padding: "12px 16px" }}>
-                  <span style={{ display: "block", fontSize: 13, fontWeight: 700 }}>🧑‍💼 Invite your assistant</span>
-                  <span style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginTop: 2, marginBottom: 10 }}>
-                    Creates a delegate login — share the password yourself. Grants come later on the Delegates page.
-                  </span>
-                  {eaPassword ? (
-                    <div style={{ fontSize: 13 }}>
-                      <span style={{ color: "var(--success)", fontWeight: 700 }}>Created ✓ </span>
-                      <code style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 6, padding: "4px 10px", fontSize: 13 }}>{eaPassword}</code>
-                      <button onClick={() => { void navigator.clipboard.writeText(eaPassword); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="hoverable" style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 12, fontWeight: 700, cursor: "pointer", marginLeft: 8 }}>
-                        {copied ? "Copied!" : "Copy"}
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <input value={eaName} onChange={(e) => setEaName(e.target.value)} placeholder="Name" aria-label="Assistant name" className="input-standard" style={{ flex: "1 1 120px", fontSize: 12.5 }} />
-                      <input value={eaEmail} onChange={(e) => setEaEmail(e.target.value)} placeholder="assistant@co.com" aria-label="Assistant email" className="input-standard" style={{ flex: "2 1 160px", fontSize: 12.5 }} />
-                      <button onClick={() => void inviteEA()} disabled={inviting || !eaEmail.includes("@")} className="btn-secondary hoverable" style={{ padding: "6px 14px", fontSize: 12.5, opacity: inviting || !eaEmail.includes("@") ? 0.5 : 1 }}>
-                        {inviting ? "Creating…" : "Invite"}
-                      </button>
-                    </div>
-                  )}
-                  {error && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 8 }}>{error}</div>}
+
+              <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 16, marginBottom: 24 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>🧑‍💼 Invite Assistant / Delegate</div>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 14 }}>
+                  Creates a delegate account and generates a shareable invitation link.
                 </div>
+
+                {inviteToken ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ fontSize: 12.5, color: "var(--success)", fontWeight: 700 }}>
+                      ✓ Invitation Link Generated!
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input
+                        readOnly
+                        value={inviteToken}
+                        className="input-standard"
+                        style={{ flex: 1, fontSize: 12, background: "var(--bg-raised)" }}
+                      />
+                      <button
+                        onClick={() => {
+                          void navigator.clipboard.writeText(inviteToken);
+                          setCopiedLink(true);
+                          setTimeout(() => setCopiedLink(false), 2000);
+                        }}
+                        className="btn-primary hoverable"
+                        style={{ padding: "8px 14px", fontSize: 12.5 }}
+                      >
+                        {copiedLink ? "Copied!" : "Copy Invite Link"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <input
+                      value={eaName}
+                      onChange={(e) => setEaName(e.target.value)}
+                      placeholder="Assistant Name"
+                      className="input-standard"
+                      style={{ flex: "1 1 140px", fontSize: 13 }}
+                    />
+                    <input
+                      value={eaEmail}
+                      onChange={(e) => setEaEmail(e.target.value)}
+                      placeholder="assistant@company.com"
+                      className="input-standard"
+                      style={{ flex: "2 1 180px", fontSize: 13 }}
+                    />
+                    <button
+                      onClick={() => void inviteEA()}
+                      disabled={inviting || !eaEmail.includes("@")}
+                      className="btn-primary hoverable"
+                      style={{ padding: "8px 16px", fontSize: 13, opacity: inviting || !eaEmail.includes("@") ? 0.5 : 1 }}
+                    >
+                      {inviting ? "Creating Link…" : "Generate Invite"}
+                    </button>
+                  </div>
+                )}
+                {error && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 10 }}>{error}</div>}
               </div>
-              <WizardFooter back={() => setStep("you")} next={() => setStep("done")} nextLabel="Continue" canNext />
+
+              <WizardFooter back={() => setStep("preferences")} next={() => setStep("done")} nextLabel="Continue" canNext />
             </>
           )}
 
           {step === "done" && (
-            <div style={{ textAlign: "center", padding: "8px 0" }}>
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(48, 209, 88, 0.14)", color: "var(--success)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-                <Icon name="check" size={20} />
+            <div style={{ textAlign: "center", padding: "16px 0" }}>
+              <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(48, 209, 88, 0.14)", color: "var(--success)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+                <Icon name="check" size={22} />
               </div>
-              <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>You're set{displayName.trim() ? `, ${displayName.trim().split(" ")[0]}` : ""}</div>
-              <div style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 auto 18px", maxWidth: 400, lineHeight: 1.6 }}>
-                {accountCount > 0 ? `${accountCount} calendar account${accountCount === 1 ? "" : "s"} connected. ` : ""}
-                Three things to try: press <kbd>⌘K</kbd> anywhere, drag an event to reschedule it, and ask Copilot for “30 minutes tomorrow”.
+              <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>
+                You're all set{displayName.trim() ? `, ${displayName.trim().split(" ")[0]}` : ""}!
               </div>
-              <button onClick={finish} className="btn-primary hoverable" style={{ padding: "10px 28px" }}>
-                Open calendar
+              <div style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 auto 24px", maxWidth: 420, lineHeight: 1.6 }}>
+                Your preferences and calendar settings are active. Press <kbd style={{ background: "var(--bg-app)", padding: "2px 6px", borderRadius: 4, border: "1px solid var(--border-subtle)" }}>⌘K</kbd> anywhere to access quick commands or open the AI copilot drawer.
+              </div>
+              <button onClick={finish} className="btn-primary hoverable" style={{ padding: "11px 32px", fontSize: 14, fontWeight: 600 }}>
+                Open Calendar
               </button>
-              {!readFlag(ONBOARD_DONE_KEY) && (
-                <div style={{ marginTop: 10 }}>
-                  <button onClick={() => navigate("/settings")} style={{ background: "none", border: "none", color: "var(--text-tertiary)", fontSize: 12, cursor: "pointer" }}>
-                    Tweak settings first
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -475,61 +769,124 @@ export default function StartPage() {
   );
 }
 
-function KeyGuide({ provider, origin, callback }: { provider: "google" | "microsoft"; origin: string; callback: string }) {
-  const [copied, setCopied] = useState(false);
-  function copy(value: string) {
-    void navigator.clipboard.writeText(value);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
-  function Code({ value, label }: { value: string; label: string }) {
-    return (
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%", verticalAlign: "bottom" }}>
-        <code style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 6, padding: "2px 8px", fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 230 }} title={value}>
-          {value}
-        </code>
-        <button onClick={() => copy(value)} aria-label={`Copy ${label}`} className="hoverable" style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 11.5, fontWeight: 700, cursor: "pointer", padding: 0, whiteSpace: "nowrap" }}>
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </span>
-    );
-  }
-  const li = { fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.55, marginBottom: 6 } as const;
+function WizardFooter({
+  back,
+  next,
+  nextLabel,
+  canNext,
+}: {
+  back: () => void;
+  next: () => void;
+  nextLabel: string;
+  canNext: boolean;
+}) {
   return (
-    <div style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 8, padding: "10px 12px", marginTop: 10 }}>
-      {provider === "google" ? (
-        <ol style={{ margin: 0, paddingLeft: 18 }}>
-          <li style={li}>Open <strong>console.cloud.google.com</strong> → APIs & Services → Library → enable <strong>Google Calendar API</strong>.</li>
-          <li style={li}>Credentials → Create Credentials → <strong>OAuth client ID</strong> → application type <strong>Web application</strong>.</li>
-          <li style={li}>Under <strong>Authorized JavaScript origins</strong> add exactly:<br /><Code value={origin} label="origin" /> <em>(origin only — paths are rejected here)</em></li>
-          <li style={li}>Under <strong>Authorized redirect URIs</strong> add exactly:<br /><Code value={callback} label="redirect URI" /> <em>(full URL — must match character-for-character)</em></li>
-          <li style={li}>Copy the <strong>Client ID</strong> and <strong>Client secret</strong> above. A “401 invalid_client” later means these are wrong or the app was deleted — re-paste them.</li>
-        </ol>
-      ) : (
-        <ol style={{ margin: 0, paddingLeft: 18 }}>
-          <li style={li}>Open <strong>entra.microsoft.com</strong> → Identity → Applications → App registrations → <strong>New registration</strong>.</li>
-          <li style={li}>Under <strong>Redirect URI</strong> choose platform <strong>Web</strong> (not Single-page application — it rejects paths) and add exactly:<br /><Code value={callback} label="redirect URI" /></li>
-          <li style={li}>API permissions → Add → Microsoft Graph → <strong>Delegated</strong> → check <strong>Calendars.ReadWrite</strong> and <strong>offline_access</strong> → Grant admin consent if you can.</li>
-          <li style={li}>Certificates & secrets → <strong>New client secret</strong> → copy the secret <strong>Value</strong> (not the Secret ID).</li>
-          <li style={li}>Paste the <strong>Application (client) ID</strong>, secret <strong>Value</strong>, and <strong>Directory (tenant) ID</strong> above. “Invalid origin / path” errors mean the URL went into an origin field — origins take <Code value={origin} label="origin" /> only.</li>
-        </ol>
-      )}
+    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--border-subtle)" }}>
+      <button onClick={back} className="btn-secondary hoverable" style={{ padding: "8px 18px", fontSize: 13 }}>
+        Back
+      </button>
+      <button onClick={next} disabled={!canNext} className="btn-primary hoverable" style={{ padding: "8px 24px", fontSize: 13, opacity: canNext ? 1 : 0.5 }}>
+        {nextLabel}
+      </button>
     </div>
   );
 }
 
-function WizardFooter({ back, next, nextLabel, canNext, nextHint }: {
-  back: () => void; next: () => void; nextLabel: string; canNext: boolean; nextHint?: string;
-}) {
+function OAuthGuideHelper({ provider }: { provider: "google" | "microsoft" }) {
+  const [open, setOpen] = useState(false);
+  const [copiedOrigin, setCopiedOrigin] = useState(false);
+  const [copiedRedirect, setCopiedRedirect] = useState(false);
+
+  const origin = window.location.origin;
+  const redirectUri = `${origin.replace(":3100", ":8000")}/api/v1/admin/accounts/${provider}/callback`;
+
+  function copyText(val: string, type: "origin" | "redirect") {
+    void navigator.clipboard.writeText(val);
+    if (type === "origin") {
+      setCopiedOrigin(true);
+      setTimeout(() => setCopiedOrigin(false), 2000);
+    } else {
+      setCopiedRedirect(true);
+      setTimeout(() => setCopiedRedirect(false), 2000);
+    }
+  }
+
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-        <button onClick={back} className="btn-secondary hoverable">Back</button>
-        <button onClick={next} disabled={!canNext} className="btn-primary hoverable" style={{ padding: "8px 20px", opacity: canNext ? 1 : 0.5 }}>
-          {nextLabel}
-        </button>
-      </div>
-      {nextHint && !canNext && <div style={{ fontSize: 11.5, color: "var(--text-tertiary)", marginTop: 8 }}>{nextHint}</div>}
+    <div style={{ marginTop: 8 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        style={{
+          background: "none",
+          border: "none",
+          color: "var(--accent)",
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: "pointer",
+          padding: "4px 0",
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+        }}
+      >
+        <span>{open ? "▼ Hide Console Setup Instructions" : "▶ How to set up OAuth keys & Redirect URIs"}</span>
+      </button>
+
+      {open && (
+        <div style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 8, padding: 12, marginTop: 6, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.55 }}>
+          {provider === "google" ? (
+            <ol style={{ margin: 0, paddingLeft: 18 }}>
+              <li style={{ marginBottom: 6 }}>
+                Open <strong>console.cloud.google.com</strong> → APIs & Services → Library → enable <strong>Google Calendar API</strong>.
+              </li>
+              <li style={{ marginBottom: 6 }}>
+                Credentials → Create Credentials → <strong>OAuth client ID</strong> → Application Type <strong>Web application</strong>.
+              </li>
+              <li style={{ marginBottom: 6 }}>
+                <strong>Authorized JavaScript origins</strong>:
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                  <code style={{ background: "var(--bg-app)", padding: "2px 6px", borderRadius: 4, fontSize: 11 }}>{origin}</code>
+                  <button type="button" onClick={() => copyText(origin, "origin")} className="hoverable" style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
+                    {copiedOrigin ? "Copied!" : "Copy Origin"}
+                  </button>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--warning)", marginTop: 2 }}>
+                  ⚠️ Do NOT add a trailing slash <code>/</code> here — Google Cloud Console rejects origins containing paths or trailing slashes!
+                </div>
+              </li>
+              <li style={{ marginBottom: 6 }}>
+                <strong>Authorized redirect URIs</strong>:
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                  <code style={{ background: "var(--bg-app)", padding: "2px 6px", borderRadius: 4, fontSize: 11 }}>{redirectUri}</code>
+                  <button type="button" onClick={() => copyText(redirectUri, "redirect")} className="hoverable" style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
+                    {copiedRedirect ? "Copied!" : "Copy Redirect URI"}
+                  </button>
+                </div>
+              </li>
+              <li>Copy the <strong>Client ID</strong> and <strong>Client secret</strong> and paste them below.</li>
+            </ol>
+          ) : (
+            <ol style={{ margin: 0, paddingLeft: 18 }}>
+              <li style={{ marginBottom: 6 }}>
+                Open <strong>entra.microsoft.com</strong> → App Registrations → <strong>New registration</strong>.
+              </li>
+              <li style={{ marginBottom: 6 }}>
+                Under Redirect URI select platform <strong>Web</strong> and add:
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                  <code style={{ background: "var(--bg-app)", padding: "2px 6px", borderRadius: 4, fontSize: 11 }}>{redirectUri}</code>
+                  <button type="button" onClick={() => copyText(redirectUri, "redirect")} className="hoverable" style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
+                    {copiedRedirect ? "Copied!" : "Copy Redirect URI"}
+                  </button>
+                </div>
+              </li>
+              <li style={{ marginBottom: 6 }}>
+                API permissions → Add → Microsoft Graph → Delegated → check <strong>Calendars.ReadWrite</strong> and <strong>offline_access</strong>.
+              </li>
+              <li>Copy the <strong>Application (client) ID</strong> and secret <strong>Value</strong> and paste below.</li>
+            </ol>
+          )}
+        </div>
+      )}
     </div>
   );
 }

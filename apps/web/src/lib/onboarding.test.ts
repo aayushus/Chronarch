@@ -6,18 +6,18 @@ import { canProceed, providerStatus, shouldNag, stepIndex } from "./onboarding";
 describe("stepIndex", () => {
   it("defaults unknown steps to welcome", () => {
     expect(stepIndex("connect")).toBe(1);
+    expect(stepIndex("preferences")).toBe(2);
     expect(stepIndex("bogus")).toBe(0);
     expect(stepIndex(null)).toBe(0);
   });
 });
 
 describe("canProceed", () => {
-  it("gates only the name step — connect is free-form", () => {
+  it("connect and preferences steps are deliberately ungated", () => {
     expect(canProceed("welcome", { accountCount: 0, displayName: "" })).toBe(true);
     expect(canProceed("connect", { accountCount: 0, displayName: "" })).toBe(true);
     expect(canProceed("connect", { accountCount: 3, displayName: "" })).toBe(true);
-    expect(canProceed("you", { accountCount: 1, displayName: "  " })).toBe(false);
-    expect(canProceed("you", { accountCount: 1, displayName: "Ava" })).toBe(true);
+    expect(canProceed("preferences", { accountCount: 1, displayName: "Ava" })).toBe(true);
     expect(canProceed("share", { accountCount: 0, displayName: "" })).toBe(true);
     expect(canProceed("done", { accountCount: 0, displayName: "" })).toBe(true);
   });

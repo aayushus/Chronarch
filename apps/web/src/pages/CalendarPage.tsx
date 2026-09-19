@@ -51,6 +51,32 @@ function useWide(minWidth: number): boolean {
   return wide;
 }
 
+function formatDateRangeLabel(viewMode: CalendarViewMode, date: Date): string {
+  if (viewMode === "day") {
+    return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  }
+  if (viewMode === "week") {
+    const s = startOfWeek(date);
+    const e = addDays(s, 6);
+    if (s.getFullYear() !== e.getFullYear()) {
+      return `${s.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} – ${e.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+    }
+    if (s.getMonth() !== e.getMonth()) {
+      return `${s.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${e.toLocaleDateString(undefined, { month: "short", day: "numeric" })}, ${s.getFullYear()}`;
+    }
+    return `${s.toLocaleDateString(undefined, { month: "short" })} ${s.getDate()} – ${e.getDate()}, ${s.getFullYear()}`;
+  }
+  if (viewMode === "month") {
+    return date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  }
+  if (viewMode === "agenda") {
+    const s = startOfDay(date);
+    const e = addDays(s, 13);
+    return `${s.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${e.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+  }
+  return String(date.getFullYear());
+}
+
 /** Main calendar command center (promoted from /beta). */
 export default function CalendarPage() {
   const { user } = useAuth();
@@ -438,6 +464,17 @@ export default function CalendarPage() {
         case "a":
           setViewMode("agenda");
           break;
+        case "y":
+          setViewMode("year");
+          break;
+        case "arrowleft":
+        case ",":
+          shift(-1);
+          break;
+        case "arrowright":
+        case ".":
+          shift(1);
+          break;
         case "n": {
           const s = new Date(viewedDate);
           s.setHours(9, 0, 0, 0);
@@ -540,30 +577,87 @@ export default function CalendarPage() {
         </Link>
       </header>
 
-      {/* View tabs */}
-      <div style={{ display: "flex", alignItems: "center", gap: 2, padding: "0 24px", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0, overflowX: "auto" }}>
-        {(["day", "week", "month", "agenda", "year"] as CalendarViewMode[]).map((mode) => {
-          const active = viewMode === mode;
-          return (
+      {/* Date navigation & View mode toolbar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "8px 24px",
+          borderBottom: "1px solid var(--border-subtle)",
+          flexShrink: 0,
+          background: "var(--bg-app)",
+          gap: 16,
+          flexWrap: "wrap",
+        }}
+      >
+        {/* Left: Date navigation controls & Range label */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            onClick={() => setViewedDate(new Date())}
+            className="btn-secondary hoverable"
+            title="Go to Today (T)"
+            style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600 }}
+          >
+            Today
+          </button>
+          <div style={{ display: "flex", gap: 2 }}>
             <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              className="hoverable"
-              style={{
-                border: "none", background: "none", padding: "10px 14px", fontSize: 13,
-                fontWeight: active ? 600 : 500,
-                color: active ? "var(--text-primary)" : "var(--text-secondary)",
-                borderBottom: active ? "2px solid var(--text-primary)" : "2px solid transparent",
-                cursor: "pointer", whiteSpace: "nowrap",
-              }}
+              onClick={() => shift(-1)}
+              className="btn-secondary hoverable"
+              title="Previous period (Left Arrow or ,)"
+              style={{ padding: "6px 10px", display: "inline-flex", alignItems: "center" }}
             >
-              {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              <Icon name="chevronLeft" size={15} />
             </button>
-          );
-        })}
-        <div style={{ flex: 1 }} />
-        <div className="tabular-nums" style={{ fontSize: 12, color: "var(--text-tertiary)", whiteSpace: "nowrap", paddingBottom: 8 }}>
-          {stats.count} meetings · {formatMinutes(stats.meetingMinutes)} booked · {formatMinutes(stats.freeMinutes)} open
+            <button
+              onClick={() => shift(1)}
+              className="btn-secondary hoverable"
+              title="Next period (Right Arrow or .)"
+              style={{ padding: "6px 10px", display: "inline-flex", alignItems: "center" }}
+            >
+              <Icon name="chevronRight" size={15} />
+            </button>
+          </div>
+
+          <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.01em", marginLeft: 8, color: "var(--text-primary)" }}>
+            {formatDateRangeLabel(viewMode, viewedDate)}
+          </div>
+        </div>
+
+        {/* Right: Segmented view mode selector & meeting statistics */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "inline-flex", background: "var(--bg-raised)", borderRadius: 8, padding: 3, border: "1px solid var(--border-subtle)" }}>
+            {(["day", "week", "month", "agenda", "year"] as CalendarViewMode[]).map((mode) => {
+              const active = viewMode === mode;
+              return (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className="hoverable"
+                  title={`Switch to ${mode} view (${mode.charAt(0).toUpperCase()})`}
+                  style={{
+                    border: "none",
+                    background: active ? "var(--bg-panel)" : "transparent",
+                    boxShadow: active ? "var(--shadow-pop)" : "none",
+                    padding: "5px 12px",
+                    fontSize: 12.5,
+                    fontWeight: active ? 700 : 500,
+                    borderRadius: 6,
+                    color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="tabular-nums" style={{ fontSize: 12, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
+            {stats.count} meetings · {formatMinutes(stats.meetingMinutes)} booked
+          </div>
         </div>
       </div>
 

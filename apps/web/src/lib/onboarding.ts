@@ -7,7 +7,7 @@
 export const ONBOARD_DONE_KEY = "chronarch_onboarded";
 export const ONBOARD_STEP_KEY = "chronarch_onboarding_step";
 
-export const STEPS = ["welcome", "connect", "you", "share", "done"] as const;
+export const STEPS = ["welcome", "connect", "preferences", "share", "done"] as const;
 export type OnboardStep = (typeof STEPS)[number];
 
 export interface OnboardState {
@@ -20,15 +20,12 @@ export function stepIndex(step: string | null): number {
   return i < 0 ? 0 : i;
 }
 
-/** Continue gate per step. Connect is deliberately ungated — users link
- * whatever they like (including several accounts per provider) and move
- * on whenever; Skip exists regardless. */
+/** Continue gate per step. Connect and preferences are deliberately ungated. */
 export function canProceed(step: OnboardStep, state: OnboardState): boolean {
   switch (step) {
-    case "you":
-      return state.displayName.trim().length > 0;
     case "welcome":
     case "connect":
+    case "preferences":
     case "share":
     case "done":
       return true;

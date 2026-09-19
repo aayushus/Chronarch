@@ -1459,11 +1459,11 @@ function ConnectAccountWizardModal({
           </div>
         )}
 
-        {/* STEP 2: ICS Subscription Flow */}
+        {/* STEP 2: ICS Subscription & Local Upload Flow */}
         {selectedProvider === "ics" && (
           <div>
             <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}>
-              Subscribe to an external iCalendar feed via HTTP, HTTPS, or webcal URL (BR-CAL-004). Events are periodically synchronized and read-only.
+              Subscribe to an external iCalendar feed via URL or upload a local .ics meeting file.
             </p>
 
             {icsError && (
@@ -1481,46 +1481,100 @@ function ConnectAccountWizardModal({
               </div>
             )}
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
-                  Calendar Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. US Holidays, Team Schedule"
-                  value={icsName}
-                  onChange={(e) => setIcsName(e.target.value)}
-                  className="input-standard"
-                  style={{ width: "100%" }}
-                />
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}>
+              {/* ICS Feed URL Subscription */}
+              <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Option A: Subscribe to Feed URL</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <input
+                    type="text"
+                    placeholder="Calendar Name (e.g. Team Feed)"
+                    value={icsName}
+                    onChange={(e) => setIcsName(e.target.value)}
+                    className="input-standard"
+                    style={{ width: "100%", fontSize: 12.5 }}
+                  />
+                  <input
+                    type="url"
+                    placeholder="https://example.com/calendar.ics"
+                    value={icsUrl}
+                    onChange={(e) => setIcsUrl(e.target.value)}
+                    className="input-standard"
+                    style={{ width: "100%", fontSize: 12.5 }}
+                  />
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <button
+                      onClick={handleSaveIcsSubscription}
+                      disabled={icsSaving || !icsUrl.trim()}
+                      className="btn-primary hoverable"
+                      style={{ padding: "6px 14px", fontSize: 12.5 }}
+                    >
+                      {icsSaving ? "Subscribing…" : "Subscribe to Feed"}
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
-                  ICS Feed URL
+
+              {/* Local .ics File Upload */}
+              <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Option B: Upload Local .ics File</div>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 10 }}>
+                  Select an iCalendar (.ics) file from your computer to import events.
+                </div>
+                <label className="btn-secondary hoverable" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 12.5, cursor: "pointer" }}>
+                  <span>Choose .ics File</span>
+                  <input
+                    type="file"
+                    accept=".ics"
+                    style={{ display: "none" }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setIcsSaving(true);
+                      setIcsError(null);
+                      try {
+                        const { listCalendars, previewIcs, importIcsEvent } = await import("../../api/calendar");
+                        const text = await file.text();
+                        const parsed = await previewIcs(text);
+                        if (parsed.events.length === 0) {
+                          setIcsError("No valid events found in file.");
+                          setIcsSaving(false);
+                          return;
+                        }
+                        const cals = await listCalendars();
+                        const writableCals = cals.filter((c) => c.can_create || c.writable);
+                        if (writableCals.length === 0) {
+                          setIcsError("Importing events from a local .ics file requires a connected writable calendar (e.g. Google Calendar or Microsoft 365). Connect an account first, or use 'Option A: Subscribe to Feed URL' for external read-only feeds.");
+                          setIcsSaving(false);
+                          return;
+                        }
+                        const target = writableCals[0];
+                        for (const ev of parsed.events) {
+                          await importIcsEvent({
+                            calendar_id: target.id,
+                            title: ev.title,
+                            start: ev.start,
+                            end: ev.end,
+                            timezone: ev.timezone,
+                            description: ev.description,
+                            location: ev.location,
+                            all_day: ev.all_day,
+                          });
+                        }
+                        onAccountAdded();
+                      } catch (err) {
+                        setIcsError(String(err));
+                        setIcsSaving(false);
+                      }
+                    }}
+                  />
                 </label>
-                <input
-                  type="url"
-                  placeholder="https://example.com/calendar.ics or webcal://..."
-                  value={icsUrl}
-                  onChange={(e) => setIcsUrl(e.target.value)}
-                  className="input-standard"
-                  style={{ width: "100%" }}
-                />
               </div>
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
               <button onClick={onClose} className="btn-secondary hoverable">
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveIcsSubscription}
-                disabled={icsSaving}
-                className="btn-primary hoverable"
-                style={{ padding: "8px 20px" }}
-              >
-                {icsSaving ? "Subscribing…" : "Subscribe to Calendar"}
+                Close
               </button>
             </div>
           </div>
