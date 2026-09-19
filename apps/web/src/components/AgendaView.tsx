@@ -91,6 +91,7 @@ export default function AgendaView({ days, events, calendarById, onSelectEvent, 
               {[...bucket.allDay, ...bucket.timed].map((e) => {
                 const cal = calendarById[e.calendar_id];
                 const color = cal?.color ?? "var(--accent)";
+                const badge = cal?.kind === "google" ? "G" : cal?.kind === "microsoft" ? "MS" : cal?.kind === "ics" ? "ICS" : undefined;
                 const start = new Date(e.start);
                 const end = new Date(e.end);
                 return (
@@ -103,12 +104,14 @@ export default function AgendaView({ days, events, calendarById, onSelectEvent, 
                         title={e.title}
                         meta={<>{`${fmtTime(start)} – ${fmtTime(end)}`}{e.location ? ` · ${e.location}` : ""}<EventWeather location={e.location ?? null} start={e.start} /></>}
                         attendees={e.attendees}
+                        providerBadge={badge}
                         onOpen={() => onSelectEvent(e)}
                       />
                     )}
                   </div>
                 );
               })}
+
             </div>
           </div>
         );

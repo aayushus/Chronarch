@@ -14,12 +14,25 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [invitedBanner, setInvitedBanner] = useState<string | null>(null);
+  const [forgotModalOpen, setForgotModalOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotBusy, setForgotBusy] = useState(false);
+  const [forgotMsg, setForgotMsg] = useState<string | null>(null);
+  const [resetToken, setResetToken] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetMsg, setResetMsg] = useState<string | null>(null);
 
   React.useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const invEmail = params.get("invited_email");
       const tempPass = params.get("temp_pass");
+      const rToken = params.get("reset_token");
+      if (rToken) {
+        setResetToken(rToken);
+      }
       if (invEmail) {
         setEmail(invEmail);
         if (tempPass) {
@@ -31,6 +44,45 @@ export default function LoginPage() {
       /* ignore search parse errors */
     }
   }, []);
+
+  async function handleForgotSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setForgotBusy(true);
+    try {
+      const { apiFetch } = await import("../api/client");
+      await apiFetch("/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      setForgotMsg("If an account exists for that email, a password reset link has been sent.");
+    } catch (err) {
+      setForgotMsg("If an account exists for that email, a password reset link has been sent.");
+    } finally {
+      setForgotBusy(false);
+    }
+  }
+
+  async function handleResetSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!resetToken) return;
+    setResetBusy(true);
+    setResetError(null);
+    try {
+      const { apiFetch } = await import("../api/client");
+      await apiFetch("/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ token: resetToken, new_password: newPassword }),
+      });
+      setResetMsg("Password reset successfully! You can now log in.");
+      setResetToken(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      setResetError(msg || "Failed to reset password. Token may be expired.");
+    } finally {
+      setResetBusy(false);
+    }
+  }
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -154,7 +206,11 @@ export default function LoginPage() {
             Self-hosted & Enterprise Privacy Protected
           </div>
         </div>
+
+        {/* Right form panel */}
+        <div style={{ flex: "1 1 52%", padding: "44px 36px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <div style={{ textAlign: "center", marginBottom: 28 }}>
+
             <div
               style={{
                 width: 48,

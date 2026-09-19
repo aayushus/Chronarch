@@ -1,9 +1,8 @@
 import React from "react";
 
 import { CalendarSummary, EventSummary } from "../api/calendar";
-import { WEEKDAY_SHORT, sameDay, startOfMonth } from "../lib/dates";
+import { WEEKDAY_SHORT, getISOWeek, monthTime, sameDay, startOfMonth } from "../lib/dates";
 import { AllDayChip, EventCard } from "./EventCard";
-import { monthTime } from "../lib/dates";
 
 interface Props {
   monthAnchor: Date;
@@ -15,7 +14,8 @@ interface Props {
   onEmptyMenu?: (e: React.MouseEvent, at: Date) => void;
 }
 
-export default function MonthView({ monthAnchor, events, calendarById, onSelectEvent, onSelectDay, onEventMenu, onEmptyMenu }: Props) {  const monthStart = startOfMonth(monthAnchor);
+export default function MonthView({ monthAnchor, events, calendarById, onSelectEvent, onSelectDay, onEventMenu, onEmptyMenu }: Props) {
+  const monthStart = startOfMonth(monthAnchor);
   const gridStart = new Date(monthStart);
   const leadDays = (monthStart.getDay() + 6) % 7;
   gridStart.setDate(gridStart.getDate() - leadDays);
@@ -29,7 +29,10 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
 
   return (
     <div className="cal-wash view-enter" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "36px repeat(7, 1fr)", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
+        <div style={{ padding: "8px 0", textAlign: "center", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", borderRight: "1px solid var(--border-subtle)" }}>
+          W#
+        </div>
         {WEEKDAY_SHORT.map((w, i) => (
           <div key={i} style={{ padding: "8px 0", textAlign: "center", fontSize: 11, color: "var(--text-tertiary)" }}>
             {w}
@@ -39,9 +42,28 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
       {/* Internal scroll: short viewports scroll the grid, never the page. */}
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
       <div style={{ display: "grid", gridTemplateRows: "repeat(6, minmax(118px, 1fr))", minHeight: "100%" }}>
-        {Array.from({ length: 6 }, (_, week) => (
-          <div key={week} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: "1px solid var(--border-subtle)" }}>
-            {days.slice(week * 7, week * 7 + 7).map((d) => {
+        {Array.from({ length: 6 }, (_, week) => {
+          const weekDays = days.slice(week * 7, week * 7 + 7);
+          const weekNum = getISOWeek(weekDays[0]);
+          return (
+            <div key={week} style={{ display: "grid", gridTemplateColumns: "36px repeat(7, 1fr)", borderBottom: "1px solid var(--border-subtle)" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: "var(--text-tertiary)",
+                  background: "var(--wash-deep)",
+                  borderRight: "1px solid var(--border-subtle)",
+                  userSelect: "none",
+                }}
+                title={`ISO Week ${weekNum}`}
+              >
+                W{weekNum}
+              </div>
+              {weekDays.map((d) => {
               const dayEvents = events.filter((e) => sameDay(new Date(e.start), d));
               const isCurrentMonth = d.getMonth() === monthStart.getMonth();
               return (
@@ -80,6 +102,7 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                   {dayEvents.slice(0, 2).map((e) => {
                     const cal = calendarById[e.calendar_id];
                     const color = cal?.color ?? "var(--accent)";
+                    const badge = cal?.kind === "google" ? "G" : cal?.kind === "microsoft" ? "MS" : cal?.kind === "ics" ? "ICS" : undefined;
                     return e.all_day ? (
                       <div key={e.id} style={{ marginBottom: 4, minWidth: 0 }}>
                         <AllDayChip
@@ -97,12 +120,14 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                           title={e.title}
                           meta={monthTime(e.start, e.end)}
                           attendees={e.attendees}
+                          providerBadge={badge}
                           onOpen={() => onSelectEvent(e)}
                           onMenu={(ev) => onEventMenu?.(ev, e)}
                         />
                       </div>
                     );
                   })}
+
                   {dayEvents.length > 2 && (
                     <div style={{ fontSize: 9, color: "var(--text-tertiary)" }}>+{dayEvents.length - 2} more</div>
                   )}
@@ -110,9 +135,11 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
               );
             })}
           </div>
-        ))}
+        );
+      })}
       </div>
       </div>
     </div>
   );
 }
+

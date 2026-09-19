@@ -655,7 +655,7 @@ export default function CalendarPage() {
 
         {/* Right: Segmented view mode selector & meeting statistics */}
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ display: "inline-flex", background: "var(--bg-raised)", borderRadius: 8, padding: 3, border: "1px solid var(--border-subtle)" }}>
+          <div style={{ display: "inline-flex", background: "var(--wash-deep)", borderRadius: 10, padding: 3, border: "1px solid var(--border-subtle)" }}>
             {(["day", "week", "month", "agenda", "year"] as CalendarViewMode[]).map((mode) => {
               const active = viewMode === mode;
               return (
@@ -666,18 +666,20 @@ export default function CalendarPage() {
                   title={`Switch to ${mode} view (${mode.charAt(0).toUpperCase()})`}
                   style={{
                     border: "none",
-                    background: active ? "var(--bg-panel)" : "transparent",
-                    boxShadow: active ? "var(--shadow-pop)" : "none",
-                    padding: "5px 12px",
-                    fontSize: 12.5,
+                    background: active ? "var(--bg-raised)" : "transparent",
+                    boxShadow: active ? "var(--shadow-lift)" : "none",
+                    padding: "5px 14px",
+                    fontSize: 12,
                     fontWeight: active ? 700 : 500,
-                    borderRadius: 6,
+                    borderRadius: 7,
                     color: active ? "var(--text-primary)" : "var(--text-secondary)",
                     cursor: "pointer",
                     whiteSpace: "nowrap",
+                    transition: "all var(--transition-fast)",
                   }}
                 >
                   {mode.charAt(0).toUpperCase() + mode.slice(1)}
+
                 </button>
               );
             })}

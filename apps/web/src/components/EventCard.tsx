@@ -88,12 +88,14 @@ export interface EventCardProps {
   selected?: boolean;
   /** Dense month cells: tighter padding, no avatars/menu — fits 2 cards/row. */
   compact?: boolean;
+  /** Provider badge label e.g. "G", "MS", "ICS" */
+  providerBadge?: string;
   onOpen: () => void;
   onMenu?: (e: React.MouseEvent) => void;
 }
 
 /** Standard timed-event card (month cells, agenda rows). */
-export function EventCard({ color, title, meta, attendees = [], selected, compact, onOpen, onMenu }: EventCardProps) {
+export function EventCard({ color, title, meta, attendees = [], selected, compact, providerBadge, onOpen, onMenu }: EventCardProps) {
   const { shown, extra } = avatarStack(attendees);
   return (
     <div
@@ -110,15 +112,34 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
       style={{
         background: "var(--card-bg)",
         border: "1px solid var(--card-line)",
+        borderLeft: `4px solid ${color}`,
         borderRadius: 10,
         boxShadow: "var(--shadow-card)",
         padding: compact ? "6px 10px" : "9px 12px",
         cursor: "pointer",
         minWidth: 0,
+        position: "relative",
         outline: selected ? `2px solid ${color}` : "none",
       }}
     >
-      <ProgressBar color={color} />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <ProgressBar color={color} />
+        {providerBadge && (
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              padding: "1px 5px",
+              borderRadius: 4,
+              background: "var(--wash-faint)",
+              color: "var(--text-secondary)",
+              lineHeight: 1,
+            }}
+          >
+            {providerBadge}
+          </span>
+        )}
+      </div>
       <div style={{ fontSize: compact ? 12 : 13, fontWeight: 600, color: "var(--card-ink)", lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {title}
       </div>
@@ -147,6 +168,7 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
     </div>
   );
 }
+
 
 /** All-day chip ink: the tint washes toward the app background, so dark
  * mode needs white text while light mode keeps ink. Pure (tested). */

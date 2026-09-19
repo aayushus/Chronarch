@@ -1,7 +1,7 @@
 /** monthTime compact-range tests (TZ-safe: round-trips local wall time). */
 import { describe, expect, it } from "vitest";
 
-import { monthGridCells, monthTime } from "./dates";
+import { getISOWeek, monthGridCells, monthTime } from "./dates";
 
 function iso(y: number, m: number, d: number, h: number, min = 0): string {
   return new Date(y, m - 1, d, h, min).toISOString();
@@ -36,5 +36,14 @@ describe("monthGridCells", () => {
     const feb = monthGridCells(2026, 1);
     expect(feb.length % 7).toBe(0);
     expect(feb[0].getDay()).toBe(1);
+  });
+});
+
+describe("getISOWeek", () => {
+  it("calculates correct ISO week numbers", () => {
+    // Jan 1 2026 is a Thursday -> Week 1
+    expect(getISOWeek(new Date(2026, 0, 1))).toBe(1);
+    // Sep 19 2026 is a Saturday -> Week 38
+    expect(getISOWeek(new Date(2026, 8, 19))).toBe(38);
   });
 });

@@ -55,11 +55,12 @@ export default function MiniMonth({ viewedDate, selectedDate, onSelect, onMonthS
                 justifyContent: "center",
                 fontSize: 11,
                 border: "none",
-                borderRadius: 999,
+                borderRadius: isToday ? 6 : 999,
                 cursor: "pointer",
                 background: isToday ? "var(--danger)" : isSelected ? "var(--bg-raised-hover)" : "transparent",
                 color: isToday ? "#fff" : isCurrentMonth ? "var(--text-primary)" : "var(--text-tertiary)",
                 fontWeight: isToday ? 700 : 400,
+                boxShadow: isToday ? "0 2px 6px rgba(255, 69, 58, 0.35)" : "none",
               }}
             >
               {d.getDate()}
@@ -67,9 +68,35 @@ export default function MiniMonth({ viewedDate, selectedDate, onSelect, onMonthS
           );
         })}
       </div>
+
+      <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
+        <button
+          onClick={() => onSelect(new Date())}
+          className="btn-secondary"
+          style={{
+            width: "100%",
+            padding: "5px 12px",
+            fontSize: 11,
+            fontWeight: 600,
+            borderRadius: 999,
+            background: "var(--wash-lift)",
+            color: "var(--accent)",
+            border: "1px solid var(--accent-dim)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
+          }}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--danger)" }} />
+          Today
+        </button>
+      </div>
     </div>
   );
 }
+
 
 const navBtnStyle: React.CSSProperties = {
   background: "none",
