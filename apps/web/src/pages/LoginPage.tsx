@@ -129,8 +129,8 @@ export default function LoginPage() {
           </div>
           <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>
             {mode === "signup"
-              ? "New accounts start as workspace admins."
-              : "Sign in with your workspace account."}
+              ? "Create an account to get started."
+              : "Sign in with your account."}
           </div>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {mode === "signup" && (

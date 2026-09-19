@@ -64,13 +64,14 @@ export default function StartPage() {
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Connect step: provider credential readiness (inline setup, no Settings trip).
+  // Connect step: keys live here (never a Settings trip).
   const [oauthConfigs, setOauthConfigs] = useState<OAuthStatus[] | null>(null);
-  const [credsFor, setCredsFor] = useState<"google" | "microsoft" | null>(null);
+  const [guideFor, setGuideFor] = useState<"google" | "microsoft" | null>(null);
   const [credId, setCredId] = useState("");
   const [credSecret, setCredSecret] = useState("");
   const [credTenant, setCredTenant] = useState("");
   const [savingCreds, setSavingCreds] = useState(false);
+  const [connecting, setConnecting] = useState<"google" | "microsoft" | null>(null);
 
   // Step 3: profile.
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
@@ -143,21 +144,23 @@ export default function StartPage() {
     finish();
   }
 
-  async function connectProvider(kind: "google" | "microsoft") {
-    setError(null);
-    try {
-      // Full-page OAuth round-trip: persist the step, resume after the
-      // callback lands back in Settings (see AccountsSettings banner).
-      try {
-        localStorage.setItem(ONBOARD_STEP_KEY, String(stepIndex("connect")));
-      } catch {
-        /* private mode */
-      }
-      const url = kind === "google" ? await adminGetGoogleConnectUrl() : await adminGetMicrosoftConnectUrl();
-      window.location.href = url;
-    } catch (e) {
-      setError(friendlyError(e));
-    }
+  function CopyValue({ value, label }: { value: string; label: string }) {
+    const [copiedUrl, setCopiedUrl] = useState(false);
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%" }}>
+        <code style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 6, padding: "3px 8px", fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260 }} title={value}>
+          {value}
+        </code>
+        <button
+          onClick={() => { void navigator.clipboard.writeText(value); setCopiedUrl(true); setTimeout(() => setCopiedUrl(false), 1500); }}
+          aria-label={`Copy ${label}`}
+          className="hoverable"
+          style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 11.5, fontWeight: 700, cursor: "pointer", padding: 0, whiteSpace: "nowrap" }}
+        >
+          {copiedUrl ? "Copied" : "Copy"}
+        </button>
+      </span>
+    );
   }
 
   async function saveProfile(next: OnboardStep) {
@@ -181,8 +184,8 @@ export default function StartPage() {
     }
   }
 
-  async function saveCredentials(provider: "google" | "microsoft") {
-    if (savingCreds) return;
+  async function saveAndConnect(provider: "google" | "microsoft") {
+    if (savingCreds || connecting) return;
     setSavingCreds(true);
     setError(null);
     try {
@@ -199,10 +202,23 @@ export default function StartPage() {
           client_secret_configured: updated.client_secret_configured,
         }];
       });
-      setCredsFor(null);
       setCredId("");
       setCredSecret("");
       setCredTenant("");
+      setConnecting(provider);
+      try {
+        // Full-page OAuth round-trip: persist the step, resume after the
+        // callback lands back in Settings (see AccountsSettings banner).
+        try {
+          localStorage.setItem(ONBOARD_STEP_KEY, String(stepIndex("connect")));
+        } catch {
+          /* private mode */
+        }
+        const url = provider === "google" ? await adminGetGoogleConnectUrl() : await adminGetMicrosoftConnectUrl();
+        window.location.href = url;
+      } finally {
+        setConnecting(null);
+      }
     } catch (e) {
       setError(friendlyError(e));
     } finally {
@@ -233,7 +249,9 @@ export default function StartPage() {
 
   function providerCard(provider: "google" | "microsoft", title: string) {
     const status = providerStatus(oauthConfigs, provider);
-    const expanded = credsFor === provider;
+    const guideOpen = guideFor === provider;
+    const origin = window.location.origin;
+    const callback = `${origin}/api/v1/admin/accounts/${provider}/callback`;
     return (
       <div key={provider} style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: "12px 14px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -243,35 +261,32 @@ export default function StartPage() {
           <span style={{ flex: 1, minWidth: 0 }}>
             <span style={{ display: "block", fontSize: 13.5, fontWeight: 700 }}>{title}</span>
             <span style={{ display: "block", fontSize: 11.5, color: "var(--text-tertiary)", marginTop: 1 }}>
-              {status === "ready" ? "Credentials saved — ready to connect" : status === "needs-keys" ? "Needs a Client ID & secret first" : "Checking…"}
+              {status === "saved" ? "Keys saved — connect anytime" : status === "needed" ? "Paste your keys below, then connect" : "Checking…"}
             </span>
           </span>
           {status !== "unknown" && (
-            <Badge tone={status === "ready" ? "success" : "warning"}>{status === "ready" ? "Ready" : "Setup"}</Badge>
+            <Badge tone={status === "saved" ? "info" : "warning"}>{status === "saved" ? "Saved" : "Needed"}</Badge>
           )}
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-          <button onClick={() => void connectProvider(provider)} disabled={status !== "ready"} className="btn-primary hoverable" style={{ flex: 1, padding: "8px 12px", fontSize: 13, opacity: status === "ready" ? 1 : 0.45 }}>
-            Connect {provider === "google" ? "Google" : "Microsoft"}
-          </button>
-          {status === "needs-keys" && (
-            <button onClick={() => { setCredsFor(expanded ? null : provider); setError(null); }} className="btn-secondary hoverable" style={{ padding: "8px 12px", fontSize: 13, whiteSpace: "nowrap" }}>
-              {expanded ? "Hide" : "Add keys"}
-            </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+          <input value={credId} onChange={(e) => setCredId(e.target.value)} placeholder={provider === "google" ? "Client ID (…apps.googleusercontent.com)" : "Application (client) ID"} aria-label={`${title} client ID`} autoComplete="off" className="input-standard" style={{ width: "100%", fontSize: 12.5 }} />
+          <input value={credSecret} onChange={(e) => setCredSecret(e.target.value)} placeholder={provider === "google" ? "Client secret" : "Client secret (Value, not Secret ID)"} aria-label={`${title} client secret`} autoComplete="off" type="password" className="input-standard" style={{ width: "100%", fontSize: 12.5 }} />
+          {provider === "microsoft" && (
+            <input value={credTenant} onChange={(e) => setCredTenant(e.target.value)} placeholder="Directory (tenant) ID — use 'common' for personal accounts" aria-label="Microsoft tenant ID" autoComplete="off" className="input-standard" style={{ width: "100%", fontSize: 12.5 }} />
           )}
         </div>
-        {expanded && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-            <input value={credId} onChange={(e) => setCredId(e.target.value)} placeholder="Client ID" aria-label={`${title} client ID`} autoComplete="off" className="input-standard" style={{ width: "100%", fontSize: 12.5 }} />
-            <input value={credSecret} onChange={(e) => setCredSecret(e.target.value)} placeholder="Client secret" aria-label={`${title} client secret`} autoComplete="off" type="password" className="input-standard" style={{ width: "100%", fontSize: 12.5 }} />
-            {provider === "microsoft" && (
-              <input value={credTenant} onChange={(e) => setCredTenant(e.target.value)} placeholder="Tenant ID (optional)" aria-label="Microsoft tenant ID" autoComplete="off" className="input-standard" style={{ width: "100%", fontSize: 12.5 }} />
-            )}
-            <button onClick={() => void saveCredentials(provider)} disabled={savingCreds || !credId.trim() || !credSecret.trim()} className="btn-secondary hoverable" style={{ alignSelf: "flex-start", padding: "6px 14px", fontSize: 12.5, opacity: savingCreds || !credId.trim() || !credSecret.trim() ? 0.5 : 1 }}>
-              {savingCreds ? "Saving…" : "Save credentials"}
-            </button>
-          </div>
-        )}
+        <button onClick={() => setGuideFor(guideOpen ? null : provider)} style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "8px 0 0", textAlign: "left" }}>
+          {guideOpen ? "▾ Hide: how do I get these?" : "▸ How do I get these?"}
+        </button>
+        {guideOpen && <KeyGuide provider={provider} origin={origin} callback={callback} />}
+        <button
+          onClick={() => void saveAndConnect(provider)}
+          disabled={savingCreds || connecting !== null || !credId.trim() || !credSecret.trim()}
+          className="btn-primary hoverable"
+          style={{ width: "100%", marginTop: 10, padding: "9px 12px", fontSize: 13, opacity: savingCreds || connecting !== null || !credId.trim() || !credSecret.trim() ? 0.5 : 1 }}
+        >
+          {connecting === provider ? "Opening provider…" : savingCreds ? "Saving…" : `Save & Connect ${provider === "google" ? "Google" : "Microsoft"}`}
+        </button>
       </div>
     );
   }
@@ -456,6 +471,49 @@ export default function StartPage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function KeyGuide({ provider, origin, callback }: { provider: "google" | "microsoft"; origin: string; callback: string }) {
+  const [copied, setCopied] = useState(false);
+  function copy(value: string) {
+    void navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+  function Code({ value, label }: { value: string; label: string }) {
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%", verticalAlign: "bottom" }}>
+        <code style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 6, padding: "2px 8px", fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 230 }} title={value}>
+          {value}
+        </code>
+        <button onClick={() => copy(value)} aria-label={`Copy ${label}`} className="hoverable" style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 11.5, fontWeight: 700, cursor: "pointer", padding: 0, whiteSpace: "nowrap" }}>
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </span>
+    );
+  }
+  const li = { fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.55, marginBottom: 6 } as const;
+  return (
+    <div style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 8, padding: "10px 12px", marginTop: 10 }}>
+      {provider === "google" ? (
+        <ol style={{ margin: 0, paddingLeft: 18 }}>
+          <li style={li}>Open <strong>console.cloud.google.com</strong> → APIs & Services → Library → enable <strong>Google Calendar API</strong>.</li>
+          <li style={li}>Credentials → Create Credentials → <strong>OAuth client ID</strong> → application type <strong>Web application</strong>.</li>
+          <li style={li}>Under <strong>Authorized JavaScript origins</strong> add exactly:<br /><Code value={origin} label="origin" /> <em>(origin only — paths are rejected here)</em></li>
+          <li style={li}>Under <strong>Authorized redirect URIs</strong> add exactly:<br /><Code value={callback} label="redirect URI" /> <em>(full URL — must match character-for-character)</em></li>
+          <li style={li}>Copy the <strong>Client ID</strong> and <strong>Client secret</strong> above. A “401 invalid_client” later means these are wrong or the app was deleted — re-paste them.</li>
+        </ol>
+      ) : (
+        <ol style={{ margin: 0, paddingLeft: 18 }}>
+          <li style={li}>Open <strong>entra.microsoft.com</strong> → Identity → Applications → App registrations → <strong>New registration</strong>.</li>
+          <li style={li}>Under <strong>Redirect URI</strong> choose platform <strong>Web</strong> (not Single-page application — it rejects paths) and add exactly:<br /><Code value={callback} label="redirect URI" /></li>
+          <li style={li}>API permissions → Add → Microsoft Graph → <strong>Delegated</strong> → check <strong>Calendars.ReadWrite</strong> and <strong>offline_access</strong> → Grant admin consent if you can.</li>
+          <li style={li}>Certificates & secrets → <strong>New client secret</strong> → copy the secret <strong>Value</strong> (not the Secret ID).</li>
+          <li style={li}>Paste the <strong>Application (client) ID</strong>, secret <strong>Value</strong>, and <strong>Directory (tenant) ID</strong> above. “Invalid origin / path” errors mean the URL went into an origin field — origins take <Code value={origin} label="origin" /> only.</li>
+        </ol>
+      )}
     </div>
   );
 }

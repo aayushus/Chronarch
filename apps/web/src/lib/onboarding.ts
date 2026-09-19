@@ -52,15 +52,17 @@ export interface OAuthStatus {
   client_secret_configured: boolean;
 }
 
-/** Whether Connect will work or bounce with "not set". Pure (tested). */
+/** Whether saved keys exist. "saved" is deliberately NOT "ready" — only
+ * a real OAuth round-trip proves keys work (a stored client can be
+ * deleted/rotated provider-side). Pure (tested). */
 export function providerStatus(
   configs: OAuthStatus[] | null,
   provider: "google" | "microsoft",
-): "ready" | "needs-keys" | "unknown" {
+): "saved" | "needed" | "unknown" {
   if (!configs) return "unknown";
   const row = configs.find((c) => c.provider === provider);
-  if (!row) return "needs-keys";
-  return row.client_id_configured && row.client_secret_configured ? "ready" : "needs-keys";
+  if (!row) return "needed";
+  return row.client_id_configured && row.client_secret_configured ? "saved" : "needed";
 }
 
 export function readFlag(key: string): boolean {

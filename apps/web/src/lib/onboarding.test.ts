@@ -39,13 +39,13 @@ describe("providerStatus", () => {
     { provider: "google", client_id_configured: true, client_secret_configured: true },
     { provider: "microsoft", client_id_configured: true, client_secret_configured: false },
   ];
-  it("reads configured flags per provider", () => {
-    expect(providerStatus(configs, "google")).toBe("ready");
-    expect(providerStatus(configs, "microsoft")).toBe("needs-keys");
+  it("reports saved keys without claiming they work", () => {
+    expect(providerStatus(configs, "google")).toBe("saved");
+    expect(providerStatus(configs, "microsoft")).toBe("needed");
   });
 
   it("treats missing rows and unloaded configs safely", () => {
-    expect(providerStatus([], "google")).toBe("needs-keys");
+    expect(providerStatus([], "google")).toBe("needed");
     expect(providerStatus(null, "google")).toBe("unknown");
   });
 });

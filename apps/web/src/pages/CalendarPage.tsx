@@ -637,7 +637,7 @@ export default function CalendarPage() {
         )}
 
         {/* Main canvas */}
-        <main style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, padding: showRails ? "16px 16px 16px 0" : 16 }}>
+        <main style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, padding: 16 }}>
           {showSetupNag && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(10, 132, 255, 0.1)", border: "1px solid rgba(10, 132, 255, 0.3)", borderRadius: 10, padding: "9px 14px", marginBottom: 12, fontSize: 13, flexShrink: 0 }}>
               <span style={{ flex: 1, minWidth: 0 }}>Welcome! Connect a calendar to bring this to life — takes about a minute.</span>
@@ -784,12 +784,35 @@ export default function CalendarPage() {
                 </div>
               </section>
             )}
-            <button onClick={() => setCopilotOpen(true)} className="hoverable" style={{ display: "flex", alignItems: "center", gap: 9, border: "none", borderRadius: 8, padding: "10px 12px", background: "rgba(10, 132, 255, 0.12)", color: "var(--accent)", fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
-              <Icon name="sparkles" size={14} />
-              <span>Ask Copilot</span>
-            </button>
           </aside>
         )}
+
+      {/* Floating copilot chat button, bottom-left. */}
+      <button
+        onClick={() => setCopilotOpen(true)}
+        title="Ask Copilot"
+        aria-label="Ask Copilot"
+        className="hoverable"
+        style={{
+          position: "fixed",
+          left: 20,
+          bottom: 20,
+          width: 52,
+          height: 52,
+          borderRadius: "50%",
+          border: "1px solid var(--border)",
+          background: "var(--accent)",
+          color: "#fff",
+          boxShadow: "var(--shadow-pop)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          zIndex: 900,
+        }}
+      >
+        <Icon name="sparkles" size={22} />
+      </button>
       </div>
 
       <EventDetailPanel

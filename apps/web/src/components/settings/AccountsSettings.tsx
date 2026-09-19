@@ -702,9 +702,9 @@ function ConnectAccountWizardModal({
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop-solid" onClick={onClose}>
       <div
-        className="modal-card"
+        className="modal-card-solid"
         onClick={(e) => e.stopPropagation()}
         style={{ width: 560, maxWidth: "94vw", padding: 28 }}
       >
