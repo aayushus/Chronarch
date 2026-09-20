@@ -73,3 +73,7 @@ secrets/
 
 # Agent / tooling state
 .opencode/
+
+# Local scripts
+start.sh
+
