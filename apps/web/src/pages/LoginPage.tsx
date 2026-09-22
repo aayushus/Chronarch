@@ -14,7 +14,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [invitedBanner, setInvitedBanner] = useState<string | null>(null);
-  const [forgotModalOpen, setForgotModalOpen] = useState(false);
+  const [authView, setAuthView] = useState<"signin" | "forgot" | "reset">("signin");
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotBusy, setForgotBusy] = useState(false);
   const [forgotMsg, setForgotMsg] = useState<string | null>(null);
@@ -32,6 +32,7 @@ export default function LoginPage() {
       const rToken = params.get("reset_token");
       if (rToken) {
         setResetToken(rToken);
+        setAuthView("reset");
       }
       if (invEmail) {
         setEmail(invEmail);
@@ -52,10 +53,10 @@ export default function LoginPage() {
       const { apiFetch } = await import("../api/client");
       await apiFetch("/auth/forgot-password", {
         method: "POST",
-        body: JSON.stringify({ email: forgotEmail }),
+        body: JSON.stringify({ email: forgotEmail || email }),
       });
       setForgotMsg("If an account exists for that email, a password reset link has been sent.");
-    } catch (err) {
+    } catch {
       setForgotMsg("If an account exists for that email, a password reset link has been sent.");
     } finally {
       setForgotBusy(false);
@@ -210,7 +211,6 @@ export default function LoginPage() {
         {/* Right form panel */}
         <div style={{ flex: "1 1 52%", padding: "44px 36px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <div style={{ textAlign: "center", marginBottom: 28 }}>
-
             <div
               style={{
                 width: 48,
@@ -228,8 +228,16 @@ export default function LoginPage() {
             >
               C
             </div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Sign in to Chronarch</h1>
-            <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: 0 }}>Unified calendar aggregation & scheduling</p>
+            <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>
+              {authView === "forgot" ? "Reset Password" : authView === "reset" ? "Set New Password" : "Sign in to Chronarch"}
+            </h1>
+            <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: 0 }}>
+              {authView === "forgot"
+                ? "Enter your account email to receive a password reset link"
+                : authView === "reset"
+                ? "Enter and confirm your new account password"
+                : "Unified calendar aggregation & scheduling"}
+            </p>
           </div>
 
           {invitedBanner && (
@@ -264,9 +272,8 @@ export default function LoginPage() {
             </div>
           )}
 
-          {resetToken ? (
+          {authView === "reset" ? (
             <form onSubmit={handleResetSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Reset Your Password</h3>
               <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
                 New Password
                 <input
@@ -284,7 +291,68 @@ export default function LoginPage() {
               <button type="submit" className="btn-primary" disabled={resetBusy} style={{ padding: "11px 16px", fontSize: 14, fontWeight: 600 }}>
                 {resetBusy ? "Updating…" : "Set New Password"}
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthView("signin");
+                  setResetToken(null);
+                }}
+                className="btn-secondary"
+                style={{ padding: "10px 16px", fontSize: 13 }}
+              >
+                Back to sign in
+              </button>
             </form>
+          ) : authView === "forgot" ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {forgotMsg ? (
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "var(--success)",
+                    background: "rgba(48, 209, 88, 0.1)",
+                    border: "1px solid rgba(48, 209, 88, 0.3)",
+                    padding: 12,
+                    borderRadius: "var(--radius-sm)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {forgotMsg}
+                </div>
+              ) : (
+                <form onSubmit={handleForgotSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+                    Account email
+                    <input
+                      type="email"
+                      value={forgotEmail || email}
+                      onChange={(e) => {
+                        setForgotEmail(e.target.value);
+                        if (!email) setEmail(e.target.value);
+                      }}
+                      required
+                      placeholder="you@example.com"
+                      className="input-standard"
+                      style={{ marginTop: 6, width: "100%", fontSize: 14, padding: "10px 12px" }}
+                    />
+                  </label>
+                  <button type="submit" className="btn-primary" disabled={forgotBusy} style={{ marginTop: 4, padding: "11px 16px", fontSize: 14, fontWeight: 600 }}>
+                    {forgotBusy ? "Sending link…" : "Send Reset Link"}
+                  </button>
+                </form>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthView("signin");
+                  setForgotMsg(null);
+                }}
+                className="btn-secondary"
+                style={{ padding: "10px 16px", fontSize: 13 }}
+              >
+                Back to sign in
+              </button>
+            </div>
           ) : (
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
@@ -305,7 +373,11 @@ export default function LoginPage() {
                   <span>Password</span>
                   <button
                     type="button"
-                    onClick={() => setForgotModalOpen(true)}
+                    onClick={() => {
+                      setForgotEmail(email);
+                      setForgotMsg(null);
+                      setAuthView("forgot");
+                    }}
                     style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 12, cursor: "pointer", padding: 0 }}
                   >
                     Forgot?
@@ -391,42 +463,6 @@ export default function LoginPage() {
           )}
         </div>
       </div>
-
-      {forgotModalOpen && (
-        <div className="cal-modal-wash" onClick={() => setForgotModalOpen(false)}>
-          <div className="cal-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400, padding: 24 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 8px 0" }}>Forgot Password</h3>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px 0" }}>
-              Enter your account email address and we'll send a link to reset your password.
-            </p>
-            {forgotMsg ? (
-              <div style={{ fontSize: 13, color: "var(--success)", background: "rgba(48, 209, 88, 0.1)", padding: 12, borderRadius: 6, marginBottom: 16 }}>
-                {forgotMsg}
-              </div>
-            ) : (
-              <form onSubmit={handleForgotSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <input
-                  type="email"
-                  value={forgotEmail}
-                  onChange={(e) => setForgotEmail(e.target.value)}
-                  required
-                  placeholder="you@example.com"
-                  className="input-standard"
-                  style={{ width: "100%", fontSize: 14, padding: "10px 12px" }}
-                />
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                  <button type="button" onClick={() => setForgotModalOpen(false)} className="btn-secondary" style={{ padding: "8px 14px", fontSize: 13 }}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn-primary" disabled={forgotBusy} style={{ padding: "8px 14px", fontSize: 13 }}>
-                    {forgotBusy ? "Sending…" : "Send Reset Link"}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
