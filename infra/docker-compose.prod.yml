@@ -1,32 +1,12 @@
-name: chronarch-prod
-
-x-python-env: &python-env
-  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chronarch}:${POSTGRES_PASSWORD:-chronarch}@postgres:5432/${POSTGRES_DB:-chronarch}
-  REDIS_URL: redis://redis:6379/0
-  JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env — see .env.example}
-  ALLOW_INSECURE_DEV_SECRET: ${ALLOW_INSECURE_DEV_SECRET:-}
-  ALLOW_SIGNUPS: ${ALLOW_SIGNUPS:-false}
-  TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
-  APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
-  CORS_ORIGINS: ${CORS_ORIGINS:-${APP_BASE_URL:-http://localhost:3000}}
-  GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
-  GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
-  MICROSOFT_OAUTH_CLIENT_ID: ${MICROSOFT_OAUTH_CLIENT_ID:-}
-  MICROSOFT_OAUTH_CLIENT_SECRET: ${MICROSOFT_OAUTH_CLIENT_SECRET:-}
-  MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-}
-  LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-litellm-dev}
-  LITELLM_DYNAMIC_DIR: /srv/litellm-dynamic
-
-volumes:
-  litellm-dynamic:
+name: chronarch
 
 services:
   postgres:
+    container_name: chronarch-postgres
     image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-chronarch}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env — see .env.example}
-      POSTGRES_DB: ${POSTGRES_DB:-chronarch}
+    restart: unless-stopped
+    env_file:
+      - .env
     volumes:
       - ./volumes/postgres:/var/lib/postgresql/data
     healthcheck:
@@ -34,13 +14,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    ports:
-      - "${POSTGRES_HOST_PORT:-5432}:5432"
 
   redis:
+    container_name: chronarch-redis
     image: redis:7-alpine
+    restart: unless-stopped
     volumes:
-      - ./redis:/data
+      - ./volumes/redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -48,8 +28,10 @@ services:
       retries: 10
 
   migrate:
+    container_name: chronarch-migrate
     image: ghcr.io/${GHCR_REPO_OWNER:-aayushus}/chronarch-api:${TAG:-latest}
-    environment: *python-env
+    env_file:
+      - .env
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,10 +40,13 @@ services:
     restart: "no"
 
   api:
+    container_name: chronarch-api
     image: ghcr.io/${GHCR_REPO_OWNER:-aayushus}/chronarch-api:${TAG:-latest}
-    environment: *python-env
+    restart: unless-stopped
+    env_file:
+      - .env
     volumes:
-      - litellm-dynamic:/srv/litellm-dynamic
+      - ./volumes/litellm-dynamic:${LITELLM_DYNAMIC_DIR:-/srv/litellm-dynamic}
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,7 +55,7 @@ services:
       migrate:
         condition: service_completed_successfully
     ports:
-      - "8000:8000"
+      - "${API_HOST_PORT:-28000}:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
       interval: 10s
@@ -78,13 +63,16 @@ services:
       retries: 10
 
   mcp:
+    container_name: chronarch-mcp
     image: ghcr.io/${GHCR_REPO_OWNER:-aayushus}/chronarch-mcp:${TAG:-latest}
-    environment: *python-env
+    restart: unless-stopped
+    env_file:
+      - .env
     depends_on:
       api:
         condition: service_healthy
     ports:
-      - "8001:8001"
+      - "${MCP_HOST_PORT:-28001}:8001"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/healthz')"]
       interval: 15s
@@ -92,8 +80,11 @@ services:
       retries: 5
 
   worker:
+    container_name: chronarch-worker
     image: ghcr.io/${GHCR_REPO_OWNER:-aayushus}/chronarch-worker:${TAG:-latest}
-    environment: *python-env
+    restart: unless-stopped
+    env_file:
+      - .env
     depends_on:
       postgres:
         condition: service_healthy
@@ -108,8 +99,11 @@ services:
       retries: 3
 
   scheduler:
+    container_name: chronarch-scheduler
     image: ghcr.io/${GHCR_REPO_OWNER:-aayushus}/chronarch-scheduler:${TAG:-latest}
-    environment: *python-env
+    restart: unless-stopped
+    env_file:
+      - .env
     depends_on:
       redis:
         condition: service_healthy
@@ -120,13 +114,15 @@ services:
       retries: 3
 
   litellm:
+    container_name: chronarch-litellm
     image: ghcr.io/${GHCR_REPO_OWNER:-aayushus}/chronarch-litellm:${TAG:-latest}
-    environment:
-      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-litellm-dev}
+    restart: unless-stopped
+    env_file:
+      - .env
     volumes:
-      - litellm-dynamic:/app/dynamic:ro
+      - ./volumes/litellm-dynamic:/app/dynamic:ro
     ports:
-      - "4000:4000"
+      - "${LITELLM_HOST_PORT:-24000}:4000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')"]
       interval: 15s
@@ -134,12 +130,14 @@ services:
       retries: 5
 
   web:
+    container_name: chronarch-web
     image: ghcr.io/${GHCR_REPO_OWNER:-aayushus}/chronarch-web:${TAG:-latest}
+    restart: unless-stopped
     depends_on:
       api:
         condition: service_healthy
     ports:
-      - "${WEB_HOST_PORT:-3000}:80"
+      - "${WEB_HOST_PORT:-23000}:80"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
       interval: 15s

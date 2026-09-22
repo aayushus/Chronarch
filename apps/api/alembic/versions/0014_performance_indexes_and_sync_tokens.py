@@ -17,19 +17,38 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _columns(table: str) -> set[str]:
+    bind = op.get_bind()
+    insp = sa.inspect(bind)
+    return {c["name"] for c in insp.get_columns(table)}
+
+
+def _indexes(table: str) -> set[str]:
+    bind = op.get_bind()
+    insp = sa.inspect(bind)
+    return {idx["name"] for idx in insp.get_indexes(table)}
+
+
 def upgrade() -> None:
     bind = op.get_bind()
 
     # 1A: Compound Indexes on events table
-    op.create_index("idx_events_calendar_window", "events", ["calendar_id", "start", "end"])
-    op.create_index("idx_events_provider_lookup", "events", ["provider_account_id", "provider_event_id"])
+    event_idx = _indexes("events")
+    if "idx_events_calendar_window" not in event_idx:
+        op.create_index("idx_events_calendar_window", "events", ["calendar_id", "start", "end"])
+    if "idx_events_provider_lookup" not in event_idx:
+        op.create_index("idx_events_provider_lookup", "events", ["provider_account_id", "provider_event_id"])
 
     # 1B: MaterializedOccurrences table
     MaterializedOccurrence.__table__.create(bind, checkfirst=True)
 
     # 2A: Sync tokens on accounts table
-    op.add_column("accounts", sa.Column("sync_token", sa.String(), nullable=True))
-    op.add_column("accounts", sa.Column("delta_token", sa.String(), nullable=True))
+    acc_cols = _columns("accounts")
+    if "sync_token" not in acc_cols:
+        op.add_column("accounts", sa.Column("sync_token", sa.String(), nullable=True))
+    if "delta_token" not in acc_cols:
+        op.add_column("accounts", sa.Column("delta_token", sa.String(), nullable=True))
+
 
 
 def downgrade() -> None:

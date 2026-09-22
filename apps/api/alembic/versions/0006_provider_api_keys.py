@@ -15,9 +15,19 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _columns(table: str) -> set[str]:
+    bind = op.get_bind()
+    insp = sa.inspect(bind)
+    return {c["name"] for c in insp.get_columns(table)}
+
+
 def upgrade() -> None:
-    op.add_column("ai_litellm_settings", sa.Column("encrypted_groq_api_key", sa.LargeBinary(), nullable=True))
-    op.add_column("ai_litellm_settings", sa.Column("encrypted_gemini_api_key", sa.LargeBinary(), nullable=True))
+    cols = _columns("ai_litellm_settings")
+    if "encrypted_groq_api_key" not in cols:
+        op.add_column("ai_litellm_settings", sa.Column("encrypted_groq_api_key", sa.LargeBinary(), nullable=True))
+    if "encrypted_gemini_api_key" not in cols:
+        op.add_column("ai_litellm_settings", sa.Column("encrypted_gemini_api_key", sa.LargeBinary(), nullable=True))
+
 
 
 def downgrade() -> None:

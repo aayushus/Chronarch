@@ -65,13 +65,18 @@ def upgrade() -> None:
         op.drop_column("users", "is_admin")
     # Normalize any lowercase leftovers (incl. a previously partial run) and
     # any pre-existing EXECUTIVE/ASSISTANT rows missed above.
-    op.execute(sa.text("UPDATE users SET role = 'ADMIN' WHERE role = 'admin'"))
-    op.execute(sa.text("UPDATE users SET role = 'DELEGATE' WHERE role = 'delegate'"))
-    op.execute(sa.text("UPDATE users SET role = 'DELEGATE' WHERE role IN ('EXECUTIVE', 'ASSISTANT')"))
+    op.execute(sa.text("UPDATE users SET role = 'ADMIN' WHERE role::text = 'admin'"))
+    op.execute(sa.text("UPDATE users SET role = 'DELEGATE' WHERE role::text = 'delegate'"))
+    op.execute(sa.text("UPDATE users SET role = 'DELEGATE' WHERE role::text IN ('EXECUTIVE', 'ASSISTANT')"))
+
 
     # 2. Actor type renames (audit history preserved).
-    op.execute(sa.text("ALTER TYPE actortype RENAME VALUE 'EXECUTIVE_UI' TO 'ADMIN_UI'"))
-    op.execute(sa.text("ALTER TYPE actortype RENAME VALUE 'EA_UI' TO 'DELEGATE_UI'"))
+    actor_labels = _enumlabels("actortype")
+    if "EXECUTIVE_UI" in actor_labels:
+        op.execute(sa.text("ALTER TYPE actortype RENAME VALUE 'EXECUTIVE_UI' TO 'ADMIN_UI'"))
+    if "EA_UI" in actor_labels:
+        op.execute(sa.text("ALTER TYPE actortype RENAME VALUE 'EA_UI' TO 'DELEGATE_UI'"))
+
 
     # 3. Delegation column renames (skip if already done).
     deleg_cols = _columns("delegations")

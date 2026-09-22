@@ -15,10 +15,21 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _columns(table: str) -> set[str]:
+    bind = op.get_bind()
+    insp = sa.inspect(bind)
+    return {c["name"] for c in insp.get_columns(table)}
+
+
 def upgrade() -> None:
-    op.add_column("accounts", sa.Column("caldav_server_url", sa.String(), nullable=True))
-    op.add_column("accounts", sa.Column("caldav_username", sa.String(), nullable=True))
-    op.add_column("accounts", sa.Column("encrypted_caldav_password", sa.LargeBinary(), nullable=True))
+    cols = _columns("accounts")
+    if "caldav_server_url" not in cols:
+        op.add_column("accounts", sa.Column("caldav_server_url", sa.String(), nullable=True))
+    if "caldav_username" not in cols:
+        op.add_column("accounts", sa.Column("caldav_username", sa.String(), nullable=True))
+    if "encrypted_caldav_password" not in cols:
+        op.add_column("accounts", sa.Column("encrypted_caldav_password", sa.LargeBinary(), nullable=True))
+
 
 
 def downgrade() -> None:

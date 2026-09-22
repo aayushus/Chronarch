@@ -16,15 +16,28 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _columns(table: str) -> set[str]:
+    bind = op.get_bind()
+    insp = sa.inspect(bind)
+    return {c["name"] for c in insp.get_columns(table)}
+
+
 def upgrade() -> None:
-    op.add_column("contacts", sa.Column("phone", sa.String(), nullable=True))
-    op.add_column("contacts", sa.Column("company", sa.String(), nullable=True))
-    op.add_column("contacts", sa.Column("job_title", sa.String(), nullable=True))
-    op.add_column(
-        "contacts",
-        sa.Column("name_locked", sa.Boolean(), nullable=False, server_default=sa.text("false")),
-    )
-    op.add_column("contacts", sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True))
+    cols = _columns("contacts")
+    if "phone" not in cols:
+        op.add_column("contacts", sa.Column("phone", sa.String(), nullable=True))
+    if "company" not in cols:
+        op.add_column("contacts", sa.Column("company", sa.String(), nullable=True))
+    if "job_title" not in cols:
+        op.add_column("contacts", sa.Column("job_title", sa.String(), nullable=True))
+    if "name_locked" not in cols:
+        op.add_column(
+            "contacts",
+            sa.Column("name_locked", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        )
+    if "deleted_at" not in cols:
+        op.add_column("contacts", sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True))
+
 
 
 def downgrade() -> None:
