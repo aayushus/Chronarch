@@ -160,7 +160,7 @@ export default function LoginPage() {
             <img src="/logo.svg" alt="Chronarch Logo" width={48} height={48} style={{ borderRadius: 12 }} />
             <div>
               <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>Chronarch</div>
-              <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>Executive Scheduling & Calendar Aggregation</div>
+              <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>Unified Calendar & Scheduling</div>
             </div>
           </div>
 
@@ -172,7 +172,7 @@ export default function LoginPage() {
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700 }}>Unified Multi-Calendar View</div>
                 <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
-                  Aggregate Google Workspace, Microsoft 365, and ICS feeds in real time.
+                  Connect Google Workspace, Microsoft 365, and ICS feeds in real time.
                 </div>
               </div>
             </div>
@@ -182,9 +182,9 @@ export default function LoginPage() {
                 <Icon name="shield" size={16} />
               </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>Granular EA Privacy Matrix</div>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>Delegate Access & Privacy Controls</div>
                 <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
-                  Delegate operational access to executive assistants with strict source-of-truth protection.
+                  Share scheduling permissions with assistants while protecting private event details.
                 </div>
               </div>
             </div>
@@ -194,16 +194,16 @@ export default function LoginPage() {
                 <Icon name="sparkles" size={16} />
               </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>AI Scheduling Copilot</div>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>AI Scheduling Assistant</div>
                 <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
-                  Embedded LLM drawer & external MCP server integration for intelligent planning.
+                  Query availability and schedule meetings with your own preferred models or MCP tools.
                 </div>
               </div>
             </div>
           </div>
 
           <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-            Self-hosted & Enterprise Privacy Protected
+            Self-hosted · You own your calendar data
           </div>
         </div>
 
@@ -229,7 +229,7 @@ export default function LoginPage() {
               C
             </div>
             <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Sign in to Chronarch</h1>
-            <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: 0 }}>Executive calendar governance & scheduling</p>
+            <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: 0 }}>Unified calendar aggregation & scheduling</p>
           </div>
 
           {invitedBanner && (
