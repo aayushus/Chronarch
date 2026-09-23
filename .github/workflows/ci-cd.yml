@@ -17,12 +17,8 @@ jobs:
     name: Detect Changed Components
     runs-on: ubuntu-latest
     outputs:
-      web: ${{ steps.filter.outputs.web }}
-      api: ${{ steps.filter.outputs.api }}
-      mcp: ${{ steps.filter.outputs.mcp }}
-      worker: ${{ steps.filter.outputs.worker }}
-      scheduler: ${{ steps.filter.outputs.scheduler }}
-      litellm: ${{ steps.filter.outputs.litellm }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has-targets: ${{ steps.set-matrix.outputs.has-targets }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -31,7 +27,6 @@ jobs:
         id: filter
         uses: dorny/paths-filter@v3
         with:
-          # On tag push or workflow_dispatch, consider everything changed
           filters: |
             web:
               - 'apps/web/**'
@@ -57,44 +52,49 @@ jobs:
               - 'packages/litellm-config/**'
               - '.github/workflows/ci-cd.yml'
 
+      - name: Build Target Matrix
+        id: set-matrix
+        run: |
+          # If triggered manually (workflow_dispatch) or via version tag, build everything.
+          BUILD_ALL="${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') }}"
+          
+          python3 -c "
+          import json, os
+
+          build_all = '$BUILD_ALL'.lower() == 'true'
+          
+          definitions = [
+              {'name': 'web', 'context': '.', 'dockerfile': 'apps/web/Dockerfile', 'image-name': 'chronarch-web', 'changed': '${{ steps.filter.outputs.web }}'},
+              {'name': 'api', 'context': '.', 'dockerfile': 'apps/api/Dockerfile', 'image-name': 'chronarch-api', 'changed': '${{ steps.filter.outputs.api }}'},
+              {'name': 'mcp', 'context': '.', 'dockerfile': 'apps/mcp/Dockerfile', 'image-name': 'chronarch-mcp', 'changed': '${{ steps.filter.outputs.mcp }}'},
+              {'name': 'worker', 'context': '.', 'dockerfile': 'apps/worker/Dockerfile', 'image-name': 'chronarch-worker', 'changed': '${{ steps.filter.outputs.worker }}'},
+              {'name': 'scheduler', 'context': '.', 'dockerfile': 'apps/scheduler/Dockerfile', 'image-name': 'chronarch-scheduler', 'changed': '${{ steps.filter.outputs.scheduler }}'},
+              {'name': 'litellm', 'context': 'packages/litellm-config', 'dockerfile': 'packages/litellm-config/Dockerfile', 'image-name': 'chronarch-litellm', 'changed': '${{ steps.filter.outputs.litellm }}'}
+          ]
+
+          targets = [d for d in definitions if build_all or d['changed'] == 'true']
+          # Remove internal flag before generating matrix JSON
+          for t in targets:
+              del t['changed']
+
+          matrix_json = json.dumps({'include': targets})
+          has_targets = 'true' if len(targets) > 0 else 'false'
+
+          github_output = os.environ.get('GITHUB_OUTPUT')
+          with open(github_output, 'a') as f:
+              f.write(f'matrix={matrix_json}\n')
+              f.write(f'has-targets={has_targets}\n')
+          print('Selected build targets:', [t['name'] for t in targets])
+          "
+
   build-and-push:
     name: Build & Push Docker Images (${{ matrix.name }})
     needs: detect-changes
+    if: needs.detect-changes.outputs.has-targets == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: web
-            context: .
-            dockerfile: apps/web/Dockerfile
-            image-name: chronarch-web
-          - name: api
-            context: .
-            dockerfile: apps/api/Dockerfile
-            image-name: chronarch-api
-          - name: mcp
-            context: .
-            dockerfile: apps/mcp/Dockerfile
-            image-name: chronarch-mcp
-          - name: worker
-            context: .
-            dockerfile: apps/worker/Dockerfile
-            image-name: chronarch-worker
-          - name: scheduler
-            context: .
-            dockerfile: apps/scheduler/Dockerfile
-            image-name: chronarch-scheduler
-          - name: litellm
-            context: packages/litellm-config
-            dockerfile: packages/litellm-config/Dockerfile
-            image-name: chronarch-litellm
-
-    # Run if the specific component changed, or if it's a tag push / manual workflow dispatch
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      startsWith(github.ref, 'refs/tags/') ||
-      needs.detect-changes.outputs[matrix.name] == 'true'
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
 
     steps:
       - name: Checkout Code
