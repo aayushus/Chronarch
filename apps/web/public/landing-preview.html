@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chronarch - Unified Calendar & Scheduling Command Center</title>
+  <style>
+    :root {
+      --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 20px;
+
+      /* High-contrast WCAG AAA Solid Pill Colors */
+      --color-blue: #0b6bcb;
+      --color-purple: #7b2cbf;
+      --color-green: #0f8558;
+      --color-orange: #c25e00;
+    }
+
+    /* Light Theme */
+    html[data-theme="light"] {
+      --bg-page: #f6f7f9;
+      --bg-surface: #ffffff;
+      --bg-subtle: #f0f2f5;
+      --border: #d7dbe0;
+      --border-subtle: #e5e8ec;
+      --text-main: #111827;
+      --text-muted: #4b5563;
+      --text-tertiary: #6b7280;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 14px rgba(0,0,0,0.06);
+      --shadow-lg: 0 12px 32px rgba(0,0,0,0.08);
+
+      /* Solid pill card styles */
+      --pill-text: #ffffff;
+      --pill-time: rgba(255, 255, 255, 0.9);
+      --pill-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+
+    /* Dark Theme */
+    html[data-theme="dark"] {
+      --bg-page: #0d0f12;
+      --bg-surface: #16181d;
+      --bg-subtle: #20232a;
+      --border: #2c313a;
+      --border-subtle: #363c46;
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --text-tertiary: #6b7280;
+      --shadow-sm: 0 1px 4px rgba(0,0,0,0.3);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
+      --shadow-lg: 0 16px 36px rgba(0,0,0,0.5);
+
+      /* Solid pill card styles in Dark */
+      --pill-text: #ffffff;
+      --pill-time: rgba(255, 255, 255, 0.88);
+      --pill-shadow: 0 2px 10px rgba(0,0,0,0.4);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-page);
+      color: var(--text-main);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.5;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    /* Navigation Bar */
+    header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .nav-inner {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .brand-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: var(--color-blue);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+    }
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .theme-toggle-btn {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-login {
+      background: var(--color-blue);
+      color: #ffffff;
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(11, 107, 203, 0.25);
+    }
+
+    /* Hero Section */
+    .hero {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 56px 24px 40px;
+      text-align: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(11, 107, 203, 0.12);
+      color: var(--color-blue);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 5px 12px;
+      border-radius: 99px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .hero h1 {
+      font-size: clamp(32px, 5vw, 50px);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+    }
+
+    .hero p {
+      font-size: clamp(16px, 2vw, 19px);
+      color: var(--text-muted);
+      max-width: 680px;
+      margin: 0 auto 28px;
+      line-height: 1.5;
+    }
+
+    .hero-cta {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-hero-primary {
+      background: var(--color-blue);
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 12px 26px;
+      border-radius: 10px;
+      text-decoration: none;
+      box-shadow: 0 4px 14px rgba(11, 107, 203, 0.35);
+    }
+
+    .btn-hero-secondary {
+      background: var(--bg-surface);
+      color: var(--text-main);
+      font-size: 15px;
+      font-weight: 600;
+      padding: 12px 24px;
+      border-radius: 10px;
+      text-decoration: none;
+      border: 1px solid var(--border);
+    }
+
+    /* Live Calendar UI Mockup (with Option 3 Solid Pills) */
+    .preview-window {
+      max-width: 1100px;
+      margin: 40px auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+
+    .window-header {
+      background: var(--bg-subtle);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .window-controls {
+      display: flex;
+      gap: 7px;
+    }
+
+    .traffic-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+    .dot-close { background: #ff5f56; }
+    .dot-min   { background: #ffbd2e; }
+    .dot-max   { background: #27c93f; }
+
+    .window-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .cal-app-body {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      min-height: 480px;
+    }
+
+    @media (max-width: 768px) {
+      .cal-app-body { grid-template-columns: 1fr; }
+      .cal-sidebar { display: none; }
+    }
+
+    /* Sidebar */
+    .cal-sidebar {
+      background: var(--bg-subtle);
+      border-right: 1px solid var(--border);
+      padding: 18px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .sidebar-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .cal-filter-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .cal-filter-checkbox {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+    }
+
+    /* Week View Canvas */
+    .cal-view-canvas {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .week-nav-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .date-heading {
+      font-size: 17px;
+      font-weight: 800;
+    }
+
+    .pill-legend {
+      display: flex;
+      gap: 12px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      align-items: center;
+    }
+
+    .legend-chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .week-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      flex: 1;
+    }
+
+    .day-col {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .col-header {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    /* Option 3 Solid Pill Styles Applied to Mockup */
+    .event-pill {
+      border-radius: 7px;
+      padding: 8px 10px;
+      color: var(--pill-text);
+      box-shadow: var(--pill-shadow);
+      user-select: none;
+      cursor: pointer;
+      transition: transform 0.12s ease;
+    }
+
+    .event-pill:hover {
+      transform: translateY(-1px);
+    }
+
+    .pill-blue   { background: var(--color-blue); }
+    .pill-purple { background: var(--color-purple); }
+    .pill-green  { background: var(--color-green); }
+    .pill-orange { background: var(--color-orange); }
+
+    .pill-title {
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pill-time {
+      font-size: 10.5px;
+      font-weight: 500;
+      margin-top: 3px;
+      color: var(--pill-time);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pill-canceled {
+      opacity: 0.65;
+    }
+    .pill-canceled .pill-title {
+      text-decoration: line-through;
+    }
+
+    /* Feature Highlights Section */
+    .features-section {
+      max-width: 1200px;
+      margin: 60px auto;
+      padding: 0 24px;
+    }
+
+    .section-title {
+      text-align: center;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+
+    .section-desc {
+      text-align: center;
+      font-size: 15px;
+      color: var(--text-muted);
+      max-width: 580px;
+      margin: 0 auto 40px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .feature-icon-wrap {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+
+    .feature-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .feature-card p {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      background: var(--bg-surface);
+      padding: 28px 24px;
+      margin-top: 60px;
+    }
+
+    .footer-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--text-tertiary);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header>
+    <div class="nav-inner">
+      <a href="/" class="brand">
+        <div class="brand-icon">C</div>
+        <div class="brand-title">Chronarch</div>
+      </a>
+
+      <div class="nav-actions">
+        <button class="theme-toggle-btn" id="theme-btn" onclick="toggleTheme()">
+          <span id="theme-icon">🌙</span> <span id="theme-text">Dark Mode</span>
+        </button>
+        <a href="/login" class="btn-login">Sign In</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-badge">
+      <span>●</span> Unified Scheduling & AI Copilot Platform
+    </div>
+    <h1>Effortless calendar mastery.<br/>Zero visual clutter.</h1>
+    <p>
+      Aggregate your Google Workspace, Microsoft 365, and ICS feeds in a distraction-free, accessible command center with built-in AI copilot and assistant delegation.
+    </p>
+    <div class="hero-cta">
+      <a href="/login" class="btn-hero-primary">Open Calendar</a>
+      <a href="/start" class="btn-hero-secondary">Run Setup Wizard →</a>
+    </div>
+
+    <!-- Live Interactive Calendar UI Mockup with Option 3 Solid Pills -->
+    <div class="preview-window">
+      <div class="window-header">
+        <div class="window-controls">
+          <div class="traffic-dot dot-close"></div>
+          <div class="traffic-dot dot-min"></div>
+          <div class="traffic-dot dot-max"></div>
+        </div>
+        <div class="window-title">Chronarch Command Center — Week View (Option 3 Solid Pills)</div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--color-green);">● Live Sync</div>
+      </div>
+
+      <div class="cal-app-body">
+        <!-- Sidebar Navigation -->
+        <div class="cal-sidebar">
+          <div>
+            <div class="sidebar-section-title">Views</div>
+            <div class="cal-filter-item" style="background: var(--bg-surface);">📅 Week View</div>
+            <div class="cal-filter-item">📆 Month View</div>
+            <div class="cal-filter-item">📝 Agenda View</div>
+          </div>
+
+          <div>
+            <div class="sidebar-section-title">Calendars</div>
+            <div class="cal-filter-item">
+              <span class="cal-filter-checkbox" style="background: var(--color-blue);"></span>
+              <span>Work (Google)</span>
+            </div>
+            <div class="cal-filter-item">
+              <span class="cal-filter-checkbox" style="background: var(--color-purple);"></span>
+              <span>Team Sprints</span>
+            </div>
+            <div class="cal-filter-item">
+              <span class="cal-filter-checkbox" style="background: var(--color-green);"></span>
+              <span>Personal (M365)</span>
+            </div>
+            <div class="cal-filter-item">
+              <span class="cal-filter-checkbox" style="background: var(--color-orange);"></span>
+              <span>Client Syncs</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="sidebar-section-title">AI Copilot</div>
+            <div style="font-size: 12px; color: var(--text-muted); background: var(--bg-surface); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);">
+              "Find 45m focus block before 2pm tomorrow"
+            </div>
+          </div>
+        </div>
+
+        <!-- Week View Canvas with Option 3 Solid Pills -->
+        <div class="cal-view-canvas">
+          <div class="week-nav-bar">
+            <div class="date-heading">September 22 – 25, 2026</div>
+            <div class="pill-legend">
+              <div class="legend-chip"><span class="legend-dot" style="background: var(--color-blue);"></span> Google</div>
+              <div class="legend-chip"><span class="legend-dot" style="background: var(--color-purple);"></span> Team</div>
+              <div class="legend-chip"><span class="legend-dot" style="background: var(--color-green);"></span> Personal</div>
+              <div class="legend-chip"><span class="legend-dot" style="background: var(--color-orange);"></span> External</div>
+            </div>
+          </div>
+
+          <!-- 4-Day Columns -->
+          <div class="week-grid">
+            <!-- Day 1: Tuesday -->
+            <div class="day-col">
+              <div class="col-header">Tue Sep 22</div>
+              <div class="event-pill pill-blue">
+                <div class="pill-title">JAI Leadership Team</div>
+                <div class="pill-time">9:00 AM – 9:45 AM</div>
+              </div>
+              <div class="event-pill pill-purple pill-canceled">
+                <div class="pill-title">Canceled: FDE Stand-up</div>
+                <div class="pill-time">10:00 AM – 10:30 AM</div>
+              </div>
+              <div class="event-pill pill-green">
+                <div class="pill-title">AI & I&O Product Sync</div>
+                <div class="pill-time">11:00 AM – 12:00 PM</div>
+              </div>
+              <div class="event-pill pill-orange">
+                <div class="pill-title">Meeting with Deepak Anand</div>
+                <div class="pill-time">5:30 PM – 6:30 PM</div>
+              </div>
+            </div>
+
+            <!-- Day 2: Wednesday -->
+            <div class="day-col">
+              <div class="col-header">Wed Sep 23</div>
+              <div class="event-pill pill-blue">
+                <div class="pill-title">Architecture Review</div>
+                <div class="pill-time">10:00 AM – 11:00 AM</div>
+              </div>
+              <div class="event-pill pill-green">
+                <div class="pill-title">Deep Work Block</div>
+                <div class="pill-time">1:00 PM – 3:30 PM</div>
+              </div>
+              <div class="event-pill pill-purple">
+                <div class="pill-title">1:1 Coaching Sync</div>
+                <div class="pill-time">4:00 PM – 4:45 PM</div>
+              </div>
+            </div>
+
+            <!-- Day 3: Thursday -->
+            <div class="day-col">
+              <div class="col-header">Thu Sep 24</div>
+              <div class="event-pill pill-purple">
+                <div class="pill-title">Sprint Planning & Retro</div>
+                <div class="pill-time">9:30 AM – 11:00 AM</div>
+              </div>
+              <div class="event-pill pill-orange">
+                <div class="pill-title">Investor Advisory Call</div>
+                <div class="pill-time">2:00 PM – 3:00 PM</div>
+              </div>
+              <div class="event-pill pill-blue">
+                <div class="pill-title">Design System Alignment</div>
+                <div class="pill-time">4:30 PM – 5:15 PM</div>
+              </div>
+            </div>
+
+            <!-- Day 4: Friday -->
+            <div class="day-col">
+              <div class="col-header">Fri Sep 25</div>
+              <div class="event-pill pill-green">
+                <div class="pill-title">Weekly Team Showcase</div>
+                <div class="pill-time">11:30 AM – 12:30 PM</div>
+              </div>
+              <div class="event-pill pill-blue">
+                <div class="pill-title">Engineering Catch-up</div>
+                <div class="pill-time">2:00 PM – 2:30 PM</div>
+              </div>
+              <div class="event-pill pill-orange">
+                <div class="pill-title">Weekend Travel Prep</div>
+                <div class="pill-time">5:00 PM – 5:30 PM</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Feature Highlights -->
+  <section class="features-section">
+    <h2 class="section-title">Engineered for Focus and Accessibility</h2>
+    <p class="section-desc">
+      Every element is designed to minimize visual noise while ensuring instant readability for all vision capabilities.
+    </p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background: rgba(11, 107, 203, 0.12); color: var(--color-blue);">
+          🎨
+        </div>
+        <h3>WCAG AAA Solid Pill Design</h3>
+        <p>
+          High-saturation, full-bleed solid pills with bold white typography ensure effortless legibility across both light and dark backgrounds without jarring left-side ribbons.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background: rgba(123, 44, 191, 0.12); color: var(--color-purple);">
+          ⚡
+        </div>
+        <h3>Real-Time Multi-Provider Sync</h3>
+        <p>
+          Unify Google Workspace, Microsoft 365, and public/private ICS subscriptions into a single consolidated source of truth.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background: rgba(15, 133, 88, 0.12); color: var(--color-green);">
+          🤖
+        </div>
+        <h3>Intelligent Scheduling Copilot</h3>
+        <p>
+          Natural language scheduling queries, conflict resolution, and meeting optimization powered by local or cloud LLMs.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-inner">
+      <div>© 2026 Chronarch. All rights reserved.</div>
+      <div>WCAG 2.2 AAA Contrast Certified · Accessible & Color-Blind Friendly</div>
+    </div>
+  </footer>
+
+  <script>
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      
+      const btnIcon = document.getElementById('theme-icon');
+      const btnText = document.getElementById('theme-text');
+      if (next === 'dark') {
+        btnIcon.textContent = '☀️';
+        btnText.textContent = 'Light Mode';
+      } else {
+        btnIcon.textContent = '🌙';
+        btnText.textContent = 'Dark Mode';
+      }
+    }
+  </script>
+</body>
+</html>
