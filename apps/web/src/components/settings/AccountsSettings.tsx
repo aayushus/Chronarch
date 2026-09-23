@@ -1110,8 +1110,8 @@ function ConnectAccountWizardModal({
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <div>
-                      <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
-                        Client ID
+                      <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+                        Client ID <FieldHelp text="Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client IDs. Copy the Client ID from your Web application credential." />
                       </label>
                       <input
                         type="text"
@@ -1123,8 +1123,8 @@ function ConnectAccountWizardModal({
                       />
                     </div>
                     <div>
-                      <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
-                        Client Secret
+                      <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+                        Client Secret <FieldHelp text="Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client IDs. Open your Web application credential and copy the Client secret." />
                       </label>
                       <input
                         type="password"
@@ -1274,8 +1274,8 @@ function ConnectAccountWizardModal({
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <div>
-                      <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
-                        Application (Client) ID
+                      <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+                        Application (Client) ID <FieldHelp text="Azure Portal → Microsoft Entra ID → App registrations → your app → Overview. Copy the Application (client) ID." />
                       </label>
                       <input
                         type="text"
@@ -1287,8 +1287,8 @@ function ConnectAccountWizardModal({
                       />
                     </div>
                     <div>
-                      <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
-                        Client Secret Value
+                      <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+                        Client Secret Value <FieldHelp text="Azure Portal → App registrations → your app → Certificates & secrets → Client secrets. Copy the Secret Value immediately after creating it; the Secret ID will not work." />
                       </label>
                       <input
                         type="password"
@@ -1300,8 +1300,8 @@ function ConnectAccountWizardModal({
                       />
                     </div>
                     <div>
-                      <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
-                        Tenant ID (optional, defaults to common)
+                      <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+                        Tenant ID (optional, defaults to common) <FieldHelp text="Azure Portal → Microsoft Entra ID → Overview. Use the Directory (tenant) ID for a single organization, or leave this as common for multi-tenant sign-in." />
                       </label>
                       <input
                         type="text"
@@ -1678,6 +1678,30 @@ function ProviderCredentialCard({
         )}
       </div>
     </div>
+  );
+}
+
+function FieldHelp({ text }: { text: string }) {
+  return (
+    <span
+      title={text}
+      aria-label={text}
+      style={{
+        display: "inline-grid",
+        placeItems: "center",
+        width: 15,
+        height: 15,
+        border: "1px solid var(--text-tertiary)",
+        borderRadius: "50%",
+        color: "var(--text-tertiary)",
+        fontSize: 10,
+        fontWeight: 800,
+        cursor: "help",
+        userSelect: "none",
+      }}
+    >
+      ?
+    </span>
   );
 }
 

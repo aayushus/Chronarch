@@ -118,6 +118,17 @@ input {
   font-family: inherit;
 }
 
+/* Keep selected text readable on both the app canvas and native inputs. */
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+input::selection,
+textarea::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
