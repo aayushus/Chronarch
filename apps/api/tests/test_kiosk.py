@@ -51,7 +51,7 @@ async def _event(session, user, calendar, title="Standup", visibility=None):
     ctx = AuthContext(user_id=user.id, role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
     created = await ai_tools.create_event(
         session, ctx, calendar_id=calendar.id, title=title,
-        start=_utc(2026, 9, 22, 15, 0), end=_utc(2026, 9, 22, 16, 0), is_owner=True)
+        start=_utc(2026, 9, 25, 15, 0), end=_utc(2026, 9, 25, 16, 0), is_owner=True)
     if visibility is not None:
         created.visibility = visibility
         await session.flush()
@@ -233,7 +233,7 @@ async def test_agenda_start_and_calendars(session):
     assert any(e["title"] == "Team sync" for e in full["events"])
 
     # Week nav: starting after the event shows an empty week.
-    later = await pub.display_agenda(created["token"], start="2026-09-23T00:00:00+00:00",
+    later = await pub.display_agenda(created["token"], start="2026-09-26T00:00:00+00:00",
                                      session=session)
     assert later["events"] == []
     assert later["calendars"] == full["calendars"]
@@ -253,15 +253,15 @@ async def test_kiosk_quick_add_create(session):
     out = await pub.kiosk_quick_add_create(
         created["token"],
         pub.KioskQuickAddCreate(draft={
-            "title": "Dentist", "start": "2026-09-24T15:00:00+00:00",
-            "end": "2026-09-24T15:30:00+00:00"}),
+            "title": "Dentist", "start": "2026-09-27T15:00:00+00:00",
+            "end": "2026-09-27T15:30:00+00:00"}),
         session=session)
     assert out["title"] == "Dentist" and out["calendar_name"] == "Work"
     stored = await session.get(UnifiedEvent, out["id"])
     assert stored is not None and stored.title == "Dentist"
 
     agenda = await pub.display_agenda(
-        created["token"], start="2026-09-24T00:00:00+00:00", days=1, session=session)
+        created["token"], start="2026-09-27T00:00:00+00:00", days=1, session=session)
     assert "Dentist" in {e["title"] for e in agenda["events"]}
 
 
@@ -274,5 +274,3 @@ async def test_kiosk_quick_add_parse_empty(session):
         await pub.kiosk_quick_add_parse(
             created["token"], pub.KioskQuickAddParse(text="   "), session=session)
     assert exc.value.status_code == 422
-
-

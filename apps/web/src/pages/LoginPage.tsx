@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../api/auth";
+import { apiFetch } from "../api/client";
+import { adminListAccounts } from "../api/admin";
 import Icon from "../components/Icon";
 
 export default function LoginPage() {
@@ -29,17 +31,16 @@ export default function LoginPage() {
 
   React.useEffect(() => {
     // Check if public registration is enabled on this server
-    import("../api/client").then(({ apiFetch }) => {
-      apiFetch<{ allowed: boolean }>("/auth/signup-status")
-        .then((res) => {
-          if (res?.allowed) {
-            setAllowSignups(true);
-          }
-        })
-        .catch(() => {
-          /* ignore */
-        });
-    });
+    apiFetch<{ allowed: boolean }>("/auth/signup-status")
+      .then((res) => {
+        if (res?.allowed) {
+          setAllowSignups(true);
+        }
+      })
+      .catch(() => {
+        /* ignore */
+      });
+
 
     try {
       const params = new URLSearchParams(window.location.search);
@@ -66,7 +67,6 @@ export default function LoginPage() {
     e.preventDefault();
     setForgotBusy(true);
     try {
-      const { apiFetch } = await import("../api/client");
       await apiFetch("/auth/forgot-password", {
         method: "POST",
         body: JSON.stringify({ email: forgotEmail || email }),
@@ -85,7 +85,6 @@ export default function LoginPage() {
     setResetBusy(true);
     setResetError(null);
     try {
-      const { apiFetch } = await import("../api/client");
       await apiFetch("/auth/reset-password", {
         method: "POST",
         body: JSON.stringify({ token: resetToken, new_password: newPassword }),
@@ -123,7 +122,6 @@ export default function LoginPage() {
     try {
       await signup(email, displayName.trim(), password);
       try {
-        const { adminListAccounts } = await import("../api/admin");
         const accounts = await adminListAccounts();
         let onboarded = false;
         try {
@@ -158,7 +156,6 @@ export default function LoginPage() {
     try {
       await login(email, password, rememberMe);
       try {
-        const { adminListAccounts } = await import("../api/admin");
         const accounts = await adminListAccounts();
         let onboarded = false;
         try {

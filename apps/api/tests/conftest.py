@@ -13,6 +13,7 @@ os.environ.setdefault("ALLOW_INSECURE_DEV_SECRET", "1")
 
 import pytest
 import pytest_asyncio
+from freezegun import freeze_time
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from chronarch_core.models import Base
@@ -53,7 +54,18 @@ async def _fresh_redis_client():
     loop, so every call in the test takes the same path.
     """
     import app.auth as auth_mod
+    import app.routers.public_kiosk_router as public_kiosk
 
     auth_mod._redis_client = None
+    original_get_redis_client = public_kiosk.get_redis_client
+    public_kiosk.get_redis_client = lambda: None
     yield
+    public_kiosk.get_redis_client = original_get_redis_client
     auth_mod._redis_client = None
+
+
+@pytest.fixture(autouse=True)
+def _stable_api_clock():
+    """Keep date-sensitive booking and kiosk fixtures reproducible."""
+    with freeze_time("2026-09-23T12:00:00+00:00"):
+        yield

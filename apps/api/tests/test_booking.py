@@ -92,12 +92,12 @@ async def test_slots_skip_busy_and_past(session):
         select(BookingLink).where(BookingLink.id == link["id"])
     )).scalar_one()
     ctx = AuthContext(user_id=user.id, role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
-    day = _utc(2026, 9, 21, 14, 0)
+    day = _utc(2026, 10, 5, 14, 0)
     await ai_tools.create_event(
         session, ctx, calendar_id=calendar.id, title="Blocked",
         start=day, end=day + timedelta(hours=2), is_owner=True)
     slots = await _booking.open_slots(
-        session, row, _utc(2026, 9, 21, 9, 0), _utc(2026, 9, 21, 18, 0))
+        session, row, _utc(2026, 10, 5, 9, 0), _utc(2026, 10, 5, 18, 0))
     assert slots, "expected open slots around the block"
     for s in slots:
         assert s["end"] <= day or s["start"] >= day + timedelta(hours=2)
@@ -112,7 +112,7 @@ async def test_hold_confirm_happy_path_and_double_hold_loses(session):
     row = (await session.execute(
         select(BookingLink).where(BookingLink.id == link["id"])
     )).scalar_one()
-    slot = _utc(2026, 9, 22, 15, 0)
+    slot = _utc(2026, 10, 6, 15, 0)
 
     held = await pub.hold_slot("happy", HoldRequest(slot_start=slot), session=session)
     token = held["hold_token"]
@@ -147,7 +147,7 @@ async def test_confirm_bad_hold_rejected(session):
     await _link(session, user, calendar, slug="holds")
     try:
         await pub.confirm_slot(
-            "holds", ConfirmRequest(hold_token="bogus", slot_start=_utc(2026, 9, 22, 15, 0),
+            "holds", ConfirmRequest(hold_token="bogus", slot_start=_utc(2026, 10, 6, 15, 0),
                                    name="X", email="x@x.com"), session=session)
         raise AssertionError("expected 409")
     except HTTPException as exc:
@@ -159,7 +159,7 @@ async def test_approval_flow_pending_then_approve(session):
     link = await _link(session, user, calendar, slug="approval", approval_required=True)
     row = (await session.execute(
         select(BookingLink).where(BookingLink.id == link["id"]))).scalar_one()
-    slot = _utc(2026, 9, 23, 15, 0)
+    slot = _utc(2026, 10, 7, 15, 0)
     held = await pub.hold_slot("approval", HoldRequest(slot_start=slot), session=session)
     out = await pub.confirm_slot(
         "approval", ConfirmRequest(hold_token=held["hold_token"], slot_start=slot,
@@ -173,11 +173,11 @@ async def test_approval_flow_pending_then_approve(session):
     assert approved["status"] == "confirmed" and approved["event_id"]
 
     # Decline path on a second request.
-    held2 = await pub.hold_slot("approval", HoldRequest(slot_start=_utc(2026, 9, 24, 15, 0)),
+    held2 = await pub.hold_slot("approval", HoldRequest(slot_start=_utc(2026, 10, 8, 15, 0)),
                                session=session)
     out2 = await pub.confirm_slot(
         "approval", ConfirmRequest(hold_token=held2["hold_token"],
-                                  slot_start=_utc(2026, 9, 24, 15, 0),
+                                  slot_start=_utc(2026, 10, 8, 15, 0),
                                   name="Sam", email="sam@x.com"), session=session)
     declined = await bl.decline_booking(out2["booking_id"], user=user, session=session)
     assert declined["status"] == "declined"
@@ -188,7 +188,7 @@ async def test_booker_cancel_removes_event(session):
 
     user, calendar = await _host(session)
     await _link(session, user, calendar, slug="cancelme")
-    slot = _utc(2026, 9, 25, 15, 0)
+    slot = _utc(2026, 10, 9, 15, 0)
     held = await pub.hold_slot("cancelme", HoldRequest(slot_start=slot), session=session)
     out = await pub.confirm_slot(
         "cancelme", ConfirmRequest(hold_token=held["hold_token"], slot_start=slot,
@@ -213,7 +213,7 @@ async def test_delete_link_cancels_future_keeps_past(session):
 
 async def test_hold_store_memory_expiry():
     store = HoldStore(None)
-    slot = _utc(2026, 9, 22, 15, 0)
+    slot = _utc(2026, 10, 6, 15, 0)
     token = await store.acquire("l1", slot)
     assert token
     assert await store.acquire("l1", slot) is None

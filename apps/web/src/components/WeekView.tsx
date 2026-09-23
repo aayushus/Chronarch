@@ -351,9 +351,11 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                 className="tabular-nums"
                 style={{
                   position: "absolute",
-                  top: i * HOUR_H - 6,
+                  top: i * HOUR_H + HOUR_H / 2,
                   left: 8,
                   fontSize: 10,
+                  lineHeight: 1.1,
+                  transform: "translateY(-50%)",
                   color: "var(--text-tertiary)",
                 }}
               >
@@ -518,6 +520,9 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                         fontSize: 11.5,
                         fontWeight: 700,
                         color: contrastText(color),
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
                         userSelect: "none",
                         zIndex: isDragging ? 5 : undefined,
                       }}

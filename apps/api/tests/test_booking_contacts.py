@@ -74,7 +74,7 @@ async def _contact(session, email):
 async def test_instant_booking_leaves_counted_contact(session):
     user, calendar = await _host(session)
     await _link(session, user, calendar, slug="counted")
-    out = await _book(session, "counted", _utc(2026, 9, 22, 15, 0),
+    out = await _book(session, "counted", _utc(2026, 10, 6, 15, 0),
                       "New Person", "new@person.com")
     assert out["status"] == "confirmed"
 
@@ -89,11 +89,11 @@ async def test_instant_booking_leaves_counted_contact(session):
 async def test_repeat_booking_bumps_instead_of_duplicating(session):
     user, calendar = await _host(session)
     await _link(session, user, calendar, slug="repeat")
-    await _book(session, "repeat", _utc(2026, 9, 22, 15, 0), "Regular", "regular@x.com")
+    await _book(session, "repeat", _utc(2026, 10, 6, 15, 0), "Regular", "regular@x.com")
     first = await _contact(session, "regular@x.com")
     assert first is not None and first.event_count == 1
 
-    await _book(session, "repeat", _utc(2026, 9, 23, 15, 0), "Regular", "regular@x.com")
+    await _book(session, "repeat", _utc(2026, 10, 7, 15, 0), "Regular", "regular@x.com")
     rows = list((await session.execute(
         select(Contact).where(Contact.email == "regular@x.com"))).scalars())
     assert len(rows) == 1, "same email must not create a second row"
@@ -109,7 +109,7 @@ async def test_known_contact_keeps_name_and_gains_count(session):
     known.event_count = 5
     await session.flush()
 
-    await _book(session, "known", _utc(2026, 9, 22, 15, 0),
+    await _book(session, "known", _utc(2026, 10, 6, 15, 0),
                 "Typed Differently", "vip@x.com")
     contact = await _contact(session, "vip@x.com")
     assert contact.display_name == "VIP Person", "manual names win over booking input"
@@ -120,7 +120,7 @@ async def test_approval_pending_creates_no_contact_until_approved(session):
     user, calendar = await _host(session)
     await _link(session, user, calendar, slug="gated", approval_required=True)
 
-    out = await _book(session, "gated", _utc(2026, 9, 23, 15, 0),
+    out = await _book(session, "gated", _utc(2026, 10, 7, 15, 0),
                       "Waiter", "waiter@x.com")
     assert out["status"] == "pending"
     assert await _contact(session, "waiter@x.com") is None, \

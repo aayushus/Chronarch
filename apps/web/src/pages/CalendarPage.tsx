@@ -612,7 +612,7 @@ export default function CalendarPage() {
           disabled={isSyncing}
           className="hoverable"
           title="Sync now"
-          style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 10, color: "var(--text-secondary)", padding: "8px 10px", cursor: isSyncing ? "wait" : "pointer", flexShrink: 0, display: "inline-flex" }}
+          style={{ height: 32, boxSizing: "border-box", background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 10, color: "var(--text-secondary)", padding: "8px 10px", cursor: isSyncing ? "wait" : "pointer", flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
         >
           <Icon name="refresh" size={14} />
         </button>
@@ -645,7 +645,7 @@ export default function CalendarPage() {
             onClick={() => setViewedDate(new Date())}
             className="btn-secondary hoverable"
             title="Go to Today (T)"
-            style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600 }}
+            style={{ height: 32, boxSizing: "border-box", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}
           >
             Today
           </button>
@@ -654,7 +654,7 @@ export default function CalendarPage() {
               onClick={() => shift(-1)}
               className="btn-secondary hoverable"
               title="Previous period (Left Arrow or ,)"
-              style={{ padding: "6px 10px", display: "inline-flex", alignItems: "center" }}
+              style={{ height: 32, boxSizing: "border-box", padding: "6px 10px", display: "inline-flex", alignItems: "center" }}
             >
               <Icon name="chevronLeft" size={15} />
             </button>
@@ -662,7 +662,7 @@ export default function CalendarPage() {
               onClick={() => shift(1)}
               className="btn-secondary hoverable"
               title="Next period (Right Arrow or .)"
-              style={{ padding: "6px 10px", display: "inline-flex", alignItems: "center" }}
+              style={{ height: 32, boxSizing: "border-box", padding: "6px 10px", display: "inline-flex", alignItems: "center" }}
             >
               <Icon name="chevronRight" size={15} />
             </button>
@@ -675,7 +675,7 @@ export default function CalendarPage() {
 
         {/* Right: Segmented view mode selector & meeting statistics */}
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ display: "inline-flex", background: "var(--wash-deep)", borderRadius: 10, padding: 3, border: "1px solid var(--border-subtle)" }}>
+          <div style={{ height: 32, boxSizing: "border-box", display: "inline-flex", alignItems: "center", background: "var(--wash-deep)", borderRadius: 10, padding: 3, border: "1px solid var(--border-subtle)" }}>
             {(["day", "week", "month", "agenda", "year"] as CalendarViewMode[]).map((mode) => {
               const active = viewMode === mode;
               return (
@@ -688,6 +688,7 @@ export default function CalendarPage() {
                     border: "none",
                     background: active ? "var(--bg-raised)" : "transparent",
                     boxShadow: active ? "var(--shadow-lift)" : "none",
+                    height: 24,
                     padding: "5px 14px",
                     fontSize: 12,
                     fontWeight: active ? 700 : 500,
@@ -719,6 +720,8 @@ export default function CalendarPage() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
+                height: 32,
+                boxSizing: "border-box",
                 padding: "5px 10px",
                 fontSize: 12,
                 fontWeight: 600,
@@ -735,7 +738,7 @@ export default function CalendarPage() {
       <div style={{ flex: 1, display: "flex", minHeight: 0, minWidth: 0 }}>
         {/* Focus rail: fixed sections, only the calendar list scrolls. */}
         {showRails && (
-          <aside style={{ width: 280, minWidth: 280, borderRight: "1px solid var(--border-subtle)", overflow: "hidden", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 16, minHeight: 0 }}>
+          <aside style={{ width: 280, minWidth: 280, borderRight: "1px solid var(--border-subtle)", overflow: "hidden", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 14, minHeight: 0 }}>
             <div style={{ flexShrink: 0 }}>
               <MiniMonth
                 viewedDate={viewedDate}

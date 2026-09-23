@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { friendlyError } from "../../api/client";
+import { adminSyncAccount, importIcsEvent, listCalendars, previewIcs, updateCalendar } from "../../api/calendar";
 import EmptyState from "../EmptyState";
 import { SectionHeader } from "../ui";
 
@@ -141,7 +142,6 @@ export default function AccountsSettings() {
   async function handleSyncAccount(a: AdminAccount) {
     setSyncingAccountId(a.id);
     try {
-      const { adminSyncAccount } = await import("../../api/calendar");
       const res = await adminSyncAccount(a.id);
       setAccounts((prev) =>
         prev.map((x) => (x.id === a.id ? { ...x, last_synced_at: res.last_synced_at, sync_status: "active" } : x))
@@ -378,7 +378,6 @@ export default function AccountsSettings() {
                         onChange={async (e) => {
                           const mins = parseInt(e.target.value, 10);
                           try {
-                            const { listCalendars, updateCalendar } = await import("../../api/calendar");
                             const cals = await listCalendars();
                             const sub = cals.find((c) => c.account_id === a.id);
                             if (sub) {
@@ -1567,7 +1566,6 @@ function ConnectAccountWizardModal({
                       setIcsSaving(true);
                       setIcsError(null);
                       try {
-                        const { listCalendars, previewIcs, importIcsEvent } = await import("../../api/calendar");
                         const text = await file.text();
                         const parsed = await previewIcs(text);
                         if (parsed.events.length === 0) {

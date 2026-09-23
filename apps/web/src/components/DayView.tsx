@@ -263,6 +263,8 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                 cursor: canWrite(cal) ? "grab" : "pointer",
                 opacity: dragging ? 0.4 : 1,
                 userSelect: "none",
+                display: "flex",
+                alignItems: "center",
               }}
             >
               {e.title}
@@ -305,9 +307,11 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                 className="tabular-nums"
                 style={{
                   position: "absolute",
-                  top: -7,
+                  top: HOUR_H / 2,
                   left: 8,
                   fontSize: 11,
+                  lineHeight: 1.1,
+                  transform: "translateY(-50%)",
                   color: "var(--text-tertiary)",
                   background: "var(--bg-app)",
                   paddingRight: 6,
@@ -444,6 +448,9 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                   cursor: draggable ? "grab" : "pointer",
                   outline: isSelected ? "2px solid #ffffff" : "none",
                   userSelect: "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
                 }}
               >
                 <div style={{ fontSize: 13, fontWeight: 700, color: contrastText(color), whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>

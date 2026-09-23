@@ -118,6 +118,9 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
         cursor: "pointer",
         minWidth: 0,
         position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
         outline: selected ? "2px solid #ffffff" : "none",
       }}
     >
@@ -198,6 +201,9 @@ export function AllDayChip({ color, title, selected, onOpen, onMenu }: {
         fontWeight: 600,
         color: allDayInk(theme),
         cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        minHeight: 28,
         overflow: "hidden",
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",
