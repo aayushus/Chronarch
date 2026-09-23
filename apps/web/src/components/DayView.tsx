@@ -453,7 +453,21 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                   justifyContent: "center",
                 }}
               >
-                <div style={{ fontSize: 13, fontWeight: 700, color: contrastText(color), whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div
+                  title={event.title}
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: contrastText(color),
+                    display: "-webkit-box",
+                    WebkitBoxOrient: "vertical",
+                    WebkitLineClamp: height >= 58 ? 2 : 1,
+                    overflow: "hidden",
+                    whiteSpace: height < 58 ? "nowrap" : "normal",
+                    textOverflow: "ellipsis",
+                    lineHeight: 1.2,
+                  }}
+                >
                   {event.title}
                 </div>
                 {height > 34 && (

@@ -142,7 +142,20 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
           </span>
         )}
       </div>
-      <div style={{ fontSize: compact ? 12 : 13, fontWeight: 700, color: contrastText(color), lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <div
+        title={title}
+        style={{
+          fontSize: compact ? 12 : 13,
+          fontWeight: 700,
+          color: contrastText(color),
+          lineHeight: 1.3,
+          display: "-webkit-box",
+          WebkitBoxOrient: "vertical",
+          WebkitLineClamp: compact ? 2 : 3,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
         {title}
       </div>
       {meta && (

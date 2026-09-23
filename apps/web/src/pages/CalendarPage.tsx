@@ -787,7 +787,7 @@ export default function CalendarPage() {
                       {group.label}
                     </div>
                     {group.calendars.map((cal) => (
-                      <label key={cal.id} className="hoverable" style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>
+                      <label key={cal.id} title={cal.name} className="hoverable" style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>
                         <input
                           type="checkbox"
                           checked={!hiddenCalendarIds.has(cal.id)}

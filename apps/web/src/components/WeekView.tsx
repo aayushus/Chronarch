@@ -527,7 +527,20 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                         zIndex: isDragging ? 5 : undefined,
                       }}
                     >
-                      <span style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{event.title}</span>
+                      <span
+                        title={event.title}
+                        style={{
+                          display: "-webkit-box",
+                          WebkitBoxOrient: "vertical",
+                          WebkitLineClamp: height >= 56 ? 2 : 1,
+                          overflow: "hidden",
+                          whiteSpace: height < 56 ? "nowrap" : "normal",
+                          textOverflow: "ellipsis",
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {event.title}
+                      </span>
                       {height > 32 && (
                         <div className="tabular-nums" style={{ fontSize: 10, fontWeight: 500, color: contrastText(color) === "#ffffff" ? "rgba(255, 255, 255, 0.88)" : "rgba(0, 0, 0, 0.7)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>
                           {formatTimeRange(displayStart, displayEnd)}
