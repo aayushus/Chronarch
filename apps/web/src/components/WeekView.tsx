@@ -4,6 +4,7 @@ import { CalendarSummary, EventSummary } from "../api/calendar";
 import { useAppearance } from "../appearance";
 import { WEEKDAY_SHORT, formatHour, formatHourInZone, formatTimeRange, sameDay, startOfDay, startOfWeek } from "../lib/dates";
 import { AllDayChip } from "./EventCard";
+import { contrastText } from "../lib/color";
 import {
   SNAP_MINUTES,
   addDaysPreserveTime,
@@ -507,24 +508,23 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                         height,
                         left: `calc(${column * widthPct}% + ${dayShift * 100}%)`,
                         width: `calc(${widthPct}% - 3px)`,
-                        background: "var(--card-bg)",
-                        border: "1px solid var(--card-line)",
-                        borderLeft: `3px solid ${color}`,
-                        boxShadow: "var(--shadow-card)",
+                        background: color,
+                        border: "1px solid rgba(255, 255, 255, 0.15)",
+                        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.18)",
                         borderRadius: 6,
-                        padding: "3px 6px",
+                        padding: "4px 7px",
                         overflow: "hidden",
                         cursor: canDrag ? "grab" : "pointer",
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: "var(--card-ink)",
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        color: contrastText(color),
                         userSelect: "none",
                         zIndex: isDragging ? 5 : undefined,
                       }}
                     >
                       <span style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{event.title}</span>
                       {height > 32 && (
-                        <div className="tabular-nums" style={{ fontSize: 10, fontWeight: 400, color: "var(--card-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <div className="tabular-nums" style={{ fontSize: 10, fontWeight: 500, color: contrastText(color) === "#ffffff" ? "rgba(255, 255, 255, 0.88)" : "rgba(0, 0, 0, 0.7)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>
                           {formatTimeRange(displayStart, displayEnd)}
                         </div>
                       )}

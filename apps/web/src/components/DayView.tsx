@@ -435,23 +435,22 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                   height,
                   left: lane.left,
                   width: lane.width,
-                  background: "var(--card-bg)",
-                  border: "1px solid var(--card-line)",
-                  borderLeft: `3px solid ${color}`,
-                  boxShadow: "var(--shadow-card)",
+                  background: color,
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
                   borderRadius: 8,
-                  padding: "5px 9px",
+                  padding: "6px 10px",
                   overflow: "hidden",
                   cursor: draggable ? "grab" : "pointer",
-                  outline: isSelected ? `2px solid ${color}` : "none",
+                  outline: isSelected ? "2px solid #ffffff" : "none",
                   userSelect: "none",
                 }}
               >
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--card-ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: contrastText(color), whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {event.title}
                 </div>
                 {height > 34 && (
-                  <div className="tabular-nums" style={{ fontSize: 11, color: "var(--card-muted)" }}>
+                  <div className="tabular-nums" style={{ fontSize: 11, fontWeight: 500, color: contrastText(color) === "#ffffff" ? "rgba(255, 255, 255, 0.88)" : "rgba(0, 0, 0, 0.7)", marginTop: 2 }}>
                     {formatTimeRange(displayStart, displayEnd)}
                   </div>
                 )}

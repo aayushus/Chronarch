@@ -2,7 +2,7 @@ import React from "react";
 
 import { useAppearance } from "../appearance";
 import type { Attendee } from "../api/calendar";
-import { tint } from "../lib/color";
+import { contrastText, tint } from "../lib/color";
 
 /** Mondays card language: white floating card, colored top bar, ink title,
  * muted meta, avatar stack + overflow menu. One language for Month/Agenda
@@ -110,20 +110,18 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
       }}
       className="event-block"
       style={{
-        background: "var(--card-bg)",
-        border: "1px solid var(--card-line)",
-        borderLeft: `4px solid ${color}`,
-        borderRadius: 10,
-        boxShadow: "var(--shadow-card)",
-        padding: compact ? "6px 10px" : "9px 12px",
+        background: color,
+        border: "1px solid rgba(255, 255, 255, 0.15)",
+        borderRadius: 8,
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.18)",
+        padding: compact ? "5px 8px" : "8px 12px",
         cursor: "pointer",
         minWidth: 0,
         position: "relative",
-        outline: selected ? `2px solid ${color}` : "none",
+        outline: selected ? "2px solid #ffffff" : "none",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <ProgressBar color={color} />
         {providerBadge && (
           <span
             style={{
@@ -131,20 +129,21 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
               fontWeight: 700,
               padding: "1px 5px",
               borderRadius: 4,
-              background: "var(--wash-faint)",
-              color: "var(--text-secondary)",
+              background: "rgba(255, 255, 255, 0.2)",
+              color: contrastText(color),
               lineHeight: 1,
+              marginBottom: 4,
             }}
           >
             {providerBadge}
           </span>
         )}
       </div>
-      <div style={{ fontSize: compact ? 12 : 13, fontWeight: 600, color: "var(--card-ink)", lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <div style={{ fontSize: compact ? 12 : 13, fontWeight: 700, color: contrastText(color), lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {title}
       </div>
       {meta && (
-        <div style={{ fontSize: compact ? 10.5 : 11.5, color: "var(--card-muted)", marginTop: compact ? 2 : 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ fontSize: compact ? 10.5 : 11.5, fontWeight: 500, color: contrastText(color) === "#ffffff" ? "rgba(255, 255, 255, 0.88)" : "rgba(0, 0, 0, 0.7)", marginTop: compact ? 2 : 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {meta}
         </div>
       )}
@@ -158,7 +157,7 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
                 onMenu(e);
               }}
               aria-label="Event actions"
-              style={{ border: "none", background: "none", color: "var(--card-muted)", fontSize: 13, fontWeight: 700, letterSpacing: 1, cursor: "pointer", padding: "0 2px", lineHeight: 1 }}
+              style={{ border: "none", background: "none", color: contrastText(color) === "#ffffff" ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.6)", fontSize: 13, fontWeight: 700, letterSpacing: 1, cursor: "pointer", padding: "0 2px", lineHeight: 1 }}
             >
               ···
             </button>
