@@ -185,6 +185,13 @@ async def update_link(
     if patch.get("duration_minutes") is not None and not 5 <= patch["duration_minutes"] <= 480:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                             "Duration must be between 5 and 480 minutes.")
+    for key in ("buffer_before_minutes", "buffer_after_minutes", "min_notice_minutes"):
+        if patch.get(key) is not None and patch[key] < 0:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                f"{key} cannot be negative.")
+    if patch.get("max_days_ahead") is not None and not 1 <= patch["max_days_ahead"] <= 90:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            "max_days_ahead must be between 1 and 90 days.")
     for key, value in patch.items():
         if value is not None and hasattr(link, key):
             setattr(link, key, value)

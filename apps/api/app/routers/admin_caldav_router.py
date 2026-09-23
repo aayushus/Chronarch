@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chronarch_core.connectors.caldav import CalDAVConnector
+from chronarch_core.ics import _validate_feed_url
 from chronarch_core.crypto import get_cipher
 from chronarch_core.models.account import Account
 from chronarch_core.models.enums import ProviderType
@@ -77,6 +78,16 @@ async def connect(
     server_url = body.server_url.strip().rstrip("/")
     username = body.username.strip()
     label = (body.email_label or username).strip()
+
+    # Validate before creating a connector or making any network request.
+    # This blocks private/link-local/metadata targets and DNS names resolving
+    # to them, including the initial CalDAV discovery call.
+    try:
+        if not server_url.startswith("https://"):
+            raise ValueError("CalDAV connections must use HTTPS")
+        _validate_feed_url(server_url)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
 
     connector = CalDAVConnector(server_url=server_url, username=username, password=body.password)
     try:

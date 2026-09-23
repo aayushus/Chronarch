@@ -128,6 +128,26 @@ async def _credential(session, user_id, raw_key, scopes, *, revoked=False):
     return cred
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="admin-owned MCP credentials currently inherit the human admin bypass",
+)
+async def test_admin_mcp_credential_does_not_bypass_scopes_or_ai_gates(session):
+    _, calendar = await _seed(session, ai_open=False)
+    await _credential(session, "exec-1", "scopeless-admin-key", set())
+
+    ctx = await resolve_auth_context(session, "scopeless-admin-key")
+    read_decision = resolve_permission(
+        ctx, calendar, CalendarAction.VIEW_TITLE, is_owner=False
+    )
+    write_decision = resolve_permission(
+        ctx, calendar, CalendarAction.CREATE, is_owner=False
+    )
+
+    assert not read_decision.allowed
+    assert not write_decision.allowed
+
+
 async def test_resolve_auth_context_happy_path(session):
     owner = User(id="exec-1", email="exec@co.com", display_name="Exec",
                  password_hash="x", role=UserRole.ADMIN, is_active=True)

@@ -741,14 +741,6 @@ export default function CalendarPage() {
         {/* Focus rail: fixed sections, only the calendar list scrolls. */}
         {showRails && (
           <aside style={{ width: 280, minWidth: 280, borderRight: "1px solid var(--border-subtle)", overflow: "hidden", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 14, minHeight: 0 }}>
-            <div style={{ flexShrink: 0 }}>
-              <MiniMonth
-                viewedDate={viewedDate}
-                selectedDate={viewedDate}
-                onSelect={(d) => setViewedDate(d)}
-                onMonthShift={(delta) => setViewedDate((d) => new Date(d.getFullYear(), d.getMonth() + delta, 1))}
-              />
-            </div>
             <section style={{ flexShrink: 0, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: "12px 14px" }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", marginBottom: 8 }}>
                 Up next
@@ -803,6 +795,14 @@ export default function CalendarPage() {
                 ))}
               </div>
             </section>
+            <div style={{ flexShrink: 0, borderTop: "1px solid var(--border-subtle)", paddingTop: 10 }}>
+              <MiniMonth
+                viewedDate={viewedDate}
+                selectedDate={viewedDate}
+                onSelect={(d) => setViewedDate(d)}
+                onMonthShift={(delta) => setViewedDate((d) => new Date(d.getFullYear(), d.getMonth() + delta, 1))}
+              />
+            </div>
           </aside>
         )}
 

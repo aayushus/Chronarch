@@ -405,6 +405,14 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                 />
                 {todayIndex === dayIndex && nowOffset >= 0 && nowOffset <= hours.length * HOUR_H && (
                   <div style={{ position: "absolute", top: nowOffset, left: 0, right: 0, zIndex: 5, pointerEvents: "none" }}>
+                    {dayIndex === 0 && (
+                      <span
+                        className="tabular-nums now-glow"
+                        style={{ position: "absolute", left: -52, top: -9, background: "var(--danger)", color: "#fff", fontSize: 10, fontWeight: 700, borderRadius: 5, padding: "2px 5px", whiteSpace: "nowrap" }}
+                      >
+                        {new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                      </span>
+                    )}
                     <div className="now-glow" style={{ height: 2, background: "var(--danger)" }} />
                   </div>
                 )}

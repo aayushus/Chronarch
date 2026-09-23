@@ -10,6 +10,7 @@ already visible on a synced calendar event.
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from pydantic import field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chronarch_core import contacts as _contacts
@@ -37,6 +38,13 @@ class ContactCreate(BaseModel):
     company: str | None = None
     job_title: str | None = None
 
+    @field_validator("email")
+    @classmethod
+    def _safe_email(cls, value: str) -> str:
+        if "\r" in value or "\n" in value:
+            raise ValueError("email must not contain line breaks")
+        return value.strip()
+
 
 class ContactUpdate(BaseModel):
     display_name: str | None = None
@@ -44,6 +52,13 @@ class ContactUpdate(BaseModel):
     phone: str | None = None
     company: str | None = None
     job_title: str | None = None
+
+    @field_validator("email")
+    @classmethod
+    def _safe_email(cls, value: str | None) -> str | None:
+        if value is not None and ("\r" in value or "\n" in value):
+            raise ValueError("email must not contain line breaks")
+        return value.strip() if value is not None else None
 
 
 @router.get("/search")

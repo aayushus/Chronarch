@@ -263,9 +263,13 @@ async def sync_account(
         await session.commit()
     except Exception as e:
         account.sync_status = "error"
-        account.last_sync_error = str(e)
+        # Do not persist provider exception text: it may contain bearer or
+        # refresh tokens, signed URLs, or other connector secrets.
+        account.last_sync_error = "Provider sync failed; retry or reconnect the account."
         await session.commit()
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"Sync failed: {str(e)}")
+        # Provider exceptions can contain bearer tokens, refresh tokens, or
+        # vendor request URLs. Keep those details in server logs only.
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Sync failed. Please try again or inspect the sync status.")
 
     return {
         "synced": True,
@@ -273,4 +277,3 @@ async def sync_account(
         "last_synced_at": now_iso,
         "stats": stats,
     }
-
