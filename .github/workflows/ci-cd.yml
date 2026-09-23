@@ -13,10 +13,56 @@ permissions:
   packages: write
 
 jobs:
+  detect-changes:
+    name: Detect Changed Components
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      api: ${{ steps.filter.outputs.api }}
+      mcp: ${{ steps.filter.outputs.mcp }}
+      worker: ${{ steps.filter.outputs.worker }}
+      scheduler: ${{ steps.filter.outputs.scheduler }}
+      litellm: ${{ steps.filter.outputs.litellm }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Path Filter
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          # On tag push or workflow_dispatch, consider everything changed
+          filters: |
+            web:
+              - 'apps/web/**'
+              - '.github/workflows/ci-cd.yml'
+            api:
+              - 'apps/api/**'
+              - 'packages/core/**'
+              - 'pyproject.toml'
+              - '.github/workflows/ci-cd.yml'
+            mcp:
+              - 'apps/mcp/**'
+              - 'packages/core/**'
+              - '.github/workflows/ci-cd.yml'
+            worker:
+              - 'apps/worker/**'
+              - 'packages/core/**'
+              - '.github/workflows/ci-cd.yml'
+            scheduler:
+              - 'apps/scheduler/**'
+              - 'packages/core/**'
+              - '.github/workflows/ci-cd.yml'
+            litellm:
+              - 'packages/litellm-config/**'
+              - '.github/workflows/ci-cd.yml'
+
   build-and-push:
-    name: Build & Push Docker Images
+    name: Build & Push Docker Images (${{ matrix.name }})
+    needs: detect-changes
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: web
@@ -43,6 +89,12 @@ jobs:
             context: packages/litellm-config
             dockerfile: packages/litellm-config/Dockerfile
             image-name: chronarch-litellm
+
+    # Run if the specific component changed, or if it's a tag push / manual workflow dispatch
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/') ||
+      needs.detect-changes.outputs[matrix.name] == 'true'
 
     steps:
       - name: Checkout Code
@@ -77,6 +129,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
+          cache-from: type=gha,scope=${{ matrix.image-name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image-name }}
