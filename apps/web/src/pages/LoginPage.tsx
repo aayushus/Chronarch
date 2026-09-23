@@ -267,10 +267,6 @@ export default function LoginPage() {
               </div>
             </div>
           </div>
-
-          <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-            Self-hosted · You own your calendar data
-          </div>
         </div>
 
         {/* Right form panel */}
@@ -308,7 +304,7 @@ export default function LoginPage() {
                 : authView === "reset"
                 ? "Enter and confirm your new account password"
                 : authView === "signup"
-                ? "Register a new workspace administrator account"
+                ? "Create your account to get started"
                 : "Unified calendar aggregation & scheduling"}
             </p>
           </div>

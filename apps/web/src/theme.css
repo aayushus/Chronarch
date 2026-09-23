@@ -428,12 +428,25 @@ kbd {
   padding: 8px 12px;
   font-size: 13px;
   outline: none;
-  color-scheme: dark;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+[data-theme="light"] .input-standard {
+  color-scheme: light;
+}
+[data-theme="dark"] .input-standard {
+  color-scheme: dark;
 }
 .input-standard:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-dim);
+}
+/* Prevent browser autofill from painting inputs dark grey with unreadable text */
+.input-standard:-webkit-autofill,
+.input-standard:-webkit-autofill:hover,
+.input-standard:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0px 1000px var(--bg-raised) inset;
+  transition: background-color 5000s ease-in-out 0s;
 }
 
 /* --- Standardized Buttons --- */

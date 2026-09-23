@@ -378,7 +378,7 @@ export default function StartPage() {
 
               <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
                 {/* Google Provider Card */}
-                <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 16 }}>
+                <div style={{ background: "var(--wash-deep, rgba(0,0,0,0.03))", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 16 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <span style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(10, 132, 255, 0.12)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
@@ -438,7 +438,7 @@ export default function StartPage() {
                 </div>
 
                 {/* Microsoft Provider Card */}
-                <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 16 }}>
+                <div style={{ background: "var(--wash-deep, rgba(0,0,0,0.03))", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 16 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <span style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(48, 209, 88, 0.12)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
@@ -506,7 +506,7 @@ export default function StartPage() {
               </div>
 
               {/* ICS Feed Subscription & Local File Upload */}
-              <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 16, marginBottom: 20 }}>
+              <div style={{ background: "var(--wash-deep, rgba(0,0,0,0.03))", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 16, marginBottom: 20 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
                   <Icon name="calendar" size={16} />
                   <span>ICS Feed Subscription & Local File Import</span>
