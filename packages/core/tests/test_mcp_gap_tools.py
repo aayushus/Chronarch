@@ -285,13 +285,17 @@ async def test_suggest_proposes_around_busy(session):
     user, cal = await _suggest_user(session)
     ctx = _owner_ctx(user)
     await _contacts.create_contact(session, email="sarah@acme.com", display_name="Sarah")
-    start = datetime(2026, 9, 17, 14, 0, tzinfo=timezone.utc)
+    # Keep the fixture in the future so the suggestion tool's real-time
+    # minimum-notice filtering does not turn the whole window into history.
+    start = (datetime.now(timezone.utc) + timedelta(days=1)).replace(
+        hour=14, minute=0, second=0, microsecond=0
+    )
     await ai_tools.create_event(
         session, ctx, calendar_id=cal.id, title="Blocked",
         start=start, end=start + timedelta(hours=2), is_owner=True)
     out = await ai_tools.suggest_meeting_times(
         session, ctx, contact_query="sarah", duration_minutes=30,
-        window_start=datetime(2026, 9, 17, 9, 0, tzinfo=timezone.utc),
+        window_start=start.replace(hour=9),
         owner_calendar_ids={cal.id})
     assert out["status"] == "proposed"
     assert out["contact"]["email"] == "sarah@acme.com"

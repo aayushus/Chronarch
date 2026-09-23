@@ -51,7 +51,6 @@ export default function AccountsSettings() {
   const [oauth, setOauth] = useState<Record<string, OAuthProviderConfig>>({});
   const [oauthError, setOauthError] = useState<string | null>(null);
   const [oauthSaving, setOauthSaving] = useState<string | null>(null);
-  const [showAdvancedCredentials, setShowAdvancedCredentials] = useState(false);
 
   // Wizard Modal state
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -472,69 +471,6 @@ export default function AccountsSettings() {
         )}
       </div>
 
-      {/* Advanced Provider Configuration Accordion */}
-      <div
-        style={{
-          background: "var(--bg-raised)",
-          borderRadius: "var(--radius-md)",
-          border: "1px solid var(--border-subtle)",
-          overflow: "hidden",
-        }}
-      >
-        <button
-          onClick={() => setShowAdvancedCredentials((prev) => !prev)}
-          className="hoverable"
-          style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            background: "transparent",
-            border: "none",
-            padding: "14px 18px",
-            color: "var(--text-primary)",
-            cursor: "pointer",
-            textAlign: "left",
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>OAuth Provider Credentials (Advanced)</div>
-            <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
-              Manage or clear custom Google Cloud & Microsoft Azure OAuth client credentials stored in database.
-            </div>
-          </div>
-          <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-            {showAdvancedCredentials ? "▲ Hide" : "▼ Show"}
-          </span>
-        </button>
-
-        {showAdvancedCredentials && (
-          <div style={{ borderTop: "1px solid var(--border-subtle)", padding: 18 }}>
-            {oauthError && <div style={{ color: "var(--danger)", fontSize: 12, marginBottom: 12 }}>{oauthError}</div>}
-            <ProviderCredentialCard
-              provider="google"
-              title="Google Calendar OAuth"
-              hint="Google Cloud Console → APIs & Services → Credentials → Web application OAuth client"
-              config={oauth.google}
-              showTenant={false}
-              saving={oauthSaving === "google"}
-              onSave={(body) => handleSaveOAuth("google", body)}
-              onClear={() => handleClearOAuth("google")}
-            />
-            <ProviderCredentialCard
-              provider="microsoft"
-              title="Microsoft 365 / Graph OAuth"
-              hint="Azure portal → App registrations → Web client (Calendars.ReadWrite and User.Read permissions)"
-              config={oauth.microsoft}
-              showTenant
-              saving={oauthSaving === "microsoft"}
-              onSave={(body) => handleSaveOAuth("microsoft", body)}
-              onClear={() => handleClearOAuth("microsoft")}
-            />
-          </div>
-        )}
-      </div>
-
       {/* Account Connection Wizard Modal */}
       {wizardOpen && (
         <ConnectAccountWizardModal
@@ -570,6 +506,7 @@ function ConnectAccountWizardModal({
   onAccountAdded: () => void;
 }) {
   const [selectedProvider, setSelectedProvider] = useState<WizardProvider>(null);
+  const [googleReview, setGoogleReview] = useState(false);
 
   // Form states for OAuth configuration
   const [clientId, setClientId] = useState("");
@@ -619,6 +556,12 @@ function ConnectAccountWizardModal({
       setConfigError(String(e));
       setConnecting(false);
     }
+  }
+
+  function selectProvider(provider: WizardProvider) {
+    setSelectedProvider(provider);
+    setGoogleReview(false);
+    setConfigError(null);
   }
 
   async function handleMicrosoftDirectConnect() {
@@ -739,7 +682,7 @@ function ConnectAccountWizardModal({
       <div
         className="modal-card-solid"
         onClick={(e) => e.stopPropagation()}
-        style={{ width: 560, maxWidth: "94vw", padding: 28 }}
+        style={{ width: 680, maxWidth: "94vw", padding: 28 }}
       >
         {/* Modal Top Bar */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
@@ -748,6 +691,7 @@ function ConnectAccountWizardModal({
               <button
                 onClick={() => {
                   setSelectedProvider(null);
+                  setGoogleReview(false);
                   setConfigError(null);
                 }}
                 className="hoverable"
@@ -802,7 +746,7 @@ function ConnectAccountWizardModal({
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {/* Google option */}
               <button
-                onClick={() => setSelectedProvider("google")}
+                onClick={() => selectProvider("google")}
                 className="hoverable"
                 style={{
                   display: "flex",
@@ -861,7 +805,7 @@ function ConnectAccountWizardModal({
 
               {/* Microsoft option */}
               <button
-                onClick={() => setSelectedProvider("microsoft")}
+                onClick={() => selectProvider("microsoft")}
                 className="hoverable"
                 style={{
                   display: "flex",
@@ -918,7 +862,7 @@ function ConnectAccountWizardModal({
 
               {/* CalDAV option */}
               <button
-                onClick={() => setSelectedProvider("caldav")}
+                onClick={() => selectProvider("caldav")}
                 className="hoverable"
                 style={{
                   display: "flex",
@@ -960,7 +904,7 @@ function ConnectAccountWizardModal({
 
               {/* ICS Feed option */}
               <button
-                onClick={() => setSelectedProvider("ics")}
+                onClick={() => selectProvider("ics")}
                 className="hoverable"
                 style={{
                   display: "flex",
@@ -1021,7 +965,20 @@ function ConnectAccountWizardModal({
               </div>
             )}
 
-            {isGoogleConfigured ? (
+            {googleReview && isGoogleConfigured ? (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(10, 132, 255, 0.12)", display: "grid", placeItems: "center", fontSize: 18, fontWeight: 800, color: "var(--accent)" }}>G</div>
+                  <div><div style={{ fontSize: 16, fontWeight: 700 }}>Ready to connect Google</div><div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Review what Chronarch will access before you continue.</div></div>
+                </div>
+                <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 14 }}>Google will ask you to choose an account and approve access. You’ll return to Chronarch when setup is complete.</div>
+                <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)" }}><span style={{ color: "var(--success)", fontWeight: 800 }}>✓</span><div><div style={{ fontSize: 12, fontWeight: 700 }}>Read your calendar availability</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Find conflicts and suggest open meeting times.</div></div></div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)" }}><span style={{ color: "var(--success)", fontWeight: 800 }}>✓</span><div><div style={{ fontSize: 12, fontWeight: 700 }}>Sync calendar events</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Show your calendars and event details in Chronarch.</div></div></div>
+                </div>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button onClick={() => setGoogleReview(false)} className="btn-secondary hoverable">Back</button><button onClick={handleGoogleDirectConnect} disabled={connecting} className="btn-primary hoverable">{connecting ? "Redirecting to Google…" : "Continue to Google →"}</button></div>
+              </div>
+            ) : isGoogleConfigured ? (
               /* Already configured -> 1-click connect */
               <div>
                 <div
@@ -1058,12 +1015,12 @@ function ConnectAccountWizardModal({
                     Cancel
                   </button>
                   <button
-                    onClick={handleGoogleDirectConnect}
+                    onClick={() => setGoogleReview(true)}
                     disabled={connecting}
                     className="btn-primary hoverable"
                     style={{ padding: "8px 20px" }}
                   >
-                    {connecting ? "Redirecting to Google…" : "Authorize & Connect with Google"}
+                    Review access
                   </button>
                 </div>
               </div>
