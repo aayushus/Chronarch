@@ -31,6 +31,7 @@ import { addDays, startOfDay, startOfMonth, startOfWeek } from "../lib/dates";
 import { dayStats, formatMinutes, greeting } from "../lib/focus";
 import { pickCountdowns } from "../lib/kiosk";
 import { fetchEventsLazy, invalidateEventsCache } from "../lib/eventsCache";
+import { contrastText } from "../lib/color";
 
 export type CalendarViewMode = "day" | "week" | "month" | "agenda" | "year";
 
@@ -110,6 +111,25 @@ export default function CalendarPage() {
   const [now, setNow] = useState(() => new Date());
   const [menu, setMenu] = useState<{ x: number; y: number; event: EventSummary | null; createAt?: Date } | null>(null);
   const [moveTarget, setMoveTarget] = useState<EventSummary | null>(null);
+  const [todayRailOpen, setTodayRailOpen] = useState(() => {
+    try {
+      return localStorage.getItem("chronarch_today_rail") !== "0";
+    } catch {
+      return true;
+    }
+  });
+
+  function toggleTodayRail() {
+    setTodayRailOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("chronarch_today_rail", next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     const clock = setInterval(() => setNow(new Date()), 30_000);
@@ -688,6 +708,27 @@ export default function CalendarPage() {
           <div className="tabular-nums" style={{ fontSize: 12, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
             {stats.count} meetings · {formatMinutes(stats.meetingMinutes)} booked
           </div>
+
+          {showRails && (
+            <button
+              onClick={toggleTodayRail}
+              className="btn-secondary hoverable"
+              title={todayRailOpen ? "Collapse Today sidebar" : "Expand Today sidebar"}
+              aria-label={todayRailOpen ? "Collapse Today sidebar" : "Expand Today sidebar"}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "5px 10px",
+                fontSize: 12,
+                fontWeight: 600,
+                color: todayRailOpen ? "var(--text-primary)" : "var(--text-secondary)",
+              }}
+            >
+              <Icon name="calendar" size={13} />
+              <span>{todayRailOpen ? "Hide Today" : "Show Today"}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -860,12 +901,32 @@ export default function CalendarPage() {
           </div>
         </main>
 
-        {/* Today rail */}
-        {showRails && (
-          <aside style={{ width: 300, minWidth: 300, borderLeft: "1px solid var(--border-subtle)", overflowY: "auto", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Today rail (Collapsible + Solid Pill Styling) */}
+        {showRails && todayRailOpen && (
+          <aside style={{ width: 300, minWidth: 300, borderLeft: "1px solid var(--border-subtle)", overflowY: "auto", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 16, background: "var(--bg-app)" }}>
             <section>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", marginBottom: 8 }}>
-                Today
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)" }}>
+                  Today
+                </div>
+                <button
+                  onClick={toggleTodayRail}
+                  title="Collapse Today sidebar"
+                  aria-label="Collapse Today sidebar"
+                  className="hoverable"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-tertiary)",
+                    cursor: "pointer",
+                    padding: 3,
+                    borderRadius: 4,
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <Icon name="x" size={13} />
+                </button>
               </div>
               {todayEvents.length === 0 ? (
                 <div style={{ fontSize: 13, color: "var(--text-tertiary)" }}>Nothing scheduled.</div>
@@ -874,17 +935,28 @@ export default function CalendarPage() {
                   {todayEvents.map((e) => {
                     const cal = calendarById[e.calendar_id];
                     const color = cal?.color ?? "var(--accent)";
+                    const textCol = contrastText(color);
                     return (
                       <button
                         key={e.id}
                         onClick={() => setSelectedEvent(e)}
                         className="hoverable"
-                        style={{ textAlign: "left", background: "var(--card-bg)", border: "1px solid var(--card-line)", borderLeft: `3px solid ${color}`, borderRadius: 8, padding: "8px 12px", cursor: "pointer", minWidth: 0 }}
+                        style={{
+                          textAlign: "left",
+                          background: color,
+                          border: "1px solid rgba(255, 255, 255, 0.15)",
+                          borderRadius: 8,
+                          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.18)",
+                          padding: "8px 12px",
+                          cursor: "pointer",
+                          minWidth: 0,
+                          transition: "transform 0.12s ease",
+                        }}
                       >
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--card-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: textCol, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {e.title}
                         </div>
-                        <div className="tabular-nums" style={{ fontSize: 11.5, color: "var(--card-muted)", marginTop: 2 }}>
+                        <div className="tabular-nums" style={{ fontSize: 11.5, fontWeight: 500, color: textCol === "#ffffff" ? "rgba(255, 255, 255, 0.88)" : "rgba(0, 0, 0, 0.7)", marginTop: 2 }}>
                           {new Date(e.start).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
                         </div>
                       </button>
@@ -911,7 +983,7 @@ export default function CalendarPage() {
           </aside>
         )}
 
-      {/* Floating copilot chat button, bottom-left. */}
+      {/* Floating copilot chat button, bottom-right. */}
       <button
         onClick={() => setCopilotOpen(true)}
         title="Ask Copilot"
@@ -919,7 +991,7 @@ export default function CalendarPage() {
         className="hoverable"
         style={{
           position: "fixed",
-          left: 20,
+          right: 20,
           bottom: 20,
           width: 52,
           height: 52,

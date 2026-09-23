@@ -5,6 +5,7 @@ import { friendlyError } from "../api/client";
 import AttendeePicker, { PickerAttendee } from "./AttendeePicker";
 import Icon from "./Icon";
 import { formatTimeRange } from "../lib/dates";
+import { contrastText } from "../lib/color";
 
 interface Props {
   event: EventSummary | null;
@@ -111,35 +112,45 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
     }
   }
 
+  const eventColor = calendar?.color ?? "var(--accent)";
+  const headerText = contrastText(eventColor);
+
   return (
     <aside className="vibrancy mount-rise" style={panelStyle}>
-      <div style={{ padding: 20, borderLeft: `3px solid ${calendar?.color ?? "var(--accent)"}` }}>
+      <div style={{ background: eventColor, color: headerText, padding: "16px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>{event.title}</div>
-          <button onClick={onClose} className="icon-btn" style={closeBtnStyle}>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, lineHeight: 1.3 }}>{event.title}</div>
+          <button
+            onClick={onClose}
+            className="icon-btn hoverable"
+            style={{
+              ...closeBtnStyle,
+              color: headerText === "#ffffff" ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.75)",
+            }}
+          >
             ✕
           </button>
         </div>
-        <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+        <div style={{ fontSize: 12.5, fontWeight: 500, color: headerText === "#ffffff" ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.8)", marginTop: 2 }}>
           {start.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
         </div>
-        <div className="tabular-nums" style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+        <div className="tabular-nums" style={{ fontSize: 12, fontWeight: 500, color: headerText === "#ffffff" ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.75)", marginTop: 2 }}>
           {formatTimeRange(start, end)}
         </div>
         {isRecurring && (
-          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>
+          <div style={{ fontSize: 11.5, color: headerText === "#ffffff" ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.7)", marginTop: 4 }}>
             Repeats{nextLabel ? ` · next ${nextLabel}` : ""}
           </div>
         )}
         {event.location && (
-          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
-            <Icon name="mapPin" size={13} /> {event.location}
+          <div style={{ fontSize: 12, color: headerText === "#ffffff" ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.8)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
+            <Icon name="mapPin" size={12} /> {event.location}
           </div>
         )}
       </div>
 
       {event.description && (
-        <div style={{ padding: "0 20px 16px", fontSize: 13, color: "var(--text-secondary)" }}>{event.description}</div>
+        <div style={{ padding: "16px 18px", fontSize: 13, color: "var(--text-secondary)", borderBottom: "1px solid var(--border-subtle)" }}>{event.description}</div>
       )}
 
       {(editingAttendees || (event.attendees && event.attendees.length > 0)) && (
