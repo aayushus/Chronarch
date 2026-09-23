@@ -132,8 +132,8 @@ export default function KioskSettings() {
   }
 
   return (
-    <div>
-      <div style={{ marginBottom: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div>
         <SectionHeader
           title="Kiosk"
           description="Read-only wall displays — no login needed. Private events always show as Busy. Revoke the link to decommission a screen."
@@ -143,40 +143,123 @@ export default function KioskSettings() {
       {error && <ErrorBanner>{error}</ErrorBanner>}
 
       {displays.length === 0 ? (
-        <EmptyState
-          icon="monitor"
-          title="No wall displays yet"
-          body="Pair a tablet or TV for the hallway or kitchen — it shows your week with weather, no login required."
-        />
+        <div style={{ margin: "4px 0" }}>
+          <EmptyState
+            icon="monitor"
+            title="No wall displays yet"
+            body="Pair a tablet or TV for the hallway or kitchen — it shows your week with weather, no login required."
+          />
+        </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {displays.map((d) => (
-            <section key={d.id} style={{ background: "var(--bg-raised)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)", padding: "14px 18px", display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ width: 34, height: 34, borderRadius: 8, background: d.active ? "rgba(10, 132, 255, 0.14)" : "var(--bg-app)", color: d.active ? "var(--accent)" : "var(--text-tertiary)", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Icon name="monitor" size={17} />
+            <section
+              key={d.id}
+              style={{
+                background: "var(--bg-raised)",
+                borderRadius: "var(--radius-lg)",
+                border: "1px solid var(--border-subtle)",
+                padding: "16px 20px",
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+              }}
+            >
+              <span
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: "var(--radius-md)",
+                  background: d.active ? "rgba(10, 132, 255, 0.14)" : "var(--bg-app)",
+                  color: d.active ? "var(--accent)" : "var(--text-tertiary)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Icon name="monitor" size={18} />
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
                   {!d.active && <Badge tone="neutral">Off</Badge>}
                 </div>
-                <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 3 }}>
                   {d.url_path}{d.location_label ? ` · ${d.location_label}` : ""} · sleeps {d.sleep_start}–{d.sleep_end} · seen {formatSeen(d.last_seen_at)}
                 </div>
               </div>
-              <button onClick={() => copyLink(d)} className="hoverable" title="Copy wall display link" style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 6, color: "var(--text-primary)", padding: "6px 12px", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>
+              <button
+                onClick={() => copyLink(d)}
+                className="hoverable"
+                title="Copy wall display link"
+                style={{
+                  background: "var(--bg-app)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-sm)",
+                  color: "var(--text-primary)",
+                  padding: "7px 14px",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 {copied ? "✓ Copied!" : "Copy link"}
               </button>
               {canManage && (
                 <>
-                  <button onClick={() => toggleActive(d)} className="hoverable" title={d.active ? "Take display dark" : "Bring display back"} style={{ background: d.active ? "rgba(48, 209, 88, 0.12)" : "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 6, color: d.active ? "var(--success)" : "var(--text-secondary)", padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                  <button
+                    onClick={() => toggleActive(d)}
+                    className="hoverable"
+                    title={d.active ? "Take display dark" : "Bring display back"}
+                    style={{
+                      background: d.active ? "rgba(48, 209, 88, 0.12)" : "var(--bg-app)",
+                      border: "1px solid var(--border-subtle)",
+                      borderRadius: "var(--radius-sm)",
+                      color: d.active ? "var(--success)" : "var(--text-secondary)",
+                      padding: "7px 14px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {d.active ? "Live" : "Off"}
                   </button>
-                  <button onClick={() => void rotate(d)} className="hoverable" title="Issue a new link" style={{ background: "none", border: "1px solid var(--border-subtle)", borderRadius: 6, color: "var(--text-secondary)", padding: "6px 12px", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>
+                  <button
+                    onClick={() => void rotate(d)}
+                    className="hoverable"
+                    title="Issue a new link"
+                    style={{
+                      background: "none",
+                      border: "1px solid var(--border-subtle)",
+                      borderRadius: "var(--radius-sm)",
+                      color: "var(--text-secondary)",
+                      padding: "7px 14px",
+                      fontSize: 12,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     Rotate
                   </button>
-                  <button onClick={() => void remove(d)} className="hoverable" aria-label={`Remove ${d.name}`} title="Remove display" style={{ background: "none", border: "none", borderRadius: 6, color: "var(--text-tertiary)", cursor: "pointer", padding: 6, display: "inline-flex" }}>
-                    <Icon name="trash" size={15} />
+                  <button
+                    onClick={() => void remove(d)}
+                    className="hoverable"
+                    aria-label={`Remove ${d.name}`}
+                    title="Remove display"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      borderRadius: "var(--radius-sm)",
+                      color: "var(--text-tertiary)",
+                      cursor: "pointer",
+                      padding: 6,
+                      display: "inline-flex",
+                    }}
+                  >
+                    <Icon name="trash" size={16} />
                   </button>
                 </>
               )}
@@ -186,48 +269,165 @@ export default function KioskSettings() {
       )}
 
       {canManage && (
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
-          <form onSubmit={handlePair} style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: 18, display: "flex", flexDirection: "column", gap: 12, flex: "2 1 260px" }}>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>Pair with code</div>
-            <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: 0, lineHeight: 1.5 }}>
-              Open <code>/kiosk/pair</code> on the wall display and enter the 6-digit code it shows.
-            </p>
-            <input
-              value={pairCode}
-              onChange={(e) => setPairCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="123 456"
-              inputMode="numeric"
-              aria-label="Pairing code"
-              className="input-standard"
-              style={{ width: "100%", fontSize: 18, letterSpacing: "0.2em", textAlign: "center" }}
-            />
-            <button type="submit" disabled={pairing || pairCode.length !== 6} className="btn-primary hoverable" style={{ padding: "8px 20px", alignSelf: "flex-start", opacity: pairing || pairCode.length !== 6 ? 0.5 : 1 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+            gap: 20,
+            alignItems: "stretch",
+          }}
+        >
+          {/* Card 1: Pair with code */}
+          <form
+            onSubmit={handlePair}
+            style={{
+              background: "var(--bg-raised)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-lg)",
+              padding: "24px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>Pair with code</div>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "6px 0 0", lineHeight: 1.5 }}>
+                Open <code style={{ fontSize: 12, padding: "2px 5px", background: "var(--bg-app)", borderRadius: 4 }}>/kiosk/pair</code> on the wall display and enter the 6-digit code it displays.
+              </p>
+            </div>
+
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", minHeight: 90 }}>
+              <input
+                value={pairCode}
+                onChange={(e) => setPairCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="123 456"
+                inputMode="numeric"
+                aria-label="Pairing code"
+                className="input-standard"
+                style={{
+                  width: "100%",
+                  fontSize: 22,
+                  letterSpacing: "0.22em",
+                  textAlign: "center",
+                  padding: "12px 16px",
+                  fontWeight: 700,
+                  borderRadius: "var(--radius-md)",
+                }}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={pairing || pairCode.length !== 6}
+              className="btn-primary hoverable"
+              style={{
+                padding: "9px 22px",
+                alignSelf: "flex-start",
+                fontSize: 13,
+                fontWeight: 600,
+                borderRadius: "var(--radius-sm)",
+                opacity: pairing || pairCode.length !== 6 ? 0.5 : 1,
+              }}
+            >
               {pairing ? "Pairing…" : "Pair display"}
             </button>
           </form>
-          <form onSubmit={handleCreate} style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: 18, display: "flex", flexDirection: "column", gap: 12, flex: "3 1 300px" }}>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>Pair manually</div>
-          <div>
-            <label htmlFor="kiosk-name" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Name</label>
-            <input id="kiosk-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Kitchen wall" className="input-standard" style={{ width: "100%", fontSize: 13 }} />
-          </div>
-          <div>
-            <label htmlFor="kiosk-location" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Location <span style={{ fontWeight: 400, color: "var(--text-tertiary)" }}>(for weather — city name)</span></label>
-            <input id="kiosk-location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Edmonton" className="input-standard" style={{ width: "100%", fontSize: 13 }} />
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+
+          {/* Card 2: Pair manually */}
+          <form
+            onSubmit={handleCreate}
+            style={{
+              background: "var(--bg-raised)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-lg)",
+              padding: "24px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
             <div>
-              <label htmlFor="kiosk-sleep-start" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Screen sleeps at</label>
-              <input id="kiosk-sleep-start" type="time" value={sleepStart} onChange={(e) => setSleepStart(e.target.value)} className="input-standard" style={{ width: "100%", fontSize: 13 }} />
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>Pair manually</div>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "6px 0 0", lineHeight: 1.5 }}>
+                Configure a display name and sleep schedule to generate a direct link.
+              </p>
             </div>
-            <div>
-              <label htmlFor="kiosk-sleep-end" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Wakes at</label>
-              <input id="kiosk-sleep-end" type="time" value={sleepEnd} onChange={(e) => setSleepEnd(e.target.value)} className="input-standard" style={{ width: "100%", fontSize: 13 }} />
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label htmlFor="kiosk-name" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text-primary)" }}>
+                  Name
+                </label>
+                <input
+                  id="kiosk-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Kitchen wall"
+                  className="input-standard"
+                  style={{ width: "100%", fontSize: 13, padding: "8px 12px" }}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="kiosk-location" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text-primary)" }}>
+                  Location <span style={{ fontWeight: 400, color: "var(--text-tertiary)" }}>(city name for weather)</span>
+                </label>
+                <input
+                  id="kiosk-location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="e.g. Edmonton"
+                  className="input-standard"
+                  style={{ width: "100%", fontSize: 13, padding: "8px 12px" }}
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label htmlFor="kiosk-sleep-start" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text-primary)" }}>
+                    Screen sleeps at
+                  </label>
+                  <input
+                    id="kiosk-sleep-start"
+                    type="time"
+                    value={sleepStart}
+                    onChange={(e) => setSleepStart(e.target.value)}
+                    className="input-standard"
+                    style={{ width: "100%", fontSize: 13, padding: "8px 12px" }}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="kiosk-sleep-end" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text-primary)" }}>
+                    Wakes at
+                  </label>
+                  <input
+                    id="kiosk-sleep-end"
+                    type="time"
+                    value={sleepEnd}
+                    onChange={(e) => setSleepEnd(e.target.value)}
+                    className="input-standard"
+                    style={{ width: "100%", fontSize: 13, padding: "8px 12px" }}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-          <button type="submit" disabled={creating} className="btn-primary hoverable" style={{ padding: "8px 20px", alignSelf: "flex-start", opacity: creating ? 0.5 : 1 }}>
-            {creating ? "Pairing…" : "Pair display"}
-          </button>
+
+            <button
+              type="submit"
+              disabled={creating}
+              className="btn-primary hoverable"
+              style={{
+                padding: "9px 22px",
+                alignSelf: "flex-start",
+                fontSize: 13,
+                fontWeight: 600,
+                borderRadius: "var(--radius-sm)",
+                opacity: creating ? 0.5 : 1,
+              }}
+            >
+              {creating ? "Pairing…" : "Pair display"}
+            </button>
           </form>
         </div>
       )}

@@ -69,6 +69,17 @@ export default function SettingsPage() {
     const initial = initialSection();
     return items.some((n) => n.key === initial) ? initial : fallback;
   });
+
+  // Keep section valid and in sync when user/permissions load
+  React.useEffect(() => {
+    const initial = initialSection();
+    if (items.some((n) => n.key === initial)) {
+      if (section !== initial) setSection(initial);
+    } else if (items.length > 0 && !items.some((n) => n.key === section)) {
+      setSection(items[0].key);
+    }
+  }, [items]);
+
   const current = items.find((n) => n.key === section) ?? items[0];
   if (!current) {
     return (
@@ -203,8 +214,8 @@ export default function SettingsPage() {
         </div>
       </aside>
 
-      <main style={{ flex: 1, overflowY: "auto", padding: "28px 40px", minWidth: 0 }}>
-        <div key={section} className="view-enter" style={{ maxWidth: 960, margin: "0 auto" }}>
+      <main style={{ flex: 1, overflowY: "auto", padding: "32px 48px", minWidth: 0 }}>
+        <div key={section} className="view-enter" style={{ maxWidth: 880, margin: "0 auto" }}>
           {filtered.length === 0 ? (
             <div style={{ fontSize: 13, color: "var(--text-tertiary)", padding: "32px 0", textAlign: "center" }}>
               No sections match “{filter}”.
