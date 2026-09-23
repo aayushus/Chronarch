@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chronarch Event Detail Mock</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --app: #f6f6f8;
+      --panel: #ffffff;
+      --ink: #202124;
+      --muted: #73757d;
+      --line: #e2e3e8;
+      --soft: #f0f1f5;
+      --blue: #0a84ff;
+      --purple: #7774ed;
+      --danger: #d94343;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: var(--app); color: var(--ink); }
+
+    .mock-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+    }
+
+    .calendar-placeholder {
+      padding: 34px 28px;
+      background: linear-gradient(135deg, #fafafd, #f1f1f5);
+    }
+
+    .calendar-placeholder h1 { margin: 0 0 8px; font-size: 24px; }
+    .calendar-placeholder p { margin: 0 0 26px; color: var(--muted); }
+    .calendar-grid {
+      height: calc(100vh - 150px);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: repeating-linear-gradient(to bottom, #fff 0, #fff 70px, #e9e9ee 71px);
+      position: relative;
+      overflow: hidden;
+    }
+    .calendar-event {
+      position: absolute;
+      left: 15%; right: 18%; top: 27%;
+      padding: 12px 14px;
+      border-radius: 6px;
+      color: #fff;
+      background: var(--purple);
+      box-shadow: 0 6px 16px #7774ed40;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .scrim { position: fixed; inset: 0; background: #1c1d2530; pointer-events: none; }
+    .sheet {
+      position: fixed;
+      top: 50%; left: 50%;
+      width: min(640px, calc(100vw - 40px));
+      max-height: min(880px, calc(100vh - 40px));
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--panel);
+      border: 1px solid #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 20px 48px #292b3530;
+      transform: translate(-50%, -50%);
+    }
+
+    .sheet-header { padding: 22px 26px 20px; color: #fff; background: var(--purple); }
+    .header-row { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; }
+    .eyebrow { margin-bottom: 8px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .78; }
+    h2 { margin: 0; max-width: 370px; font-size: 22px; line-height: 1.2; }
+    .close { border: 0; padding: 4px 8px; border-radius: 6px; color: #fff; background: #ffffff26; font-size: 18px; cursor: pointer; }
+    .date { margin-top: 14px; font-size: 14px; font-weight: 600; }
+    .time { margin-top: 4px; font-size: 13px; opacity: .88; }
+    .calendar-name { display: inline-flex; align-items: center; gap: 7px; margin-top: 14px; font-size: 12px; opacity: .9; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #fff; }
+
+    .sheet-body { flex: 1; overflow: auto; padding: 20px 24px 24px; }
+    .provider-icon { display: inline-flex; width: 21px; height: 21px; flex: 0 0 21px; align-items: center; justify-content: center; border-radius: 5px; color: #fff; font-size: 9px; font-weight: 850; line-height: 1; letter-spacing: -.04em; }
+    .provider-icon.teams { background: #6264a7; }
+    .provider-icon.google { background: #1a73e8; }
+    .provider-icon.webex { background: #00bceb; }
+    .provider-icon.zoom { background: #2d8cff; }
+    .primary-action { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 9px; border: 0; border-radius: 6px; padding: 12px 16px; color: #fff; background: #6264a7; font: inherit; font-size: 13px; font-weight: 750; cursor: pointer; }
+    .primary-action:hover { filter: brightness(1.05); }
+    .section { padding: 20px 0; border-bottom: 1px solid var(--line); }
+    .section:first-of-type { padding-top: 18px; }
+    .section:last-child { border-bottom: 0; }
+    .section-title { margin-bottom: 12px; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .detail-row { display: flex; gap: 12px; align-items: flex-start; margin: 11px 0; font-size: 13px; }
+    .detail-icon { width: 20px; color: var(--muted); text-align: center; }
+    .detail-label { color: var(--muted); font-size: 11px; }
+    .detail-value { margin-top: 2px; line-height: 1.45; }
+    .meeting-row { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--soft); font-size: 12px; }
+    .meeting-provider { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; color: var(--ink); font-size: 11px; font-weight: 750; }
+    .meeting-row a { min-width: 0; overflow: hidden; color: var(--blue); text-overflow: ellipsis; white-space: nowrap; }
+    .small-button { margin-left: auto; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; background: #fff; color: var(--ink); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .rsvp-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .rsvp { border: 1px solid var(--line); border-radius: 6px; padding: 8px 13px; background: #fff; color: var(--ink); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .rsvp.active { border-color: #4c9a78; color: #247b49; background: #edf8f1; }
+    .guest-note { margin-top: 12px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .description { max-height: 132px; overflow: hidden; position: relative; white-space: pre-wrap; overflow-wrap: anywhere; color: #555862; font-size: 13px; line-height: 1.55; }
+    .description::after { content: ""; position: absolute; right: 0; bottom: 0; left: 0; height: 44px; background: linear-gradient(transparent, var(--panel)); }
+    .show-more { margin-top: 10px; border: 0; padding: 0; color: var(--blue); background: none; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .attendee { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 13px; }
+    .avatar { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; border-radius: 50%; color: #fff; background: #8a70d8; font-size: 11px; font-weight: 800; }
+    .status { margin-left: auto; color: #26864b; font-size: 11px; font-weight: 700; }
+    .sheet-footer { display: flex; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--line); background: #fff; }
+    .footer-button { flex: 1; border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; background: #fff; color: var(--ink); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .footer-button.delete { flex: 0 0 auto; color: var(--danger); }
+
+    @media (max-width: 700px) {
+      .mock-shell { display: block; }
+      .calendar-placeholder { min-height: 100vh; padding: 24px; }
+      .sheet { top: 50%; left: 50%; width: calc(100vw - 20px); max-height: calc(100vh - 20px); border-radius: 14px; }
+      .scrim { background: #1c1d2550; }
+    }
+  </style>
+</head>
+<body>
+  <main class="mock-shell">
+    <section class="calendar-placeholder" aria-label="Calendar preview">
+      <h1>Week view</h1>
+      <p>Clicking an event opens a focused detail sheet without collapsing the calendar.</p>
+      <div class="calendar-grid"><div class="calendar-event">R1 Interview — Principal Developer<br><small>1:30 PM – 2:30 PM</small></div></div>
+    </section>
+  </main>
+
+  <div class="scrim"></div>
+  <aside class="sheet" aria-label="Event details">
+    <header class="sheet-header">
+      <div class="header-row">
+        <div>
+          <div class="eyebrow">Upcoming meeting</div>
+          <h2>R1 Interview — Srinivas Chintalapati, Principal Developer, Agentic AI</h2>
+        </div>
+        <button class="close" aria-label="Close">×</button>
+      </div>
+      <div class="date">Monday, September 21, 2026</div>
+      <div class="time">1:30 PM – 2:30 PM · 1 hour</div>
+      <div class="calendar-name"><span class="dot"></span> Microsoft Teams Calendar</div>
+    </header>
+
+    <div class="sheet-body">
+      <button class="primary-action"><span class="provider-icon teams">MS</span>Join Microsoft Teams</button>
+
+      <section class="section">
+        <div class="section-title">At a glance</div>
+        <div class="detail-row"><div class="detail-icon">◷</div><div><div class="detail-label">When</div><div class="detail-value">Monday, September 21 · 1:30 PM – 2:30 PM</div></div></div>
+        <div class="detail-row"><div class="detail-icon">⌖</div><div><div class="detail-label">Where</div><div class="detail-value">Microsoft Teams Meeting</div></div></div>
+        <div class="detail-row"><div class="detail-icon">◌</div><div><div class="detail-label">Reminder</div><div class="detail-value">10 minutes before start</div></div></div>
+        <div class="meeting-row"><div class="meeting-provider"><span class="provider-icon teams">MS</span><span>Teams</span></div><a href="#">teams.microsoft.com/l/meetup-join/19%3ameeting...</a><button class="small-button" id="copy-invite">Copy invite</button></div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">Your response</div>
+        <div class="rsvp-row">
+          <button class="rsvp active">✓ Accepted</button>
+          <button class="rsvp">Maybe</button>
+          <button class="rsvp">Decline</button>
+          <button class="rsvp">Propose new time</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">Description</div>
+        <div class="description" id="description">Hi Srinivas Chintalapati, thank you for sharing your profile for the Principal Developer, Agentic AI position at JAGGAER. We want to inform you that JAGGAER invites you to a scheduled interview call through Microsoft Teams.
+
+This interview may be recorded and transcribed. The transcript may be analyzed to help document the interview and generate summaries. Please review the privacy notice before joining.
+
+Microsoft Teams meeting link and dial-in details are available from the Join button above.</div>
+        <button class="show-more" id="show-more">Show full description</button>
+      </section>
+
+      <section class="section">
+        <div class="section-title">Attendees · 3</div>
+        <div class="attendee"><span class="avatar">SC</span><span>Srinivas Chintalapati</span><span class="status">Pending</span></div>
+        <div class="attendee"><span class="avatar" style="background:#4387c8">AM</span><span>Aayush Mediratta</span><span class="status">Organizer</span></div>
+        <div class="attendee"><span class="avatar" style="background:#4c9a78">JA</span><span>JAGGAER Recruiting</span><span class="status">Accepted</span></div>
+        <div class="guest-note">Guests can invite others and see the guest list. You are not the organizer.</div>
+      </section>
+    </div>
+
+    <footer class="sheet-footer">
+      <button class="footer-button">Edit event</button>
+      <button class="footer-button">Duplicate</button>
+      <button class="footer-button delete">Delete</button>
+    </footer>
+  </aside>
+
+  <script>
+    const description = document.querySelector('#description');
+    const showMore = document.querySelector('#show-more');
+    showMore.addEventListener('click', () => {
+      description.style.maxHeight = description.style.maxHeight ? '' : 'none';
+      showMore.textContent = description.style.maxHeight ? 'Show full description' : 'Show less';
+    });
+    document.querySelector('#copy-invite').addEventListener('click', (event) => {
+      const button = event.currentTarget;
+      button.textContent = 'Copied';
+      setTimeout(() => { button.textContent = 'Copy invite'; }, 1400);
+    });
+  </script>
+</body>
+</html>

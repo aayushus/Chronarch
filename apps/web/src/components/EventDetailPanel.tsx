@@ -68,6 +68,24 @@ const RSVP_ICON: Record<string, string> = {
   organizer: "★",
 };
 
+type ConferenceProvider = "teams" | "google" | "webex" | "zoom" | "other";
+
+function conferenceInfo(event: EventSummary): { provider: ConferenceProvider; label: string; url: string | null } {
+  const source = `${event.location ?? ""}\n${event.description ?? ""}`;
+  const url = source.match(/https?:\/\/[^\s<>]+/i)?.[0]?.replace(/[),.;]+$/, "") ?? null;
+  const lower = source.toLowerCase();
+  if (lower.includes("teams.microsoft.com") || lower.includes("microsoft teams")) return { provider: "teams", label: "Microsoft Teams", url };
+  if (lower.includes("meet.google.com") || lower.includes("google meet")) return { provider: "google", label: "Google Meet", url };
+  if (lower.includes("webex.com") || lower.includes("webex")) return { provider: "webex", label: "Webex", url };
+  if (lower.includes("zoom.us") || lower.includes("zoom meeting")) return { provider: "zoom", label: "Zoom", url };
+  return { provider: "other", label: "Meeting link", url };
+}
+
+function ProviderBadge({ provider }: { provider: ConferenceProvider }) {
+  const labels: Record<ConferenceProvider, string> = { teams: "MS", google: "G", webex: "W", zoom: "Z", other: "↗" };
+  return <span className={`conference-badge conference-${provider}`} aria-hidden="true">{labels[provider]}</span>;
+}
+
 export default function EventDetailPanel({ event, calendar, onClose, onDelete, canDelete, canEdit, onSaved }: Props) {
   const [editingAttendees, setEditingAttendees] = useState(false);
   const [draft, setDraft] = useState<PickerAttendee[]>([]);
@@ -114,9 +132,28 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
 
   const eventColor = calendar?.color ?? "var(--accent)";
   const headerText = contrastText(eventColor);
+  const conference = conferenceInfo(event);
+  const canJoin = !!conference.url;
+
+  async function copyInvite() {
+    if (!conference.url) return;
+    try {
+      await navigator.clipboard.writeText(conference.url);
+    } catch {
+      const input = document.createElement("textarea");
+      input.value = conference.url;
+      input.style.position = "fixed";
+      input.style.opacity = "0";
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      input.remove();
+    }
+  }
 
   return (
-    <aside className="vibrancy mount-rise" style={panelStyle}>
+    <div className="modal-backdrop" onClick={onClose}>
+    <aside className="vibrancy mount-rise" style={panelStyle} onClick={(e) => e.stopPropagation()}>
       <div style={{ background: eventColor, color: headerText, padding: "16px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, lineHeight: 1.3 }}>{event.title}</div>
@@ -149,9 +186,24 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
         )}
       </div>
 
-      {event.description && (
-        <div style={{ padding: "16px 18px", fontSize: 13, color: "var(--text-secondary)", borderBottom: "1px solid var(--border-subtle)" }}>{event.description}</div>
-      )}
+      <div style={{ padding: "18px 24px 0" }}>
+        {canJoin && (
+          <button className="btn-primary hoverable" style={{ width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, background: conference.provider === "teams" ? "#6264a7" : undefined }} onClick={() => window.open(conference.url!, "_blank", "noopener,noreferrer")}>
+            <ProviderBadge provider={conference.provider} /> Join {conference.label}
+          </button>
+        )}
+      </div>
+
+      <section style={{ padding: "18px 24px", borderBottom: "1px solid var(--border-subtle)" }}>
+        <SectionLabel>At a glance</SectionLabel>
+        <DetailRow label="When" value={`${start.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · ${formatTimeRange(start, end)}`} />
+        {event.location && <DetailRow label="Where" value={event.location ?? ""} />}
+        {canJoin && <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, padding: "9px 10px", background: "var(--bg-raised-hover)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)" }}><ProviderBadge provider={conference.provider} /><a href={conference.url ?? undefined} target="_blank" rel="noreferrer" style={{ flex: 1, minWidth: 0, overflow: "hidden", color: "var(--accent)", fontSize: 12, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conference.url}</a><button className="btn-secondary hoverable" style={{ padding: "5px 9px", fontSize: 11 }} onClick={copyInvite}>Copy invite</button></div>}
+      </section>
+
+      {event.description && <section style={{ padding: "18px 24px", borderBottom: "1px solid var(--border-subtle)" }}><SectionLabel>Description</SectionLabel><div className="event-description">{event.description}</div></section>}
+
+      <section style={{ padding: "18px 24px", borderBottom: "1px solid var(--border-subtle)" }}><SectionLabel>Your response</SectionLabel><div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{["✓ Accepted", "Maybe", "Decline", "Propose new time"].map((label) => <button key={label} className="btn-secondary hoverable" style={{ padding: "7px 10px", fontSize: 12, color: label.startsWith("✓") ? "var(--success)" : undefined }}>{label}</button>)}</div></section>
 
       {(editingAttendees || (event.attendees && event.attendees.length > 0)) && (
         <div style={{ padding: "8px 20px", borderTop: "1px solid var(--border-subtle)" }}>
@@ -274,18 +326,28 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
         />
       )}
     </aside>
+    </div>
   );
 }
 
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <div style={{ marginBottom: 10, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)" }}>{children}</div>;
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return <div style={{ margin: "10px 0" }}><div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{label}</div><div style={{ marginTop: 2, fontSize: 13, lineHeight: 1.45 }}>{value}</div></div>;
+}
+
 const panelStyle: React.CSSProperties = {
-  width: 300,
-  minWidth: 300,
+  width: "min(640px, calc(100vw - 40px))",
+  maxHeight: "calc(100vh - 40px)",
   background: "var(--bg-panel)",
-  borderLeft: "1px solid var(--border-subtle)",
-  height: "100%",
+  border: "1px solid var(--border-subtle)",
+  borderRadius: "var(--radius-md)",
+  boxShadow: "var(--shadow-pop)",
+  overflow: "hidden",
   display: "flex",
   flexDirection: "column",
-  overflowY: "auto",
 };
 
 const closeBtnStyle: React.CSSProperties = {

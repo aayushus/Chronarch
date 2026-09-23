@@ -394,6 +394,35 @@ kbd {
   overflow: hidden;
 }
 
+.conference-badge {
+  display: inline-flex;
+  width: 21px;
+  height: 21px;
+  flex: 0 0 21px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.conference-teams { background: #6264a7; }
+.conference-google { background: #1a73e8; }
+.conference-webex { background: #00a8d6; }
+.conference-zoom { background: #2d8cff; }
+.conference-other { background: var(--text-tertiary); }
+.event-description {
+  max-height: 180px;
+  overflow: auto;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* Opaque modal: solid card, no backdrop blur — for content-heavy wizards
    where frosted glass looks muddy (e.g. Add Account). */
 .modal-backdrop-solid {
@@ -516,4 +545,3 @@ kbd {
 .btn-danger:hover {
   background: rgba(255, 69, 58, 0.22);
 }
-
