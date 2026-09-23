@@ -56,7 +56,7 @@ export default function EventContextMenu({ x, y, items, onPick, onClose }: Props
         left: Math.max(8, left),
         top: Math.max(8, top),
         width: MENU_WIDTH,
-        background: "var(--bg-panel)",
+        background: "var(--bg-raised)",
         border: "1px solid var(--border)",
         borderRadius: 10,
         boxShadow: "0 12px 32px rgba(0,0,0,0.45)",

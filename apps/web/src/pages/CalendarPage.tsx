@@ -84,7 +84,9 @@ export default function CalendarPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const workingHours = useMemo(() => workingHoursOf(user), [user]);
-  const showRails = useWide(1180);
+  // Both fixed rails need a comfortable central canvas. Below this width the
+  // calendar remains usable and the Today rail is available from the toolbar.
+  const showRails = useWide(1360);
 
   const [calendars, setCalendars] = useState<CalendarSummary[]>([]);
   const [events, setEvents] = useState<EventSummary[]>([]);

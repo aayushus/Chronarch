@@ -153,7 +153,7 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-    <aside className="vibrancy mount-rise" style={panelStyle} onClick={(e) => e.stopPropagation()}>
+    <aside className="mount-rise" style={panelStyle} onClick={(e) => e.stopPropagation()}>
       <div style={{ background: eventColor, color: headerText, padding: "16px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, lineHeight: 1.3 }}>{event.title}</div>
@@ -341,7 +341,8 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 const panelStyle: React.CSSProperties = {
   width: "min(640px, calc(100vw - 40px))",
   maxHeight: "calc(100vh - 40px)",
-  background: "var(--bg-panel)",
+  background: "var(--bg-raised)",
+  opacity: 1,
   border: "1px solid var(--border-subtle)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-pop)",

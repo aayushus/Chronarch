@@ -21,6 +21,9 @@
   --radius-md: 10px;
   --radius-lg: 12px;
   --radius-xl: 16px;
+  --control-radius: var(--radius-sm);
+  --card-radius: var(--radius-md);
+  --modal-radius: var(--radius-lg);
   --transition-fast: 0.12s ease;
   --shadow-pop: 0 20px 48px rgba(0, 0, 0, 0.5);
   --shadow-lift: 0 4px 14px rgba(0, 0, 0, 0.35);
@@ -273,7 +276,7 @@ input {
   width: 560px;
   max-width: 92vw;
   height: fit-content;
-  background: var(--bg-panel);
+  background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-pop);
@@ -384,9 +387,12 @@ kbd {
 }
 
 .modal-card {
-  background: var(--bg-panel);
+  /* Dialogs contain dense, high-value content; keep them opaque so the
+     calendar grid never bleeds through text. Frosted surfaces are reserved
+     for explicitly marked navigation/inspector panels. */
+  background: var(--bg-raised);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--modal-radius);
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
@@ -440,7 +446,7 @@ kbd {
 .modal-card-solid {
   background: var(--bg-raised);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--modal-radius);
   box-shadow: var(--shadow-pop);
   display: flex;
   flex-direction: column;
