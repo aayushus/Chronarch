@@ -42,6 +42,7 @@ interface AuthContextValue {
   token: string | null;
   user: CurrentUser | null;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  signup: (email: string, displayName: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -78,6 +79,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setTokenState(res.access_token);
   }
 
+  async function signup(email: string, displayName: string, password: string) {
+    const res = await apiFetch<{ access_token: string }>("/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({ email, display_name: displayName, password }),
+    });
+    setToken(res.access_token, true);
+    setTokenState(res.access_token);
+  }
+
   function logout() {
     apiFetch("/auth/logout", { method: "POST" }).catch(() => {
       // Ignore network errors on logout so local session always clears
@@ -87,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }
 
-  return <AuthContext.Provider value={{ token, user, login, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ token, user, login, signup, logout }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {

@@ -5,16 +5,19 @@ import { useAuth } from "../api/auth";
 import Icon from "../components/Icon";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, signup } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [invitedBanner, setInvitedBanner] = useState<string | null>(null);
-  const [authView, setAuthView] = useState<"signin" | "forgot" | "reset">("signin");
+  const [authView, setAuthView] = useState<"signin" | "signup" | "forgot" | "reset">("signin");
+  const [allowSignups, setAllowSignups] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotBusy, setForgotBusy] = useState(false);
   const [forgotMsg, setForgotMsg] = useState<string | null>(null);
@@ -25,6 +28,19 @@ export default function LoginPage() {
   const [resetMsg, setResetMsg] = useState<string | null>(null);
 
   React.useEffect(() => {
+    // Check if public registration is enabled on this server
+    import("../api/client").then(({ apiFetch }) => {
+      apiFetch<{ allowed: boolean }>("/auth/signup-status")
+        .then((res) => {
+          if (res?.allowed) {
+            setAllowSignups(true);
+          }
+        })
+        .catch(() => {
+          /* ignore */
+        });
+    });
+
     try {
       const params = new URLSearchParams(window.location.search);
       const invEmail = params.get("invited_email");
@@ -84,6 +100,55 @@ export default function LoginPage() {
     }
   }
 
+
+  async function handleSignupSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    setError(null);
+
+    if (!displayName.trim()) {
+      setError("Please enter your display name.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await signup(email, displayName.trim(), password);
+      try {
+        const { adminListAccounts } = await import("../api/admin");
+        const accounts = await adminListAccounts();
+        let onboarded = false;
+        try {
+          onboarded = localStorage.getItem("chronarch_onboarded") === "1";
+        } catch {
+          /* private mode */
+        }
+        navigate(accounts.length === 0 && !onboarded ? "/start" : "/");
+      } catch {
+        navigate("/");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      setError(
+        msg.startsWith("409")
+          ? "A user with that email already exists."
+          : msg.startsWith("403")
+          ? "Public registration is disabled on this server."
+          : msg.startsWith("422")
+          ? "Please check that your email, name, and password (at least 8 chars) are valid."
+          : "Couldn't reach the server. Check your connection and try again."
+      );
+      setBusy(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -229,16 +294,79 @@ export default function LoginPage() {
               C
             </div>
             <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>
-              {authView === "forgot" ? "Reset Password" : authView === "reset" ? "Set New Password" : "Sign in to Chronarch"}
+              {authView === "forgot"
+                ? "Reset Password"
+                : authView === "reset"
+                ? "Set New Password"
+                : authView === "signup"
+                ? "Create Account"
+                : "Sign in to Chronarch"}
             </h1>
             <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: 0 }}>
               {authView === "forgot"
                 ? "Enter your account email to receive a password reset link"
                 : authView === "reset"
                 ? "Enter and confirm your new account password"
+                : authView === "signup"
+                ? "Register a new workspace administrator account"
                 : "Unified calendar aggregation & scheduling"}
             </p>
           </div>
+
+          {allowSignups && (authView === "signin" || authView === "signup") && (
+            <div
+              style={{
+                display: "flex",
+                background: "var(--bg-subtle, rgba(255,255,255,0.06))",
+                borderRadius: "var(--radius-md, 8px)",
+                padding: 3,
+                marginBottom: 20,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setAuthView("signin");
+                }}
+                style={{
+                  flex: 1,
+                  padding: "7px 12px",
+                  fontSize: 13,
+                  fontWeight: authView === "signin" ? 600 : 500,
+                  border: "none",
+                  borderRadius: "var(--radius-sm, 6px)",
+                  background: authView === "signin" ? "var(--accent)" : "transparent",
+                  color: authView === "signin" ? "#fff" : "var(--text-secondary)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setAuthView("signup");
+                }}
+                style={{
+                  flex: 1,
+                  padding: "7px 12px",
+                  fontSize: 13,
+                  fontWeight: authView === "signup" ? 600 : 500,
+                  border: "none",
+                  borderRadius: "var(--radius-sm, 6px)",
+                  background: authView === "signup" ? "var(--accent)" : "transparent",
+                  color: authView === "signup" ? "#fff" : "var(--text-secondary)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                Create account
+              </button>
+            </div>
+          )}
 
           {invitedBanner && (
             <div
@@ -353,6 +481,126 @@ export default function LoginPage() {
                 Back to sign in
               </button>
             </div>
+          ) : authView === "signup" ? (
+            <form onSubmit={handleSignupSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+                Full name
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  required
+                  autoComplete="name"
+                  placeholder="Ada Lovelace"
+                  className="input-standard"
+                  style={{ marginTop: 6, width: "100%", fontSize: 14, padding: "10px 12px" }}
+                />
+              </label>
+
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+                Email address
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="username"
+                  placeholder="you@example.com"
+                  className="input-standard"
+                  style={{ marginTop: 6, width: "100%", fontSize: 14, padding: "10px 12px" }}
+                />
+              </label>
+
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", position: "relative" }}>
+                <span>Password (minimum 8 characters)</span>
+                <div style={{ position: "relative", marginTop: 6 }}>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    placeholder="••••••••"
+                    className="input-standard"
+                    style={{ width: "100%", fontSize: 14, padding: "10px 40px 10px 12px" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    style={{
+                      position: "absolute",
+                      right: 10,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      color: "var(--text-tertiary)",
+                      cursor: "pointer",
+                      padding: 4,
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Icon name={showPassword ? "eye-off" : "eye"} size={16} />
+                  </button>
+                </div>
+              </label>
+
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+                Confirm password
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  placeholder="••••••••"
+                  className="input-standard"
+                  style={{ marginTop: 6, width: "100%", fontSize: 14, padding: "10px 12px" }}
+                />
+              </label>
+
+              {error && (
+                <div
+                  role="alert"
+                  style={{
+                    color: "var(--danger)",
+                    background: "rgba(255, 69, 58, 0.1)",
+                    border: "1px solid rgba(255, 69, 58, 0.3)",
+                    borderRadius: "var(--radius-sm)",
+                    fontSize: 12.5,
+                    padding: "10px 12px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <Icon name="alert-triangle" size={16} />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <button type="submit" className="btn-primary" disabled={busy} style={{ marginTop: 8, padding: "11px 16px", fontSize: 14, fontWeight: 600 }}>
+                {busy ? "Creating account…" : "Create account"}
+              </button>
+
+              <div style={{ textAlign: "center", marginTop: 8, fontSize: 13, color: "var(--text-tertiary)" }}>
+                Already have an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setAuthView("signin");
+                  }}
+                  style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}
+                >
+                  Sign in
+                </button>
+              </div>
+            </form>
           ) : (
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
@@ -459,6 +707,22 @@ export default function LoginPage() {
               <button type="submit" className="btn-primary" disabled={busy} style={{ marginTop: 8, padding: "11px 16px", fontSize: 14, fontWeight: 600 }}>
                 {busy ? "Signing in…" : "Sign in"}
               </button>
+
+              {allowSignups && (
+                <div style={{ textAlign: "center", marginTop: 8, fontSize: 13, color: "var(--text-tertiary)" }}>
+                  Don&apos;t have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError(null);
+                      setAuthView("signup");
+                    }}
+                    style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}
+                  >
+                    Sign up
+                  </button>
+                </div>
+              )}
             </form>
           )}
         </div>

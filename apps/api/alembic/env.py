@@ -11,6 +11,7 @@ from alembic import context
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from chronarch_core.models import Base  # noqa: E402
+from chronarch_core.db import DATABASE_URL  # noqa: E402
 
 config = context.config
 if config.config_file_name is not None:
@@ -18,9 +19,6 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL", "postgresql+asyncpg://chronarch:chronarch@localhost:5432/chronarch"
-)
 
 
 def run_migrations_offline() -> None:
