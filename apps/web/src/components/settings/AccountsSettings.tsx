@@ -507,6 +507,7 @@ function ConnectAccountWizardModal({
 }) {
   const [selectedProvider, setSelectedProvider] = useState<WizardProvider>(null);
   const [googleReview, setGoogleReview] = useState(false);
+  const [setupHelpOpen, setSetupHelpOpen] = useState(false);
 
   // Form states for OAuth configuration
   const [clientId, setClientId] = useState("");
@@ -562,6 +563,7 @@ function ConnectAccountWizardModal({
     setSelectedProvider(provider);
     setGoogleReview(false);
     setConfigError(null);
+    setSetupHelpOpen(false);
   }
 
   async function handleMicrosoftDirectConnect() {
@@ -720,21 +722,50 @@ function ConnectAccountWizardModal({
                 : "Add an Account"}
             </h3>
           </div>
-          <button
-            onClick={onClose}
-            className="hoverable"
-            style={{
-              background: "none",
-              border: "none",
-              color: "var(--text-tertiary)",
-              fontSize: 20,
-              cursor: "pointer",
-              padding: "2px 6px",
-            }}
-          >
-            ✕
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {(selectedProvider === "google" || selectedProvider === "microsoft") && (
+              <button
+                onClick={() => setSetupHelpOpen((open) => !open)}
+                className="hoverable"
+                aria-label="How to get setup credentials"
+                aria-expanded={setupHelpOpen}
+                title="How to get setup credentials"
+                style={{
+                  background: setupHelpOpen ? "var(--accent-soft)" : "var(--bg-raised)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: 7,
+                  color: setupHelpOpen ? "var(--accent)" : "var(--text-secondary)",
+                  fontSize: 16,
+                  lineHeight: 1,
+                  cursor: "pointer",
+                  width: 30,
+                  height: 30,
+                }}
+              >
+                💡
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="hoverable"
+              aria-label="Close"
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-tertiary)",
+                fontSize: 20,
+                cursor: "pointer",
+                padding: "2px 6px",
+              }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
+
+        {setupHelpOpen && (selectedProvider === "google" || selectedProvider === "microsoft") && (
+          <SetupHelpPanel provider={selectedProvider} />
+        )}
 
         {/* STEP 1: Select Provider */}
         {!selectedProvider && (
@@ -1676,6 +1707,61 @@ function ProviderCredentialCard({
             Clear
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+function SetupHelpPanel({ provider }: { provider: "google" | "microsoft" }) {
+  const google = provider === "google";
+  return (
+    <div
+      role="region"
+      aria-label={`${google ? "Google" : "Microsoft"} setup instructions`}
+      style={{
+        background: "var(--accent-soft)",
+        border: "1px solid color-mix(in srgb, var(--accent) 28%, var(--border-subtle))",
+        borderRadius: "var(--radius-md)",
+        padding: "14px 16px",
+        marginBottom: 18,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 10 }}>
+        <div style={{ fontSize: 13, fontWeight: 750 }}>How to get your {google ? "Google" : "Microsoft"} credentials</div>
+        <a
+          href={google ? "https://console.cloud.google.com/apis/credentials" : "https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade"}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "var(--accent)", fontSize: 11, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}
+        >
+          Open {google ? "Google Cloud" : "Microsoft Entra"} ↗
+        </a>
+      </div>
+      <div style={{ display: "grid", gap: 8 }}>
+        {(google
+          ? [
+              ["1", "Open Google Cloud Console", "Select or create a project, then enable Google Calendar API."],
+              ["2", "Create a Web OAuth client", "Go to APIs & Services → Credentials → Create Credentials → OAuth client ID. Choose Web application."],
+              ["3", "Add the redirect URI", "Copy the URI shown in Step 1 below and add it under Authorized redirect URIs."],
+              ["4", "Copy both values", "Open the new credential and copy Client ID and Client secret into Step 3 below."],
+            ]
+          : [
+              ["1", "Open Microsoft Entra admin center", "Go to App registrations → New registration. Give the app a name and choose the account type your organization needs."],
+              ["2", "Add the redirect URI", "Open Authentication → Add a platform → Web. Copy the URI shown in Step 1 below into Redirect URI."],
+              ["3", "Copy the Application (client) ID", "Find it on the app Overview page and paste it into the first field below."],
+              ["4", "Create and copy a secret", "Open Certificates & secrets → New client secret. Copy the Secret Value immediately; it is shown only once. Do not use Secret ID."],
+            ]).map(([number, title, description]) => (
+          <div key={number} style={{ display: "grid", gridTemplateColumns: "22px 1fr", gap: 8, alignItems: "start" }}>
+            <span style={{ display: "grid", placeItems: "center", width: 20, height: 20, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 800 }}>{number}</span>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700 }}>{title}</div>
+              <div style={{ color: "var(--text-secondary)", fontSize: 11, lineHeight: 1.4 }}>{description}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ color: "var(--text-secondary)", fontSize: 10, lineHeight: 1.4, marginTop: 10, paddingTop: 9, borderTop: "1px solid color-mix(in srgb, var(--accent) 18%, transparent)" }}>
+        Keep this window open while you follow the steps. Nothing is saved until you select Save &amp; Connect.
       </div>
     </div>
   );
