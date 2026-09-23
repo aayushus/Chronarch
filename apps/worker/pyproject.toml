@@ -3,7 +3,7 @@ name = "chronarch-worker"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "celery[redis]>=5.4",
+    "celery[redis]>=5.6.3",
     "chronarch-core",
 ]
 
