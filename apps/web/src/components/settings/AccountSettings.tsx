@@ -32,7 +32,7 @@ const COMMON_TIMEZONES = [
 
 export default function AccountSettings() {
   const { user, logout } = useAuth();
-  const { theme, density, setTheme, setDensity } = useAppearance();
+  const { theme, density, setTheme, setDensity, calendarRowMinutes, setCalendarRowMinutes } = useAppearance();
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
   const [timezone, setTimezone] = useState(
@@ -133,6 +133,15 @@ export default function AccountSettings() {
             <select value={theme} onChange={(e) => setTheme(e.target.value as "dark" | "light")} className="input-standard" style={{ width: "100%" }}>
               <option value="dark">Dark</option>
               <option value="light">Light</option>
+            </select>
+          </div>
+          <div style={{ flex: "1 1 180px" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Calendar rows
+            </div>
+            <select value={calendarRowMinutes} onChange={(e) => setCalendarRowMinutes(Number(e.target.value) as 30 | 60)} className="input-standard" style={{ width: "100%" }}>
+              <option value={30}>30 minutes</option>
+              <option value={60}>60 minutes</option>
             </select>
           </div>
           <div style={{ flex: "1 1 180px" }}>

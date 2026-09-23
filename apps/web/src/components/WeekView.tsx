@@ -392,8 +392,8 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                 }}
                 style={{ position: "relative", height: "100%", minWidth: innerMinWidth }}
               >
-                {hours.map((h, i) => (
-                  <div key={h} style={{ position: "absolute", top: i * HOUR_H, left: 0, right: 0, borderTop: "1px solid var(--border-subtle)" }} />
+                {Array.from({ length: hours.length * 2 }, (_, i) => (
+                  <div key={i} style={{ position: "absolute", top: i * HOUR_H / 2, left: 0, right: 0, borderTop: i % 2 === 0 ? "1px solid var(--border-subtle)" : "1px solid color-mix(in srgb, var(--border-subtle) 55%, transparent)" }} />
                 ))}
                 <div
                   className="offhours-shade"

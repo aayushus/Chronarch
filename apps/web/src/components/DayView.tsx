@@ -291,19 +291,23 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
             className="offhours-shade"
             style={{ position: "absolute", top: whBottom, left: 0, right: 0, bottom: 0 }}
           />
-          {hours.map((h, i) => (
+          {Array.from({ length: hours.length * 2 }, (_, i) => {
+            const hourIndex = Math.floor(i / 2);
+            const h = hours[hourIndex];
+            const isHour = i % 2 === 0;
+            return (
             <div
-              key={h}
+              key={i}
               style={{
                 position: "absolute",
-                top: i * HOUR_H,
+                top: i * HOUR_H / 2,
                 left: 0,
                 right: 0,
-                height: HOUR_H,
-                borderTop: "1px solid var(--border-subtle)",
+                height: HOUR_H / 2,
+                borderTop: isHour ? "1px solid var(--border-subtle)" : "1px solid color-mix(in srgb, var(--border-subtle) 55%, transparent)",
               }}
             >
-              <span
+              {isHour && <span
                 className="tabular-nums"
                 style={{
                   position: "absolute",
@@ -321,9 +325,10 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                 {secondaryLabels[i] ? (
                   <span style={{ display: "block", fontSize: 9, opacity: 0.75 }}>{secondaryLabels[i]}</span>
                 ) : null}
-              </span>
+              </span>}
             </div>
-          ))}
+            );
+          })}
 
           {creating && creating.curMin !== creating.startMin && (
             <div

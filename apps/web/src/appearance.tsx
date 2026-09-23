@@ -7,12 +7,15 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 
 export type Theme = "dark" | "light";
 export type Density = "comfortable" | "compact";
+export type CalendarRowMinutes = 30 | 60;
 
 interface AppearanceValue {
   theme: Theme;
   density: Density;
   setTheme: (t: Theme) => void;
   setDensity: (d: Density) => void;
+  calendarRowMinutes: CalendarRowMinutes;
+  setCalendarRowMinutes: (minutes: CalendarRowMinutes) => void;
   /** Grid hour height in px for Day/Week views. */
   hourHeight: (base: number) => number;
 }
@@ -34,6 +37,9 @@ export function AppearanceProvider({ children }: { children: React.ReactNode }) 
   );
   const [density, setDensityState] = useState<Density>(() =>
     stored<Density>("chronarch_density", "comfortable") === "compact" ? "compact" : "comfortable"
+  );
+  const [calendarRowMinutes, setCalendarRowMinutesState] = useState<CalendarRowMinutes>(() =>
+    stored<string>("chronarch_calendar_row_minutes", "30") === "60" ? 60 : 30
   );
 
   useEffect(() => {
@@ -60,12 +66,21 @@ export function AppearanceProvider({ children }: { children: React.ReactNode }) 
   function setDensity(d: Density) {
     setDensityState(d);
   }
+  function setCalendarRowMinutes(minutes: CalendarRowMinutes) {
+    setCalendarRowMinutesState(minutes);
+    try {
+      localStorage.setItem("chronarch_calendar_row_minutes", String(minutes));
+    } catch {
+      /* private mode */
+    }
+  }
   function hourHeight(base: number): number {
-    return density === "compact" ? Math.round(base * 0.68) : base;
+    const densityScale = density === "compact" ? 0.68 : 1;
+    return Math.round(base * densityScale * (60 / calendarRowMinutes));
   }
 
   return (
-    <AppearanceContext.Provider value={{ theme, density, setTheme, setDensity, hourHeight }}>
+    <AppearanceContext.Provider value={{ theme, density, setTheme, setDensity, calendarRowMinutes, setCalendarRowMinutes, hourHeight }}>
       {children}
     </AppearanceContext.Provider>
   );

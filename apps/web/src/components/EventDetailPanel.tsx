@@ -343,8 +343,11 @@ const panelStyle: React.CSSProperties = {
   maxHeight: "calc(100vh - 40px)",
   background: "var(--bg-raised)",
   opacity: 1,
-  border: "1px solid var(--border-subtle)",
-  borderRadius: "var(--radius-md)",
+  // The colored header should meet the modal edge cleanly. An outer light
+  // border creates a distracting white rule above the event color in light
+  // mode; hierarchy comes from the backdrop, shadow, and internal dividers.
+  border: "none",
+  borderRadius: "var(--radius-lg)",
   boxShadow: "var(--shadow-pop)",
   overflow: "hidden",
   display: "flex",
