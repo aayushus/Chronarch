@@ -95,7 +95,17 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
       secondaryTimezone
     )
   );
-  const weekAllDay = events.filter((e) => e.all_day && days.some((d) => sameDay(new Date(e.start), d)));
+  const weekAllDay = events.filter((e) => {
+    if (!e.all_day) return false;
+    const start = startOfDay(new Date(e.start));
+    const end = startOfDay(new Date(e.end));
+    return days.some((day) => {
+      const dayStart = startOfDay(day);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+      return start < dayEnd && end > dayStart;
+    });
+  });
 
   function dayIndexOf(date: Date): number {
     const i = days.findIndex((d) => sameDay(d, date));

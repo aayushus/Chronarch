@@ -149,7 +149,7 @@ export default function KioskPage() {
       clearTimeout(timer);
       events.forEach((ev) => window.removeEventListener(ev, wake));
     };
-  }, []);
+  }, [meta?.screensaver_timeout_seconds]);
 
   const weekStart = useMemo(
     () => addDays(startOfWeekSunday(new Date()), weekOffset * 7),

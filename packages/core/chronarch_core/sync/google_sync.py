@@ -29,6 +29,7 @@ DEFAULT_PALETTE = [
 
 BACKFILL_PAST = timedelta(days=90)
 BACKFILL_FUTURE = timedelta(days=365)
+FULL_SYNC_INTERVAL = timedelta(hours=24)
 
 
 async def sync_google_account(session: AsyncSession, account: Account) -> dict:
@@ -66,6 +67,15 @@ async def sync_google_account(session: AsyncSession, account: Account) -> dict:
         events_deleted = 0
         window_start = datetime.now(timezone.utc) - BACKFILL_PAST
         window_end = datetime.now(timezone.utc) + BACKFILL_FUTURE
+        full_sync_due = True
+        if account.last_full_sync_at:
+            try:
+                checkpoint = datetime.fromisoformat(account.last_full_sync_at.replace("Z", "+00:00"))
+                if checkpoint.tzinfo is None:
+                    checkpoint = checkpoint.replace(tzinfo=timezone.utc)
+                full_sync_due = datetime.now(timezone.utc) - checkpoint >= FULL_SYNC_INTERVAL
+            except ValueError:
+                full_sync_due = True
 
         import asyncio
 
@@ -101,7 +111,7 @@ async def sync_google_account(session: AsyncSession, account: Account) -> dict:
         # from the configured backfill window before incremental sync resumes.
         async def fetch_calendar(remote_cal):
             calendar_id = remote_cal.provider_calendar_id
-            token = (account.sync_tokens or {}).get(calendar_id)
+            token = None if full_sync_due else (account.sync_tokens or {}).get(calendar_id)
             try:
                 return await connector.list_events(
                     calendar_id, window_start=window_start, window_end=window_end,
@@ -188,6 +198,8 @@ async def sync_google_account(session: AsyncSession, account: Account) -> dict:
 
         account.sync_status = "error" if partial_failures else "ok"
         account.last_synced_at = datetime.now(timezone.utc).isoformat()
+        if not partial_failures and full_sync_due:
+            account.last_full_sync_at = account.last_synced_at
         account.last_sync_error = (
             "Calendar sync failed: " + "; ".join(partial_failures)
             if partial_failures else None

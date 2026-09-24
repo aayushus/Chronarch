@@ -55,11 +55,13 @@ ENV/
 
 # Local DB & SQLite
 *.db
+*.dump
 *.sqlite3
 
 # Infra & Docker runtime data
 infra/volumes/
 infra/redis/
+volumes/
 litellm-dynamic/
 
 # Credentials & TLS material (OAuth client secrets, service accounts, certs)

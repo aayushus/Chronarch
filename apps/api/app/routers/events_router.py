@@ -432,7 +432,10 @@ async def import_ics_event(
     # ActorType is ICS_IMPORT (BRD §22 audit requirement)
     from chronarch_core.models.enums import ActorType
 
-    ctx = build_auth_context(user, ActorType.ICS_IMPORT)
+    # File imports are calendar mutations, not administrative operations.
+    # Do not let an admin session bypass the owner/delegation check here.
+    from chronarch_core.permissions import AuthContext
+    ctx = AuthContext(user_id=user.id, role=user.role, actor_type=ActorType.ICS_IMPORT, is_admin=False)
     try:
         event = await ai_tools.create_event(
             session,

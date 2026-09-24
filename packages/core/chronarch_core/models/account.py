@@ -38,6 +38,9 @@ class Account(Base, TimestampMixin):
 
     sync_status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
     last_synced_at: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # Safety checkpoint for periodic provider full refreshes. Incremental
+    # tokens are fast, but a full refresh repairs missed webhook/reset cases.
+    last_full_sync_at: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     last_sync_error: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     # Provider incremental sync tokens (Performance 2A)

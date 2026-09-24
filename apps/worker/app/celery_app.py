@@ -76,17 +76,25 @@ async def _reconcile_async(account_id: str) -> dict:
 
     async with SessionLocal() as session:
         if account_id == "__all__":
-            accounts = list((await session.execute(select(Account))).scalars())
+            accounts = list((await session.execute(select(Account.id))).scalars())
             results = {}
-            for acct in accounts:
-                try:
-                    res = await _reconcile_single(session, acct)
-                    await _refresh_best_effort(session, acct.id)
-                    results[acct.id] = {"status": "ok", "stats": res}
-                except Exception as exc:
-                    logger.exception("Failed to reconcile account %s", acct.id)
-                    results[acct.id] = {"status": "error", "error": str(exc)}
-            await session.commit()
+            for acct_id in accounts:
+                # Each account gets an isolated session/transaction so a
+                # provider failure cannot commit or roll back another
+                # account's reconciliation work.
+                async with SessionLocal() as account_session:
+                    try:
+                        acct = await account_session.get(Account, acct_id)
+                        if acct is None:
+                            continue
+                        res = await _reconcile_single(account_session, acct)
+                        await _refresh_best_effort(account_session, acct_id)
+                        await account_session.commit()
+                        results[acct_id] = {"status": "ok", "stats": res}
+                    except Exception as exc:
+                        await account_session.rollback()
+                        logger.exception("Failed to reconcile account %s", acct_id)
+                        results[acct_id] = {"status": "error", "error": str(exc)}
             return {"reconciled_count": len(accounts), "results": results}
 
         account = await session.get(Account, account_id)
@@ -127,4 +135,3 @@ async def _renew_async() -> dict:
 @celery_app.task(name="chronarch.renew_webhooks")
 def renew_webhooks() -> dict:
     return asyncio.run(_renew_async())
-

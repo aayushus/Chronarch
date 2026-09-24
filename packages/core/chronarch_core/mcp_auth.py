@@ -51,6 +51,9 @@ async def resolve_auth_context(session: AsyncSession, raw_api_key: str) -> AuthC
         user_id=user.id,
         role=user.role,
         actor_type=ActorType.MCP,
-        is_admin=user.role == UserRole.ADMIN,
+        # MCP credentials are never human-admin credentials. Admin users may
+        # use the UI for administrative actions; an external key remains
+        # limited to its declared scopes and calendar AI grants.
+        is_admin=False,
         scopes=frozenset(cred.scopes),
     )

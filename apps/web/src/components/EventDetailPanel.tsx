@@ -198,6 +198,7 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
         <SectionLabel>At a glance</SectionLabel>
         <DetailRow label="When" value={`${start.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · ${event.all_day ? "All day" : formatTimeRange(start, end)}`} />
         {event.location && <DetailRow label="Where" value={event.location ?? ""} />}
+        {event.organizer && <DetailRow label="Organizer" value={event.organizer.name || event.organizer.email || "Unknown host"} />}
         {canJoin && <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, padding: "9px 10px", background: "var(--bg-raised-hover)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)" }}><ProviderBadge provider={conference.provider} /><a href={conference.url ?? undefined} target="_blank" rel="noreferrer" style={{ flex: 1, minWidth: 0, overflow: "hidden", color: "var(--accent)", fontSize: 12, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conference.url}</a><button className="btn-secondary hoverable" style={{ padding: "5px 9px", fontSize: 11 }} onClick={copyInvite}>Copy invite</button></div>}
       </section>
 
