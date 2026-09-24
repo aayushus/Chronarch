@@ -232,16 +232,7 @@ textarea::selection {
 }
 .kiosk-live-name { color: var(--wall-muted); font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
 .kiosk-live-range { color: var(--wall-muted); font-size: 12px; margin-top: 3px; }
-.kiosk-focus-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 14px; }
-.kiosk-focus-card { min-width: 0; padding: 10px 14px; border: 1px solid #d8e8fa; border-radius: 9px; background: #f3f7fc; }
-.kiosk-focus-card.kiosk-focus-next { background: #fbf8ff; border-color: #eadcf1; }
-.kiosk-focus-card span { display: block; color: var(--wall-muted); font-size: 10px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; margin-bottom: 4px; }
-.kiosk-focus-card strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
-.kiosk-focus-card small { display: block; color: var(--wall-muted); font-size: 12px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kiosk-live-dark { --wall-page: #171b21; --wall-card: #20262e; --wall-ink: #eef2f7; --wall-muted: #aab4c2; --wall-faint: #7e8998; --wall-line: #343b46; }
-.kiosk-live-dark .kiosk-focus-card { background: #202a36; border-color: #344354; }
-.kiosk-live-dark .kiosk-focus-card.kiosk-focus-next { background: #2b2432; border-color: #4a3d50; }
-.kiosk-live-dark .kiosk-focus-card strong { color: #f3f5f8; }
 .kiosk-screensaver { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; overflow: hidden; color: #fff; background: linear-gradient(rgba(10,15,24,.76),rgba(10,15,24,.84)), radial-gradient(circle at 50% 38%,rgba(255,218,118,.12),transparent 30%), #111722; cursor: pointer; }
 .kiosk-screensaver::before { content: ""; position: absolute; inset: -30px; background: linear-gradient(135deg, rgba(75, 108, 155, .42), rgba(24, 31, 45, .6)); filter: blur(28px); opacity: .75; }
 .kiosk-screensaver-content { position: relative; display: grid; justify-items: center; gap: 14px; text-align: center; }

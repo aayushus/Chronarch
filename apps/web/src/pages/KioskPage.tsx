@@ -296,12 +296,11 @@ export default function KioskPage() {
 
   const countdowns = pickCountdowns(visibleEvents, now);
   const rangeLabel = `${weekDays[0].toLocaleDateString(undefined, { month: "long", day: "numeric" })} – ${weekDays[6].toLocaleDateString(undefined, { month: "long", day: "numeric" })}`;
-  const denseWeek = visibleEvents.length > 24;
   const freshness = lastLoadedAt ? `Updated ${Math.max(0, Math.round((Date.now() - lastLoadedAt.getTime()) / 60000))}m ago` : "Updating…";
 
   return (
-    <div className={`kiosk-live ${darkMode ? "kiosk-live-dark" : ""}`} style={{ height: "100vh", background: PAGE, color: INK, padding: "24px 28px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", maxWidth: 1200, width: "100%", margin: "0 auto", background: CARD, borderRadius: 10, padding: "20px 28px", boxShadow: "0 8px 30px rgba(0,0,0,0.08)", overflow: "hidden" }}>
+    <div className={`kiosk-live ${darkMode ? "kiosk-live-dark" : ""}`} style={{ height: "100vh", background: PAGE, color: INK, padding: "14px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", width: "100%", margin: "0 auto", background: CARD, borderRadius: 10, padding: "14px 28px 10px", boxShadow: "0 8px 30px rgba(0,0,0,0.08)", overflow: "hidden" }}>
         {/* Header: date/time/weather left, controls right. */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12, flexShrink: 0 }}>
           <div>
@@ -360,11 +359,6 @@ export default function KioskPage() {
           </div>
         </div>
 
-        <div className="kiosk-focus-strip" aria-label="Current and next meeting">
-          <div className="kiosk-focus-card"><span>Now · free</span><strong>No meeting in progress</strong><small>Open until {nextEvent ? fmtTime(nextEvent.start) : "later"}</small></div>
-          <div className="kiosk-focus-card kiosk-focus-next"><span>Up next</span><strong>{nextEvent ? (nextEvent.masked ? "Busy" : nextEvent.title) : "Nothing scheduled"}</strong><small>{nextEvent ? fmtRange(nextEvent) : "Your calendar is clear"}</small></div>
-        </div>
-
         {/* Countdowns. */}
         {countdowns.length > 0 && (
           <div style={{ display: "flex", gap: 10, marginBottom: 18, flexShrink: 0 }}>
@@ -374,13 +368,6 @@ export default function KioskPage() {
                 <div style={{ fontSize: 12, color: MUTED, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}</div>
               </div>
             ))}
-          </div>
-        )}
-
-        {denseWeek && viewMode === "week" && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: "#f3f7fc", border: "1px solid #d8e8fa", borderRadius: 10, padding: "9px 12px", marginBottom: 12, flexShrink: 0 }}>
-            <span style={{ fontSize: 12.5, color: MUTED }}>Busy week — Agenda view is easier to scan.</span>
-            <button onClick={() => setViewModeAndPersist("agenda")} style={{ border: "none", borderRadius: 8, padding: "6px 10px", background: INK, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>Switch to Agenda</button>
           </div>
         )}
 
