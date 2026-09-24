@@ -102,18 +102,22 @@ async def sync_google_account(session: AsyncSession, account: Account) -> dict:
                 r_cal.provider_calendar_id,
                 window_start=window_start,
                 window_end=window_end,
-                sync_token=account.sync_token,
+                sync_token=(account.sync_tokens or {}).get(r_cal.provider_calendar_id) or account.sync_token,
                 calendar_writable=r_cal.writable,
             )
             for _, r_cal in synced_calendars
         ], return_exceptions=True)
 
+        partial_failure = False
         for (calendar, remote_cal), res in zip(synced_calendars, fetch_results):
             if isinstance(res, Exception):
+                partial_failure = True
                 continue
             remote_events, deleted_ids, next_sync_token = res
             if next_sync_token:
-                account.sync_token = next_sync_token
+                tokens = dict(account.sync_tokens or {})
+                tokens[remote_cal.provider_calendar_id] = next_sync_token
+                account.sync_tokens = tokens
 
             existing_events = {
                 e.provider_event_id: e
@@ -128,18 +132,10 @@ async def sync_google_account(session: AsyncSession, account: Account) -> dict:
                 ).scalars()
             }
 
-            remote_ids = {e.provider_event_id for e in remote_events}
             for provider_event_id in deleted_ids:
                 stale = existing_events.pop(provider_event_id, None)
                 if stale is not None:
                     await session.delete(stale)
-                    events_deleted += 1
-
-            for provider_event_id in list(existing_events.keys()):
-                if not provider_event_id or provider_event_id.startswith("local-"):
-                    continue
-                if provider_event_id not in remote_ids:
-                    await session.delete(existing_events.pop(provider_event_id))
                     events_deleted += 1
 
             for remote_event in remote_events:
@@ -172,9 +168,9 @@ async def sync_google_account(session: AsyncSession, account: Account) -> dict:
                 event.last_synced_at = datetime.now(timezone.utc)
                 events_synced += 1
 
-        account.sync_status = "ok"
+        account.sync_status = "error" if partial_failure else "ok"
         account.last_synced_at = datetime.now(timezone.utc).isoformat()
-        account.last_sync_error = None
+        account.last_sync_error = "One or more calendars failed to sync" if partial_failure else None
     except Exception as exc:  # noqa: BLE001 — persist the failure for the admin UI, then re-raise
         import httpx
         is_auth_error = False

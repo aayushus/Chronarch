@@ -56,7 +56,7 @@ def create_access_token(user_id: str, remember_me: bool = False) -> str:
     expire = now + lifetime
     jti = str(uuid.uuid4())
     return jwt.encode(
-        {"sub": user_id, "exp": expire, "iat": now, "jti": jti, "rm": remember_me},
+        {"sub": user_id, "exp": expire, "iat": now, "jti": jti, "rm": remember_me, "token_type": "session"},
         JWT_SECRET,
         algorithm=JWT_ALGORITHM,
     )
@@ -116,6 +116,11 @@ async def get_current_user(
     except JWTError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
 
+    # OAuth `state` is a CSRF artifact, never an API session.  Check its
+    # purpose before looking up the user so a leaked redirect URL cannot be
+    # replayed as a bearer token.
+    if payload.get("purpose") not in (None, "session") or payload.get("token_type") != "session":
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
     if await is_token_revoked(jti):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token has been revoked")
 

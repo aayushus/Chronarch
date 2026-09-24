@@ -45,6 +45,18 @@ describe("dayStats", () => {
     expect(stats.freeMinutes).toBe(480 - 60);
   });
 
+  it("never promotes cancelled meetings to up-next", () => {
+    const stats = dayStats(
+      [
+        ev("cancelled", at(17, 9), at(17, 10)),
+        ev("real", at(17, 11), at(17, 11, 30)),
+      ].map((event) => event.id === "cancelled" ? { ...event, title: "Cancelled: customer meeting" } : event),
+      day,
+      new Date(2026, 8, 17, 8, 30),
+    );
+    expect(stats.upNext?.id).toBe("real");
+  });
+
   it("clips off-hours meetings out of free time", () => {
     const stats = dayStats(
       [ev("early", at(17, 6), at(17, 8))],

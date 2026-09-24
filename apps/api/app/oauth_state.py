@@ -20,7 +20,7 @@ STATE_EXPIRE_MINUTES = 10
 async def sign_oauth_state(admin_user_id: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=STATE_EXPIRE_MINUTES)
     jti = str(uuid.uuid4())
-    state = jwt.encode({"sub": admin_user_id, "purpose": "oauth_connect", "jti": jti, "exp": expire}, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    state = jwt.encode({"sub": admin_user_id, "purpose": "oauth_connect", "token_type": "oauth_state", "jti": jti, "exp": expire}, JWT_SECRET, algorithm=JWT_ALGORITHM)
     from .auth import get_redis_client
     await get_redis_client().setex(f"oauth_state:{jti}", STATE_EXPIRE_MINUTES * 60, admin_user_id)
     return state

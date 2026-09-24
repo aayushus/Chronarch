@@ -96,6 +96,13 @@ async def create_user(
     _user: User = Depends(require_permission("users.manage")),
     session: AsyncSession = Depends(get_db_session),
 ):
+    # `users.manage` is intentionally not enough to grant administrator
+    # access.  Otherwise a delegated user manager can escalate by choosing
+    # either the UserRole field or the role-membership list.
+    requested_roles = body.roles or [_rbac.DELEGATE_ROLE_NAME]
+    if body.role == UserRole.ADMIN or _rbac.ADMIN_ROLE_NAME in requested_roles:
+        if _user.role != UserRole.ADMIN:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Only admins can create administrators")
     existing = (await session.execute(select(User).where(User.email == body.email))).scalar_one_or_none()
     if existing is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "A user with that email already exists")
@@ -108,7 +115,7 @@ async def create_user(
     session.add(user)
     await session.flush()
     # New users land in the requested roles (default: delegate).
-    names = body.roles if body.roles is not None else [_rbac.DELEGATE_ROLE_NAME]
+    names = requested_roles
     if user.role == UserRole.ADMIN and _rbac.ADMIN_ROLE_NAME not in names:
         names = [*names, _rbac.ADMIN_ROLE_NAME]
     await _set_roles(session, user, names)

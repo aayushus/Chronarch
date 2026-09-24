@@ -3,9 +3,10 @@ from datetime import datetime, timezone
 import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
+from jose import jwt
 
 from app.auth import get_current_user
-from app.oauth_state import sign_oauth_state
+from app.config import JWT_ALGORITHM, JWT_SECRET
 from app.routers import admin_caldav_router as caldav_router
 from app.routers import admin_delegations_router as delegations_router
 from app.routers import admin_users_router as users_router
@@ -57,10 +58,6 @@ async def _account_calendar(session, owner: User, suffix: str) -> Calendar:
     return calendar
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="users.manage currently permits creation of an ADMIN user",
-)
 async def test_non_admin_user_manager_cannot_create_admin(session):
     manager = User(
         id="manager-1",
@@ -164,13 +161,15 @@ async def test_calendar_patch_rejects_non_owner(session):
     assert raised.value.status_code in {403, 404}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="OAuth state JWTs are currently accepted as session bearer tokens",
-)
 async def test_oauth_state_cannot_authenticate_an_api_request(session):
     user = await _admin(session, "admin-1", "admin@example.com")
-    state = await sign_oauth_state(user.id)
+    # This test only exercises bearer-token type separation; avoid Redis so
+    # it remains a unit regression test rather than an OAuth integration test.
+    state = jwt.encode(
+        {"sub": user.id, "purpose": "oauth_connect", "token_type": "oauth_state", "jti": "state-jti"},
+        JWT_SECRET,
+        algorithm=JWT_ALGORITHM,
+    )
 
     with pytest.raises(HTTPException) as raised:
         await get_current_user(

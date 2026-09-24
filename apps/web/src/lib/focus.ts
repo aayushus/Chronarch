@@ -30,7 +30,7 @@ export function dayStats(events: BetaEvent[], day: Date, now: Date = new Date())
     d.getFullYear() === day.getFullYear() && d.getMonth() === day.getMonth() && d.getDate() === day.getDate();
   const timed = events
     .map((e) => ({ e, s: new Date(e.start), en: new Date(e.end) }))
-    .filter(({ e, s }) => !e.all_day && sameDay(s) && !isNaN(s.getTime()))
+    .filter(({ e, s }) => !e.all_day && sameDay(s) && !isNaN(s.getTime()) && !/^\s*(?:canceled|cancelled)\s*:/i.test(e.title))
     .sort((a, b) => +a.s - +b.s);
 
   let meetingMinutes = 0;

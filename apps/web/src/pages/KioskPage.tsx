@@ -205,7 +205,7 @@ export default function KioskPage() {
   );
   const nextEvent = useMemo(
     () => visibleEvents
-      .filter((event) => new Date(event.end).getTime() > now.getTime())
+      .filter((event) => new Date(event.end).getTime() > now.getTime() && !/^\s*(?:canceled|cancelled)\s*:/i.test(event.title))
       .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())[0] ?? null,
     [visibleEvents, now],
   );

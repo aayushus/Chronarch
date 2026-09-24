@@ -866,10 +866,6 @@ async def test_approval_booking_asgi(api):
     assert confirmed_bookings.json()["bookings"][0]["status"] == "confirmed"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="users.manage can currently create an ADMIN through the HTTP API",
-)
 async def test_non_admin_manager_cannot_create_admin_asgi(api):
     manager_token = await login(api, MANAGER_EMAIL)
     response = await api.client.post(
@@ -964,10 +960,6 @@ async def test_delegation_rejects_another_owners_calendar_asgi(api):
     assert response.status_code in {403, 404}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="OAuth state JWTs are currently accepted as API bearer tokens",
-)
 async def test_oauth_state_cannot_access_authenticated_route_asgi(api):
     state = await sign_oauth_state("user-owner")
     response = await api.client.get(

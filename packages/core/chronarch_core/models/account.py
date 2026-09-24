@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlalchemy import String, ForeignKey, Enum as SAEnum, LargeBinary
+from sqlalchemy import String, ForeignKey, Enum as SAEnum, LargeBinary, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin, new_uuid
@@ -43,3 +43,6 @@ class Account(Base, TimestampMixin):
     # Provider incremental sync tokens (Performance 2A)
     sync_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     delta_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # Provider delta tokens are scoped to a calendar, not the whole account.
+    sync_tokens: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    delta_tokens: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)

@@ -77,3 +77,5 @@ secrets/
 # Local scripts
 start.sh
 
+# Local-only UI exploration mocks
+docs/kiosk-*-mock.html
