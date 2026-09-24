@@ -35,6 +35,7 @@ export default function KioskSettings() {
   const [sleepStart, setSleepStart] = useState("22:00");
   const pairUrl = `${window.location.origin}/kiosk/pair`;
   const [sleepEnd, setSleepEnd] = useState("07:00");
+  const [screensaverTimeout, setScreensaverTimeout] = useState(30);
   const [creating, setCreating] = useState(false);
   const [pairCode, setPairCode] = useState("");
   const [pairing, setPairing] = useState(false);
@@ -62,6 +63,7 @@ export default function KioskSettings() {
         location_label: location.trim(),
         sleep_start: sleepStart,
         sleep_end: sleepEnd,
+        screensaver_timeout_seconds: screensaverTimeout,
       });
       setDisplays((prev) => [...prev, created]);
       setName("");
@@ -438,6 +440,12 @@ export default function KioskSettings() {
                     style={{ width: "100%", fontSize: 13, padding: "8px 12px" }}
                   />
                 </div>
+              </div>
+              <div>
+                <label htmlFor="kiosk-screensaver-timeout" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text-primary)" }}>
+                  Screensaver countdown <span style={{ fontWeight: 400, color: "var(--text-tertiary)" }}>(seconds of inactivity)</span>
+                </label>
+                <input id="kiosk-screensaver-timeout" type="number" min={10} max={3600} step={10} value={screensaverTimeout} onChange={(e) => setScreensaverTimeout(Math.max(10, Math.min(3600, Number(e.target.value) || 30)))} className="input-standard" style={{ width: "100%", fontSize: 13, padding: "8px 12px" }} />
               </div>
             </div>
 

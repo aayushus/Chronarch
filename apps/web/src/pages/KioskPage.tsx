@@ -12,6 +12,7 @@ interface KioskMeta {
   location_label: string;
   sleep_start: string;
   sleep_end: string;
+  screensaver_timeout_seconds: number;
 }
 
 interface KioskCalendar {
@@ -139,9 +140,9 @@ export default function KioskPage() {
     const wake = () => {
       setScreensaver(false);
       clearTimeout(timer);
-      timer = setTimeout(() => setScreensaver(true), 30_000);
+      timer = setTimeout(() => setScreensaver(true), Math.max(10, meta?.screensaver_timeout_seconds ?? 30) * 1000);
     };
-    const events: (keyof WindowEventMap)[] = ["pointerdown", "touchstart", "keydown"];
+    const events: (keyof WindowEventMap)[] = ["pointerdown", "mousemove", "touchstart", "keydown"];
     events.forEach((ev) => window.addEventListener(ev, wake));
     wake();
     return () => {
@@ -391,7 +392,6 @@ export default function KioskPage() {
             <button onClick={() => setWeekOffset((v) => v - 1)} aria-label="Previous week" style={{ border: "none", background: "transparent", fontSize: 20, color: MUTED, cursor: "pointer", padding: "10px 14px" }}>‹</button>
             <button onClick={() => setWeekOffset(0)} style={{ border: "none", background: "transparent", fontSize: 14, fontWeight: 700, color: INK, cursor: "pointer", padding: "10px 14px" }}>Today</button>
             <button onClick={() => setWeekOffset((v) => v + 1)} aria-label="Next week" style={{ border: "none", background: "transparent", fontSize: 20, color: MUTED, cursor: "pointer", padding: "10px 14px" }}>›</button>
-            <button onClick={() => setScreensaver(true)} style={{ border: "1px solid var(--wall-line)", background: darkMode ? "#2b313a" : "#fff", borderRadius: 6, padding: "10px 12px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>Screensaver</button>
             <button onClick={() => setDarkMode((v) => !v)} style={{ border: "1px solid var(--wall-line)", background: darkMode ? "#2b313a" : "#fff", borderRadius: 6, padding: "10px 12px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>{darkMode ? "Light mode" : "Dark mode"}</button>
             {filterOpen && (
               <div style={{ position: "absolute", top: 36, right: 70, background: darkMode ? "#20262e" : "#fff", border: "1px solid var(--wall-line)", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 8, zIndex: 10, minWidth: 200 }}>

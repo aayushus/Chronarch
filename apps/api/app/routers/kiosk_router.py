@@ -53,6 +53,7 @@ def _out(display: KioskDisplay) -> dict:
         "id": display.id, "name": display.name,
         "location_label": display.location_label,
         "sleep_start": display.sleep_start, "sleep_end": display.sleep_end,
+        "screensaver_timeout_seconds": display.screensaver_timeout_seconds,
         "active": display.active,
         "url_path": f"/kiosk/{display.token}",
         "last_seen_at": display.last_seen_at,
@@ -78,6 +79,7 @@ class KioskCreate(BaseModel):
     location_label: str = ""
     sleep_start: str = "22:00"
     sleep_end: str = "07:00"
+    screensaver_timeout_seconds: int = 30
 
 
 class KioskUpdate(BaseModel):
@@ -85,6 +87,7 @@ class KioskUpdate(BaseModel):
     location_label: str | None = None
     sleep_start: str | None = None
     sleep_end: str | None = None
+    screensaver_timeout_seconds: int | None = None
     active: bool | None = None
 
 
@@ -111,6 +114,7 @@ async def create_display(
         location_label=(body.location_label or "").strip(),
         sleep_start=_check_sleep(body.sleep_start, "sleep_start"),
         sleep_end=_check_sleep(body.sleep_end, "sleep_end"),
+        screensaver_timeout_seconds=max(10, min(body.screensaver_timeout_seconds, 3600)),
     )
     session.add(display)
     await session.flush()
@@ -134,6 +138,8 @@ async def update_display(
         display.sleep_start = _check_sleep(patch["sleep_start"], "sleep_start")
     if "sleep_end" in patch and patch["sleep_end"] is not None:
         display.sleep_end = _check_sleep(patch["sleep_end"], "sleep_end")
+    if "screensaver_timeout_seconds" in patch and patch["screensaver_timeout_seconds"] is not None:
+        display.screensaver_timeout_seconds = max(10, min(int(patch["screensaver_timeout_seconds"]), 3600))
     if "active" in patch and patch["active"] is not None:
         display.active = bool(patch["active"])
     await session.flush()

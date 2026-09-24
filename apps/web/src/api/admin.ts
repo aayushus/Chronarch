@@ -486,6 +486,7 @@ export interface KioskDisplay {
   location_label: string;
   sleep_start: string;
   sleep_end: string;
+  screensaver_timeout_seconds: number;
   active: boolean;
   url_path: string;
   last_seen_at: string | null;
@@ -502,6 +503,7 @@ export function kioskCreateDisplay(body: {
   location_label?: string;
   sleep_start?: string;
   sleep_end?: string;
+  screensaver_timeout_seconds?: number;
 }): Promise<KioskDisplay> {
   return apiFetch<KioskDisplay>("/kiosk", { method: "POST", body: JSON.stringify(body) });
 }

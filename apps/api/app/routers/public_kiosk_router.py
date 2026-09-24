@@ -74,6 +74,7 @@ async def display_meta(token: str, session: AsyncSession = Depends(get_db_sessio
         "location_label": display.location_label,
         "sleep_start": display.sleep_start,
         "sleep_end": display.sleep_end,
+        "screensaver_timeout_seconds": display.screensaver_timeout_seconds,
     }
 
 
@@ -224,5 +225,4 @@ async def kiosk_quick_add_create(
         "start": event.start, "end": event.end,
         "calendar_name": target.name, "calendar_color": target.color,
     }
-
 

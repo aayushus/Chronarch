@@ -32,5 +32,6 @@ class KioskDisplay(Base, TimestampMixin):
     location_label: Mapped[str] = mapped_column(String, nullable=False, default="")
     sleep_start: Mapped[str] = mapped_column(String, nullable=False, default="22:00")
     sleep_end: Mapped[str] = mapped_column(String, nullable=False, default="07:00")
+    screensaver_timeout_seconds: Mapped[int] = mapped_column(nullable=False, default=30)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
