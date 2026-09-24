@@ -1,6 +1,7 @@
 :root {
   --bg-app: #1c1c1e;  --bg-sidebar: rgba(23, 23, 26, 0.78);
   --bg-panel: rgba(35, 35, 38, 0.82);
+  --bg-card: var(--bg-raised);
   --bg-raised: #2c2c2e;
   --bg-raised-hover: #3a3a3c;
   --border: #3a3a3c;
@@ -10,6 +11,7 @@
   --text-tertiary: #636366;
   --accent: #0a84ff;
   --accent-dim: #0a84ff33;
+  --accent-soft: rgba(10, 132, 255, 0.14);
   /* Alias: older components reference --primary (same hue). */
   --primary: var(--accent);
   --danger: #ff453a;
@@ -17,6 +19,7 @@
   --warning: #ff9f0a;
 
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   /* Restrained geometry: controls stay crisp, surfaces get only a little lift. */
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -67,6 +70,7 @@
   --bg-sidebar: rgba(255, 255, 255, 0.72);
   --bg-panel: rgba(255, 255, 255, 0.85);
   --bg-raised: #ffffff;
+  --bg-card: #ffffff;
   --bg-raised-hover: #e9e9ee;
   --border: #d9d9de;
   --border-subtle: #e6e6ea;
@@ -76,6 +80,7 @@
      for sidebar headings, time labels, and empty states in light mode. */
   --text-tertiary: #7c7c83;
   --accent-dim: #0a84ff22;
+  --accent-soft: rgba(10, 132, 255, 0.10);
   --shadow-pop: 0 20px 48px rgba(0, 0, 0, 0.16);
   --shadow-lift: 0 4px 14px rgba(0, 0, 0, 0.12);
   --wash-a: rgba(10, 132, 255, 0.07);

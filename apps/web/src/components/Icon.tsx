@@ -96,6 +96,12 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M12 10v5m0 3v.5" />
     </>
   ),
+  "alert-triangle": (
+    <>
+      <path d="M12 3l10 18H2z" />
+      <path d="M12 10v5m0 3v.5" />
+    </>
+  ),
   users: (
     <>
       <circle cx="9" cy="8" r="3.5" />

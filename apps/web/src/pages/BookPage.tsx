@@ -263,7 +263,7 @@ export default function BookPage() {
   const canGoPrevMonth = monthCursor > new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#111113", display: "flex", justifyContent: "center", padding: isMobile ? "32px 16px" : "48px 20px" }}>
+    <div style={{ minHeight: "100vh", background: "var(--bg-app)", display: "flex", justifyContent: "center", padding: isMobile ? "32px 16px" : "48px 20px" }}>
       <div style={{ width: isMobile ? 640 : 1020, maxWidth: "100%" }}>
         {loading ? (
           <div style={{ color: "var(--text-tertiary)", fontSize: 14, textAlign: "center", paddingTop: 60 }}>Loading…</div>
@@ -372,11 +372,11 @@ function MobileWeekView(props: {
       ) : (
         <>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <button onClick={() => setWeekOffset((v) => Math.max(0, v - 1))} disabled={weekOffset === 0} className="hoverable" style={{ background: "#1e1e21", border: "none", borderRadius: 8, color: weekOffset === 0 ? "#636366" : "#f5f5f7", padding: "10px 18px", fontSize: 14, fontWeight: 600, cursor: weekOffset === 0 ? "default" : "pointer" }}>← Prev</button>
+            <button onClick={() => setWeekOffset((v) => Math.max(0, v - 1))} disabled={weekOffset === 0} className="hoverable" style={{ background: "var(--bg-raised)", border: "1px solid var(--border)", borderRadius: "var(--control-radius)", color: weekOffset === 0 ? "var(--text-tertiary)" : "var(--text-primary)", padding: "10px 18px", fontSize: 14, fontWeight: 600, cursor: weekOffset === 0 ? "default" : "pointer" }}>← Prev</button>
             <span style={{ fontSize: 14, fontWeight: 700, color: "#f5f5f7" }}>
               {days[0].toLocaleDateString(undefined, { month: "short", day: "numeric" })} – {days[6].toLocaleDateString(undefined, { month: "short", day: "numeric" })}
             </span>
-            <button onClick={() => setWeekOffset((v) => v + 1)} className="hoverable" style={{ background: "#2c2c2e", border: "none", borderRadius: 8, color: "#f5f5f7", padding: "10px 18px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Next →</button>
+            <button onClick={() => setWeekOffset((v) => v + 1)} className="hoverable" style={{ background: "var(--bg-raised)", border: "1px solid var(--border)", borderRadius: "var(--control-radius)", color: "var(--text-primary)", padding: "10px 18px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Next →</button>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {days.map((d) => {
@@ -384,7 +384,7 @@ function MobileWeekView(props: {
               const daySlots = byDay.get(key) ?? [];
               const isPicked = pickedDay === key;
               return (
-                <div key={localKey(d)} style={{ background: "#1e1e21", borderRadius: 12, overflow: "hidden" }}>
+                <div key={localKey(d)} style={{ background: "var(--bg-panel)", border: "1px solid var(--border-subtle)", borderRadius: "var(--card-radius)", overflow: "hidden" }}>
                   <button onClick={() => setPickedDay(isPicked ? null : key)} className="hoverable" style={{ width: "100%", textAlign: "left", background: "none", border: "none", padding: "15px 18px", cursor: "pointer", color: "#f5f5f7", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: 15, fontWeight: 600 }}>
                       {d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", timeZone: tz })}

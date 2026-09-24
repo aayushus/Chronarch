@@ -8,6 +8,7 @@ import { EventSummary, listEvents } from "../api/calendar";
  * firing duplicate fetches.
  */
 const cache = new Map<string, Promise<EventSummary[]>>();
+let cacheUserKey: string | null = null;
 
 function keyFor(start: Date, end: Date): string {
   // Performance 3B: Bucket keys by Year-Month-Day range boundary to allow view switching reuse
@@ -16,8 +17,12 @@ function keyFor(start: Date, end: Date): string {
   return `${s}_${e}`;
 }
 
-export function fetchEventsLazy(start: Date, end: Date): Promise<EventSummary[]> {
-  const key = keyFor(start, end);
+export function fetchEventsLazy(start: Date, end: Date, userKey?: string | null): Promise<EventSummary[]> {
+  if (userKey !== undefined && userKey !== cacheUserKey) {
+    cache.clear();
+    cacheUserKey = userKey ?? null;
+  }
+  const key = `${cacheUserKey ?? "anonymous"}:${keyFor(start, end)}`;
   const cached = cache.get(key);
   if (cached) return cached;
 

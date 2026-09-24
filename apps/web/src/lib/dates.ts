@@ -85,7 +85,7 @@ export function monthTime(startISO: string, endISO: string): string {
   return `${a.label} ${a.mer} – ${b.label} ${b.mer}`;
 }
 
-export const WEEKDAY_SHORT = ["S", "M", "T", "W", "T", "F", "S"];
+export const WEEKDAY_SHORT = ["M", "T", "W", "T", "F", "S", "S"];
 
 /** Monday-start mini-grid trimmed to whole weeks intersecting the month
  * (28–35 cells instead of a fixed 42) so rails never need to scroll. */

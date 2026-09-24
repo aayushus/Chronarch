@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 import { apiFetch, getToken, setToken } from "./client";
+import { invalidateEventsCache } from "../lib/eventsCache";
 
 export interface CurrentUser {
   id: string;
@@ -93,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Ignore network errors on logout so local session always clears
     });
     setToken(null);
+    invalidateEventsCache();
     setTokenState(null);
     setUser(null);
   }

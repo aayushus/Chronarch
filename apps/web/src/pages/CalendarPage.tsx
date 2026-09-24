@@ -87,7 +87,9 @@ export default function CalendarPage() {
   const workingHours = useMemo(() => workingHoursOf(user), [user]);
   // Both fixed rails need a comfortable central canvas. Below this width the
   // calendar remains usable and the Today rail is available from the toolbar.
-  const showRails = useWide(1360);
+  // Keep the calendar list available on normal laptop widths; below this
+  // breakpoint the toolbar toggle remains the single source of truth.
+  const showRails = useWide(1080);
 
   const [calendars, setCalendars] = useState<CalendarSummary[]>([]);
   const [events, setEvents] = useState<EventSummary[]>([]);
@@ -183,7 +185,7 @@ export default function CalendarPage() {
   useEffect(() => {
     let cancelled = false;
     setEventsLoading(true);
-    fetchEventsLazy(rangeStart, rangeEnd)
+    fetchEventsLazy(rangeStart, rangeEnd, user?.id ?? user?.email)
       .then((fresh) => {
         if (!cancelled) setEvents(fresh);
       })
