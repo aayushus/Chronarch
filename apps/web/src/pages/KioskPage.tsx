@@ -83,6 +83,11 @@ export default function KioskPage() {
     }
   });
   const [selectedEvent, setSelectedEvent] = useState<KioskEvent | null>(null);
+  const [screensaver, setScreensaver] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    const hour = new Date().getHours() + new Date().getMinutes() / 60;
+    return hour < 6.75 || hour >= 19;
+  });
 
   function setViewModeAndPersist(mode: ViewMode) {
     setViewMode(mode);
@@ -108,6 +113,22 @@ export default function KioskPage() {
     return () => {
       if (idleReload.current) clearTimeout(idleReload.current);
       events.forEach((ev) => window.removeEventListener(ev, resetIdle));
+    };
+  }, []);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const wake = () => {
+      setScreensaver(false);
+      clearTimeout(timer);
+      timer = setTimeout(() => setScreensaver(true), 30_000);
+    };
+    const events: (keyof WindowEventMap)[] = ["pointerdown", "touchstart", "keydown"];
+    events.forEach((ev) => window.addEventListener(ev, wake));
+    wake();
+    return () => {
+      clearTimeout(timer);
+      events.forEach((ev) => window.removeEventListener(ev, wake));
     };
   }, []);
 
@@ -259,17 +280,33 @@ export default function KioskPage() {
     );
   }
 
+  if (screensaver) {
+    return (
+      <div className="kiosk-screensaver" onClick={() => setScreensaver(false)}>
+        <div className="kiosk-screensaver-content">
+          <div className="kiosk-name">{meta?.name || "Chronarch Kiosk"}</div>
+          <div className="kiosk-screensaver-time">{now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</div>
+          {headerWeather && <div className="kiosk-screensaver-weather">{wmoGlyph(headerWeather.code)} {Math.round(headerWeather.tempMax ?? 0)}° · {wmoLabel(headerWeather.code)}</div>}
+          {nextEvent && <div className="kiosk-screensaver-next">Up next · {nextEvent.masked ? "Busy" : nextEvent.title} · {nextEvent.all_day ? "All day" : fmtTime(nextEvent.start)}</div>}
+          <div className="kiosk-screensaver-hint">Tap anywhere to wake</div>
+        </div>
+      </div>
+    );
+  }
+
   const countdowns = pickCountdowns(visibleEvents, now);
   const rangeLabel = `${weekDays[0].toLocaleDateString(undefined, { month: "long", day: "numeric" })} – ${weekDays[6].toLocaleDateString(undefined, { month: "long", day: "numeric" })}`;
   const denseWeek = visibleEvents.length > 24;
   const freshness = lastLoadedAt ? `Updated ${Math.max(0, Math.round((Date.now() - lastLoadedAt.getTime()) / 60000))}m ago` : "Updating…";
 
   return (
-    <div style={{ height: "100vh", background: PAGE, color: INK, padding: "24px 28px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div className={`kiosk-live ${darkMode ? "kiosk-live-dark" : ""}`} style={{ height: "100vh", background: PAGE, color: INK, padding: "24px 28px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", maxWidth: 1200, width: "100%", margin: "0 auto", background: CARD, borderRadius: 10, padding: "20px 28px", boxShadow: "0 8px 30px rgba(0,0,0,0.08)", overflow: "hidden" }}>
         {/* Header: date/time/weather left, controls right. */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12, flexShrink: 0 }}>
-          <div style={{ fontSize: 19, fontWeight: 700 }}>
+          <div>
+            <div className="kiosk-live-name">{meta?.name || "Chronarch Kiosk"}</div>
+            <div style={{ fontSize: 19, fontWeight: 700 }}>
             {now.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
             <span style={{ fontWeight: 400, color: MUTED, marginLeft: 10 }}>
               {now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
@@ -278,6 +315,8 @@ export default function KioskPage() {
               <span style={{ fontWeight: 400, color: MUTED, marginLeft: 10 }}>{wmoGlyph(headerWeather.code)} {headerWeather.tempMax === null ? "–" : `${Math.round(headerWeather.tempMax)}°`}</span>
             )}
             <span style={{ fontSize: 12, fontWeight: 500, color: FAINT, marginLeft: 10 }}>{freshness}</span>
+            </div>
+            <div className="kiosk-live-range">{rangeLabel}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
             <div style={{ display: "flex", border: "1px solid #e3e1da", borderRadius: 6, overflow: "hidden" }}>
@@ -302,6 +341,8 @@ export default function KioskPage() {
             <button onClick={() => setWeekOffset((v) => v - 1)} aria-label="Previous week" style={{ border: "none", background: "transparent", fontSize: 20, color: MUTED, cursor: "pointer", padding: "10px 14px" }}>‹</button>
             <button onClick={() => setWeekOffset(0)} style={{ border: "none", background: "transparent", fontSize: 14, fontWeight: 700, color: INK, cursor: "pointer", padding: "10px 14px" }}>Today</button>
             <button onClick={() => setWeekOffset((v) => v + 1)} aria-label="Next week" style={{ border: "none", background: "transparent", fontSize: 20, color: MUTED, cursor: "pointer", padding: "10px 14px" }}>›</button>
+            <button onClick={() => setScreensaver(true)} style={{ border: "1px solid #e3e1da", background: "#fff", borderRadius: 6, padding: "10px 12px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>Screensaver</button>
+            <button onClick={() => setDarkMode((v) => !v)} style={{ border: "1px solid #e3e1da", background: "#fff", borderRadius: 6, padding: "10px 12px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>{darkMode ? "Light mode" : "Dark mode"}</button>
             {filterOpen && (
               <div style={{ position: "absolute", top: 36, right: 70, background: "#fff", border: "1px solid #e3e1da", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 8, zIndex: 10, minWidth: 200 }}>
                 {calendars.map((c) => {
@@ -317,6 +358,11 @@ export default function KioskPage() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="kiosk-focus-strip" aria-label="Current and next meeting">
+          <div className="kiosk-focus-card"><span>Now · free</span><strong>No meeting in progress</strong><small>Open until {nextEvent ? fmtTime(nextEvent.start) : "later"}</small></div>
+          <div className="kiosk-focus-card kiosk-focus-next"><span>Up next</span><strong>{nextEvent ? (nextEvent.masked ? "Busy" : nextEvent.title) : "Nothing scheduled"}</strong><small>{nextEvent ? fmtRange(nextEvent) : "Your calendar is clear"}</small></div>
         </div>
 
         {/* Countdowns. */}
