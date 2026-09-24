@@ -85,6 +85,7 @@ export default function McpSettings() {
   const [newKey, setNewKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const mcpEndpoint = `${window.location.origin}/mcp`;
 
   function load() {
     if (adminView) {
@@ -240,7 +241,7 @@ export default function McpSettings() {
               MCP Server Endpoint
             </div>
             <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
-              Connect clients using endpoint <code style={{ fontSize: 12, background: "var(--bg-app)", padding: "1px 6px", borderRadius: 4 }}>http://localhost:8001</code>
+              Connect clients using endpoint <code style={{ fontSize: 12, background: "var(--bg-app)", padding: "1px 6px", borderRadius: 4 }}>{mcpEndpoint}</code>
             </div>
           </div>
         </div>
@@ -294,7 +295,7 @@ export default function McpSettings() {
               mcpServers: {
                 chronarch: {
                   command: "npx",
-                  args: ["-y", "@modelcontextprotocol/server-fetch", "http://localhost:8001/mcp"],
+                  args: ["-y", "@modelcontextprotocol/server-fetch", mcpEndpoint],
                   env: {
                     CHRONARCH_API_KEY: "chronarch_YOUR_KEY_HERE",
                   },

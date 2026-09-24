@@ -10,15 +10,11 @@ interface CheckResult {
   latencyMs: number | null;
 }
 
-function targetOrigin(port: number): string {
-  return `${window.location.protocol}//${window.location.hostname}:${port}`;
-}
-
 const CHECKS: { label: string; detail: string; url: string }[] = [
-  { label: "API", detail: "liveness (/healthz)", url: `${targetOrigin(8000)}/healthz` },
-  { label: "API", detail: "readiness incl. database (/readyz)", url: `${targetOrigin(8000)}/readyz` },
-  { label: "MCP Server", detail: "liveness (/healthz)", url: `${targetOrigin(8001)}/healthz` },
-  { label: "LiteLLM Proxy", detail: "liveness (/health/liveliness)", url: `${targetOrigin(4000)}/health/liveliness` },
+  { label: "API", detail: "liveness (/healthz)", url: "/healthz" },
+  { label: "API", detail: "readiness incl. database (/readyz)", url: "/readyz" },
+  { label: "MCP Server", detail: "liveness (/mcp/healthz)", url: "/mcp/healthz" },
+  { label: "LiteLLM Proxy", detail: "liveness (/litellm-health)", url: "/litellm-health" },
 ];
 
 export default function SystemSettings() {
@@ -56,7 +52,7 @@ export default function SystemSettings() {
         <div>
           <SectionHeader
             title="System"
-            description="Live health status of each service, checked directly from your browser against its exposed port."
+        description="Live health status through the public reverse-proxy routes. Internal service ports are never exposed to the browser."
           />
         </div>
         <button onClick={runChecks} className="hoverable" style={btnStyle}>
