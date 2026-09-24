@@ -28,7 +28,7 @@ from .models.user import User
 from .permissions import AuthContext
 
 HOLD_TTL_SECONDS = 300
-MAX_SLOT_RANGE_DAYS = 31
+MAX_SLOT_RANGE_DAYS = 90
 
 
 def _now() -> datetime:
@@ -143,14 +143,15 @@ async def open_slots(
     latest = now + timedelta(days=max(1, link.max_days_ahead))
     start = max(_as_aware(range_start), earliest)
     end = min(_as_aware(range_end), latest)
-    if end <= start or (end - start).days > MAX_SLOT_RANGE_DAYS:
+    if end <= start or (end - start).total_seconds() > MAX_SLOT_RANGE_DAYS * 86400:
         return []
 
-    buffer = timedelta(minutes=max(link.buffer_before_minutes, link.buffer_after_minutes))
+    buffer_before = timedelta(minutes=max(0, link.buffer_before_minutes))
+    buffer_after = timedelta(minutes=max(0, link.buffer_after_minutes))
     try:
         sh, sm = (host.working_hours_start or "09:00").split(":")
         eh, em = (host.working_hours_end or "17:00").split(":")
-        hours = (int(sh), int(eh)) if sm == "00" and em == "00" else None
+        hours = (int(sh) * 60 + int(sm), int(eh) * 60 + int(em))
     except (ValueError, AttributeError):
         hours = None
 
@@ -160,7 +161,7 @@ async def open_slots(
         duration=timedelta(minutes=link.duration_minutes),
         # No calendar filter: every host-owned blocking calendar must block,
         # not just the destination.
-        working_hours=hours, buffer=buffer,
+        working_hours=hours, buffer_before=buffer_before, buffer_after=buffer_after,
         min_notice=timedelta(minutes=link.min_notice_minutes), now=now,
         owner_calendar_ids=await host_calendar_ids(session, host.id),
     )
@@ -270,15 +271,29 @@ async def confirm_booking(
 
 async def approve_booking(session: AsyncSession, booking: Booking) -> Booking:
     """Host approves a pending booking: creates the event now."""
+    from . import ai_tools
+
     if booking.status != BookingStatus.PENDING:
         raise ValueError("Only pending bookings can be approved.")
-    link = await session.get(BookingLink, booking.link_id)
+    link = (await session.execute(
+        select(BookingLink).where(BookingLink.id == booking.link_id).with_for_update()
+    )).scalar_one_or_none()
     host = await session.get(User, link.owner_user_id) if link else None
     if link is None or host is None:
         raise ValueError("This booking link is no longer available.")
+    booking_start = _as_aware(booking.start)
+    booking_end = _as_aware(booking.end)
+    if booking_start < _now() + timedelta(minutes=link.min_notice_minutes):
+        raise ValueError("This booking slot is no longer available.")
+    owner_ids = await host_calendar_ids(session, host.id)
+    if await ai_tools.get_conflicts(
+        session, host_context(host), window_start=booking_start, window_end=booking_end,
+        owner_calendar_ids=owner_ids,
+    ):
+        raise ValueError("This booking slot is no longer available because it conflicts with another event.")
     event = await _book_event(session, link, host, booking.booker_name,
                               booking.booker_email, booking.note,
-                              booking.start, booking.end)
+                              booking_start, booking_end)
     booking.event_id = event.id
     booking.status = BookingStatus.CONFIRMED
     await session.flush()

@@ -137,7 +137,7 @@ async def create_link(
 
     _check_windows(body)
     calendar = await session.get(Calendar, body.calendar_id)
-    if calendar is None or not await is_calendar_owner(session, user, calendar):
+    if calendar is None or not await is_calendar_owner(session, user, calendar) or not calendar.provider_writable:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                             "Pick one of your own calendars as the destination.")
     try:
@@ -173,7 +173,7 @@ async def update_link(
     patch = body.model_dump(exclude_unset=True)
     if "calendar_id" in patch:
         calendar = await session.get(Calendar, patch["calendar_id"])
-        if calendar is None or not await is_calendar_owner(session, user, calendar):
+        if calendar is None or not await is_calendar_owner(session, user, calendar) or not calendar.provider_writable:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                                 "Pick one of your own calendars as the destination.")
     if "slug" in patch and patch["slug"] is not None:
@@ -215,13 +215,13 @@ async def delete_link(
 
     link = await _owned_link(session, user, link_id)
     now = datetime.now(timezone.utc)
-    future = list((await session.execute(select(Booking).where(
-        Booking.link_id == link.id,
-        Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
-        Booking.start > now))).scalars())
-    for booking in future:
-        await _booking.cancel_booking(session, booking)
-    await session.delete(link)
+    bookings = list((await session.execute(select(Booking).where(Booking.link_id == link.id))).scalars())
+    for booking in bookings:
+        if booking.status in (BookingStatus.PENDING, BookingStatus.CONFIRMED) and booking.start > now:
+            await _booking.cancel_booking(session, booking)
+    # Retain booking history. Deactivation preserves the link/bookings FK and
+    # removes the public capability without destroying audit/history records.
+    link.active = False
     await session.flush()
     return None
 

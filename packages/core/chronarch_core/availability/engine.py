@@ -89,8 +89,10 @@ def find_free_slots(
     events: list,
     blocking_calendar_ids: set[str],
     *,
-    working_hours: tuple[int, int] | None = None,  # (start_hour, end_hour) in window's tz
+    working_hours: tuple[int, int] | None = None,  # hours, or wall-clock minutes
     buffer: timedelta = timedelta(0),
+    buffer_before: timedelta | None = None,
+    buffer_after: timedelta | None = None,
     min_notice: timedelta = timedelta(0),
     now: datetime | None = None,
     max_results: int = 10,
@@ -102,9 +104,11 @@ def find_free_slots(
     busy = merge_intervals(compute_busy_intervals(events, blocking_calendar_ids))
 
     # Apply buffer by padding each busy interval.
-    if buffer.total_seconds() > 0:
+    before = buffer_before if buffer_before is not None else buffer
+    after = buffer_after if buffer_after is not None else buffer
+    if before.total_seconds() > 0 or after.total_seconds() > 0:
         busy = merge_intervals(
-            [BusyInterval(s - buffer, e + buffer, "", "") for s, e in busy]
+            [BusyInterval(s - before, e + after, "", "") for s, e in busy]
         )
 
     earliest = window_start
@@ -138,7 +142,9 @@ def _slice_by_working_hours(
     if working_hours is None:
         return [FreeSlot(gap_start, gap_start + duration)]
 
-    start_hour, end_hour = working_hours
+    start_value, end_value = working_hours
+    start_hour, start_minute = divmod(start_value, 60) if start_value > 24 else (start_value, 0)
+    end_hour, end_minute = divmod(end_value, 60) if end_value > 24 else (end_value, 0)
     if not (0 <= start_hour < end_hour <= 24):
         raise ValueError(
             f"working_hours must satisfy 0 <= start < end <= 24, got {(start_hour, end_hour)}"
@@ -151,11 +157,11 @@ def _slice_by_working_hours(
         results: list[FreeSlot] = []
         day_cursor = gap_start
         while day_cursor < gap_end:
-            day_start = day_cursor.replace(hour=start_hour, minute=0, second=0, microsecond=0)
+            day_start = day_cursor.replace(hour=start_hour, minute=start_minute, second=0, microsecond=0)
             day_end = (
                 (day_cursor + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
                 if end_hour == 24
-                else day_cursor.replace(hour=end_hour, minute=0, second=0, microsecond=0)
+                else day_cursor.replace(hour=end_hour, minute=end_minute, second=0, microsecond=0)
             )
             slot_start = max(day_cursor, day_start)
             slot_end = min(gap_end, day_end)
@@ -178,11 +184,11 @@ def _slice_by_working_hours(
     last_day = gap_end.date()
     one_day = timedelta(days=1)
     while day <= last_day:
-        day_start = datetime.combine(day, _time(start_hour, 0), tzinfo=tz)
+        day_start = datetime.combine(day, _time(start_hour, start_minute), tzinfo=tz)
         if end_hour == 24:
             day_end = datetime.combine(day + one_day, _time(0, 0), tzinfo=tz)
         else:
-            day_end = datetime.combine(day, _time(end_hour, 0), tzinfo=tz)
+            day_end = datetime.combine(day, _time(end_hour, end_minute), tzinfo=tz)
         slot_start = max(gap_start, day_start)
         slot_end = min(gap_end, day_end)
         if slot_end - slot_start >= duration:

@@ -33,9 +33,12 @@ def _pairs():
     from chronarch_core.kiosk_pairing import PairingStore
 
     try:
-        return PairingStore(get_redis_client())
+        redis = get_redis_client()
     except Exception:
-        return PairingStore(None)
+        redis = None
+    if redis is None and __import__("os").environ.get("ENVIRONMENT", "development").lower() in {"prod", "production"}:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Pairing service is temporarily unavailable.")
+    return PairingStore(redis)
 
 _HHMM = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 

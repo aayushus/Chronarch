@@ -320,6 +320,8 @@ async def find_free_slots(
     calendar_ids: list[str] | None = None,
     working_hours: tuple[int, int] | None = None,
     buffer: timedelta = timedelta(0),
+    buffer_before: timedelta | None = None,
+    buffer_after: timedelta | None = None,
     min_notice: timedelta = timedelta(0),
     now: datetime | None = None,
     owner_calendar_ids: set[str] | None = None,
@@ -344,6 +346,8 @@ async def find_free_slots(
         blocking_ids,
         working_hours=working_hours,
         buffer=buffer,
+        buffer_before=buffer_before,
+        buffer_after=buffer_after,
         min_notice=min_notice,
         now=now,
     )

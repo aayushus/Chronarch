@@ -40,6 +40,8 @@ export default function KioskSettings() {
   const [pairCode, setPairCode] = useState("");
   const [pairing, setPairing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [edit, setEdit] = useState({ name: "", location_label: "", sleep_start: "22:00", sleep_end: "07:00", screensaver_timeout_seconds: 30 });
 
   const canManage = user?.role === "admin" || (user?.permissions ?? []).includes("kiosk.manage");
 
@@ -100,6 +102,20 @@ export default function KioskSettings() {
     } catch (e) {
       setError(friendlyError(e));
     }
+  }
+
+  function beginEdit(d: KioskDisplay) {
+    setEditingId(d.id);
+    setEdit({ name: d.name, location_label: d.location_label, sleep_start: d.sleep_start, sleep_end: d.sleep_end, screensaver_timeout_seconds: d.screensaver_timeout_seconds ?? 30 });
+  }
+
+  async function saveEdit(d: KioskDisplay) {
+    try {
+      const updated = await kioskUpdateDisplay(d.id, edit);
+      setDisplays((prev) => prev.map((x) => (x.id === d.id ? updated : x)));
+      setEditingId(null);
+      toast("Kiosk settings updated");
+    } catch (e) { setError(friendlyError(e)); }
   }
 
   async function rotate(d: KioskDisplay) {
@@ -166,6 +182,7 @@ export default function KioskSettings() {
                 display: "flex",
                 alignItems: "center",
                 gap: 14,
+                position: "relative",
               }}
             >
               <span
@@ -192,6 +209,13 @@ export default function KioskSettings() {
                   {d.url_path}{d.location_label ? ` · ${d.location_label}` : ""} · sleeps {d.sleep_start}–{d.sleep_end} · seen {formatSeen(d.last_seen_at)}
                 </div>
               </div>
+              {canManage && editingId === d.id && (
+                <div style={{ position: "absolute", inset: 8, zIndex: 2, background: "var(--bg-raised)", display: "grid", gridTemplateColumns: "repeat(5, minmax(90px, 1fr)) auto", gap: 8, alignItems: "end", padding: 10, borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
+                  {(["name", "location_label", "sleep_start", "sleep_end"] as const).map((key) => <label key={key} style={{ fontSize: 11, color: "var(--text-secondary)" }}>{key.replace("_", " ")}<input className="input-standard" value={edit[key]} onChange={(e) => setEdit({ ...edit, [key]: e.target.value })} style={{ width: "100%", marginTop: 3, fontSize: 12 }} /></label>)}
+                  <label style={{ fontSize: 11, color: "var(--text-secondary)" }}>screensaver (sec)<input className="input-standard" type="number" min={10} max={3600} value={edit.screensaver_timeout_seconds} onChange={(e) => setEdit({ ...edit, screensaver_timeout_seconds: Number(e.target.value) })} style={{ width: "100%", marginTop: 3, fontSize: 12 }} /></label>
+                  <div style={{ display: "flex", gap: 6 }}><button className="btn-primary" type="button" onClick={() => void saveEdit(d)}>Save</button><button className="btn-secondary" type="button" onClick={() => setEditingId(null)}>Cancel</button></div>
+                </div>
+              )}
               <button
                 onClick={() => copyLink(d)}
                 className="hoverable"
@@ -212,6 +236,7 @@ export default function KioskSettings() {
               </button>
               {canManage && (
                 <>
+                  <button onClick={() => beginEdit(d)} className="btn-secondary hoverable" style={{ padding: "7px 14px", fontSize: 12, whiteSpace: "nowrap" }}>Edit</button>
                   <button
                     onClick={() => toggleActive(d)}
                     className="hoverable"

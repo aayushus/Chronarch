@@ -34,9 +34,12 @@ def _pairs() -> "PairingStore":
     from chronarch_core.kiosk_pairing import PairingStore
 
     try:
-        return PairingStore(get_redis_client())
+        redis = get_redis_client()
     except Exception:
-        return PairingStore(None)
+        redis = None
+    if redis is None and __import__("os").environ.get("ENVIRONMENT", "development").lower() in {"prod", "production"}:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Pairing service is temporarily unavailable.")
+    return PairingStore(redis)
 
 
 def _kiosk_context(host: User) -> AuthContext:
@@ -225,4 +228,3 @@ async def kiosk_quick_add_create(
         "start": event.start, "end": event.end,
         "calendar_name": target.name, "calendar_color": target.color,
     }
-

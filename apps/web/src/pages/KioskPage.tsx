@@ -183,6 +183,13 @@ export default function KioskPage() {
       setError(null);
     } catch (e) {
       setError(friendlyError(e));
+      // Preserve the last good wall view through transient network failures;
+      // only a revoked/expired token should clear cached private data.
+      if (String(e).startsWith("404 ") || String(e).startsWith("401 ") || String(e).startsWith("403 ")) {
+        setMeta(null);
+        setEvents([]);
+        setCalendars([]);
+      }
     }
   }, [token, weekStart]);
 

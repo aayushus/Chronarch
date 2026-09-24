@@ -9,6 +9,7 @@ the admin endpoint plus the tiny validity window.
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import time
 import uuid
@@ -52,7 +53,10 @@ class PairingStore:
                 return {"pairing_id": pairing_id, "code": code,
                         "expires_in_seconds": PAIR_TTL_SECONDS}
             except Exception:
-                pass
+                # Never split pairing state across API workers in a
+                # production deployment when shared Redis is unavailable.
+                if self._redis is not None and os.environ.get("ENVIRONMENT", "development").lower() in {"prod", "production"}:
+                    raise
         self._memory[pairing_id] = (payload, time.monotonic() + PAIR_TTL_SECONDS)
         return {"pairing_id": pairing_id, "code": code,
                 "expires_in_seconds": PAIR_TTL_SECONDS}
@@ -84,7 +88,8 @@ class PairingStore:
                                       ex=PAIR_TTL_SECONDS, xx=True)
                 return
             except Exception:
-                pass
+                if self._redis is not None and os.environ.get("ENVIRONMENT", "development").lower() in {"prod", "production"}:
+                    raise
         held = self._memory.get(pairing_id)
         if held is not None:
             self._memory[pairing_id] = (payload, held[1])
@@ -107,7 +112,8 @@ class PairingStore:
                 return {"pairing_id": pairing_id, "name": payload.get("name", ""),
                         "location_label": payload.get("location_label", "")}
             except Exception:
-                pass
+                if self._redis is not None and os.environ.get("ENVIRONMENT", "development").lower() in {"prod", "production"}:
+                    raise
         for pairing_id, (payload, expires) in list(self._memory.items()):
             if expires <= time.monotonic():
                 self._memory.pop(pairing_id, None)
@@ -149,18 +155,15 @@ class PairingStore:
         return None
 
     async def status(self, pairing_id: str) -> dict | None:
-        """Poll result. Approved deliveries are single-shot: the token is
-        returned once, then the pairing is gone."""
+        """Poll result. Keep approved results until the pairing TTL expires.
+
+        Poll responses can be lost on a flaky wall display or network; the
+        token is safe to retry because approval already consumed the code.
+        """
         payload = await self._read(pairing_id)
         if payload is None:
             return None
         token = payload.get("approved_token")
         if not token:
             return {"status": "pending"}
-        if self._redis is not None:
-            try:
-                await self._redis.delete(self._key(pairing_id))
-            except Exception:
-                pass
-        self._memory.pop(pairing_id, None)
         return {"status": "approved", "token": token}
