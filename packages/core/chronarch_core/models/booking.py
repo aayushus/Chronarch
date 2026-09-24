@@ -80,7 +80,7 @@ class Booking(Base, TimestampMixin):
     end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     booked_timezone: Mapped[str] = mapped_column(String, nullable=False, default="UTC")
 
-    event_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("events.id"), nullable=True)
+    event_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("events.id", ondelete="SET NULL"), nullable=True)
     status: Mapped[BookingStatus] = mapped_column(
         SAEnum(BookingStatus), nullable=False, default=BookingStatus.PENDING)
     booker_token: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True,

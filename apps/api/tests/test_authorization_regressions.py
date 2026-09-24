@@ -87,10 +87,6 @@ async def test_non_admin_user_manager_cannot_create_admin(session):
     assert raised.value.status_code in {400, 403, 422}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="delegation grants are not bound to the delegation owner's calendars",
-)
 async def test_delegation_cannot_grant_another_owners_calendar(session):
     owner = await _admin(session, "owner-1", "owner@example.com")
     other_owner = await _admin(session, "owner-2", "other-owner@example.com")
@@ -123,10 +119,6 @@ async def test_delegation_cannot_grant_another_owners_calendar(session):
     assert raised.value.status_code in {403, 404}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="calendar PATCH route references an unimported Calendar model",
-)
 async def test_calendar_patch_handles_valid_owner_request(session):
     owner = await _admin(session, "owner-1", "owner@example.com")
     calendar = await _account_calendar(session, owner, "owned")
@@ -141,13 +133,11 @@ async def test_calendar_patch_handles_valid_owner_request(session):
     assert result.name == "Renamed"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="calendar settings mutation has no ownership or manage-permission check",
-)
 async def test_calendar_patch_rejects_non_owner(session):
     owner = await _admin(session, "owner-1", "owner@example.com")
-    attacker = await _admin(session, "owner-2", "attacker@example.com")
+    attacker = User(id="owner-2", email="attacker@example.com", display_name="Attacker", password_hash="x", role=UserRole.DELEGATE, is_active=True)
+    session.add(attacker)
+    await session.flush()
     calendar = await _account_calendar(session, owner, "owned")
 
     with pytest.raises(HTTPException) as raised:
@@ -180,10 +170,6 @@ async def test_oauth_state_cannot_authenticate_an_api_request(session):
     assert raised.value.status_code == 401
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="title-only delegation grants currently return full event details",
-)
 async def test_title_only_delegate_receives_redacted_event_details(session):
     owner = await _admin(session, "owner-1", "owner@example.com")
     delegate = User(
@@ -244,10 +230,6 @@ async def test_title_only_delegate_receives_redacted_event_details(session):
     assert serialized.attendees == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="CalDAV connection testing permits arbitrary cleartext HTTP targets",
-)
 async def test_caldav_probe_rejects_private_http_without_network(monkeypatch):
     called = False
 

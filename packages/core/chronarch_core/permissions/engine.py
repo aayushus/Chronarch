@@ -67,7 +67,7 @@ def _source_level(calendar: Calendar, event: Optional[UnifiedEvent]) -> Permissi
 
 
 def _calendar_level(calendar: Calendar, ctx: AuthContext, is_owner: bool) -> PermissionLevel:
-    if is_owner or ctx.is_admin:
+    if ctx.actor_type != ActorType.MCP and (is_owner or ctx.is_admin):
         return PermissionLevel.DELETE
 
     if ctx.actor_type in (ActorType.MCP, ActorType.COPILOT):
@@ -91,7 +91,7 @@ def _user_level(
     is_owner: bool,
     grant: Optional[DelegationCalendarGrant],
 ) -> PermissionLevel:
-    if is_owner or ctx.is_admin:
+    if ctx.actor_type != ActorType.MCP and (is_owner or ctx.is_admin):
         return PermissionLevel.DELETE
 
     required_scope = _SCOPE_FOR_ACTION[action]

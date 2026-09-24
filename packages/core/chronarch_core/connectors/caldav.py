@@ -44,9 +44,12 @@ def _cal(tag: str) -> str:
 
 def _join(base: str, href: str) -> str:
     """Resolve a possibly-relative href against the server base URL."""
-    if href.startswith("http://") or href.startswith("https://"):
-        return href
-    return urljoin(base.rstrip("/") + "/", href.lstrip("/"))
+    candidate = href if href.startswith(("http://", "https://")) else urljoin(base.rstrip("/") + "/", href.lstrip("/"))
+    from urllib.parse import urlparse
+    base_parts, candidate_parts = urlparse(base), urlparse(candidate)
+    if (candidate_parts.scheme, candidate_parts.netloc) != (base_parts.scheme, base_parts.netloc):
+        raise ValueError("CalDAV server returned a cross-origin resource URL")
+    return candidate
 
 
 def _href_path(url: str) -> str:

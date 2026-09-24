@@ -938,10 +938,6 @@ async def test_title_only_delegate_list_is_redacted_asgi(api):
     assert event["attendees"] == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="delegation grants are not bound to the owner's calendar account",
-)
 async def test_delegation_rejects_another_owners_calendar_asgi(api):
     owner_token = await login(api, OWNER_EMAIL)
     delegation = await api.client.post(

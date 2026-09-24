@@ -107,16 +107,10 @@ async def test_private_event_caps_mcp_at_free_busy(session):
         event=event, is_owner=False).allowed
 
 
-async def test_admin_mcp_key_bypasses_ai_gates_via_is_admin(session):
-    """Tripwire: `resolve_auth_context` sets `is_admin=True` for admin
-    owners, and the engine short-circuits `is_admin` past both the AI
-    gates and the scope check. That contradicts the "never
-    owner-bypassed" docstring on the function itself — if the bypass
-    is ever removed, this test must fail loudly so the change is
-    deliberate, not silent."""
+async def test_admin_mcp_key_does_not_bypass_ai_gates_via_is_admin(session):
     _, calendar = await _seed(session, ai_open=False)
     ctx = _mcp_ctx("exec-1", set(), role=UserRole.ADMIN, is_admin=True)
-    assert resolve_permission(
+    assert not resolve_permission(
         ctx, calendar, CalendarAction.VIEW_TITLE, is_owner=False).allowed
 
 
@@ -128,10 +122,6 @@ async def _credential(session, user_id, raw_key, scopes, *, revoked=False):
     return cred
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="admin-owned MCP credentials currently inherit the human admin bypass",
-)
 async def test_admin_mcp_credential_does_not_bypass_scopes_or_ai_gates(session):
     _, calendar = await _seed(session, ai_open=False)
     await _credential(session, "exec-1", "scopeless-admin-key", set())

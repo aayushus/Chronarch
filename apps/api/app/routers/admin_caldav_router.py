@@ -57,8 +57,15 @@ async def test_connection(
     _user: User = Depends(require_permission("accounts.manage")),
 ):
     """Validate CalDAV credentials without storing anything."""
+    server_url = body.server_url.strip().rstrip("/")
+    try:
+        if not server_url.startswith("https://"):
+            raise ValueError("CalDAV connections must use HTTPS")
+        _validate_feed_url(server_url)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
     connector = CalDAVConnector(
-        server_url=body.server_url.strip().rstrip("/"),
+        server_url=server_url,
         username=body.username.strip(),
         password=body.password,
     )

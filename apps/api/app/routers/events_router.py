@@ -2,10 +2,12 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, model_validator
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chronarch_core import ai_tools
-from chronarch_core.permissions import describe_denial
+from chronarch_core.permissions import CalendarAction, describe_denial, resolve_permission
+from chronarch_core.models.calendar import Calendar
 from chronarch_core.models.enums import UserRole
 from chronarch_core.models.user import User
 
@@ -145,7 +147,26 @@ async def list_events(
         owner_calendar_ids=owner_ids,
         grants_by_calendar=grants,
     )
-    return _with_next_occurrence(events)
+    events = _with_next_occurrence(events)
+    calendar_ids_for_events = {event.calendar_id for event in events}
+    calendars_by_id = {
+        calendar.id: calendar
+        for calendar in (await session.execute(select(Calendar).where(Calendar.id.in_(calendar_ids_for_events)))).scalars()
+    }
+    out = []
+    for event in events:
+        calendar = calendars_by_id[event.calendar_id]
+        is_owner = bool(owner_ids and calendar.id in owner_ids)
+        grant = grants.get(calendar.id) if grants else None
+        serialized = EventOut.model_validate(event).model_dump()
+        full_details = resolve_permission(
+            ctx, calendar, CalendarAction.VIEW_FULL_DETAILS,
+            event=event, is_owner=is_owner, delegation_grant=grant,
+        ).allowed
+        if not full_details:
+            serialized.update({"description": None, "location": None, "organizer": None, "attendees": [], "conference": None})
+        out.append(serialized)
+    return out
 
 
 @router.get("/conflicts", response_model=list[ConflictOut])
@@ -432,4 +453,3 @@ async def import_ics_event(
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
     return event
-

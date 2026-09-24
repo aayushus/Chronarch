@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chronarch_core.models.calendar import Calendar
+from chronarch_core.models.account import Account
 from chronarch_core.models.delegation import Delegation, DelegationCalendarGrant
 from chronarch_core.models.enums import UserRole
 from chronarch_core.models.user import User
@@ -162,6 +163,9 @@ async def upsert_grant(
     calendar = await session.get(Calendar, calendar_id)
     if calendar is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Calendar not found")
+    owner_account = await session.get(Account, calendar.account_id)
+    if owner_account is None or owner_account.owner_user_id != deleg.owner_user_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Calendar is not owned by the delegation owner")
 
     existing = (
         await session.execute(

@@ -309,6 +309,9 @@ async def cancel_booking(session: AsyncSession, booking: Booking) -> Booking:
                     session, host_context(host), event_id=booking.event_id, is_owner=True)
             except ValueError:
                 pass  # event already gone — still mark cancelled
+        # Preserve booking history after the provider event is removed and
+        # avoid leaving a dangling FK in databases without SET NULL support.
+        booking.event_id = None
     booking.status = BookingStatus.CANCELLED
     await session.flush()
     return booking

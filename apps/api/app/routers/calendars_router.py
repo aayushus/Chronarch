@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from chronarch_core import ai_tools
 from chronarch_core.models.account import Account
+from chronarch_core.models.calendar import Calendar
 from chronarch_core.models.enums import ActorType, UserRole
 from chronarch_core.models.user import User
 from chronarch_core.permissions import CalendarAction, resolve_permission
@@ -229,6 +230,11 @@ async def update_calendar(
     calendar = await session.get(Calendar, calendar_id)
     if calendar is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Calendar not found")
+
+    # Calendar settings are owner/admin controls. A delegate's event grant
+    # must not become a cross-account configuration mutation path.
+    if user.role != UserRole.ADMIN and not await is_calendar_owner(session, user, calendar):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "You cannot manage this calendar")
 
     if body.name is not None:
         calendar.name = body.name.strip()

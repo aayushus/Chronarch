@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from chronarch_core import ai_tools
 from chronarch_core.prompts import render_system_prompt, tool_description
 from chronarch_core.models.enums import ActorType
+from chronarch_core.permissions import CalendarAction, resolve_permission
 from chronarch_core.models.user import User
 
 from ..auth import build_auth_context, get_current_user
@@ -703,6 +704,7 @@ async def _execute_tool(
             session, ctx, owner_calendar_ids=owned_ids, grants_by_calendar=grants
         )
         cal_names = {c.id: c.name for c in cals}
+        cal_by_id = {c.id: c for c in cals}
         return {
             "events": [
                 {
@@ -715,8 +717,16 @@ async def _execute_tool(
                     "start_local": _local(e.start),
                     "end_local": _local(e.end),
                     "all_day": e.all_day,
-                    "location": e.location,
-                    "attendees": e.attendees,
+                    "location": e.location if resolve_permission(
+                        ctx, cal_by_id[e.calendar_id], CalendarAction.VIEW_FULL_DETAILS,
+                        event=e, is_owner=e.calendar_id in owned_ids,
+                        delegation_grant=grants.get(e.calendar_id) if grants else None,
+                    ).allowed else None,
+                    "attendees": e.attendees if resolve_permission(
+                        ctx, cal_by_id[e.calendar_id], CalendarAction.VIEW_FULL_DETAILS,
+                        event=e, is_owner=e.calendar_id in owned_ids,
+                        delegation_grant=grants.get(e.calendar_id) if grants else None,
+                    ).allowed else [],
                 }
                 for e in events
             ]
