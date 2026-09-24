@@ -268,7 +268,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
               color: sameDay(d, today) ? "var(--danger)" : "var(--text-primary)",
             }}
           >
-            <div style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{WEEKDAY_SHORT[d.getDay()]}</div>
+            <div style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{WEEKDAY_SHORT[(d.getDay() + 6) % 7]}</div>
             <div style={{ fontSize: 15, fontWeight: 700 }}>{d.getDate()}</div>
           </button>
         ))}

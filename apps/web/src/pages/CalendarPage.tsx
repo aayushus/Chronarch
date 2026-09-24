@@ -89,7 +89,7 @@ export default function CalendarPage() {
   // calendar remains usable and the Today rail is available from the toolbar.
   // Keep the calendar list available on normal laptop widths; below this
   // breakpoint the toolbar toggle remains the single source of truth.
-  const showRails = useWide(1080);
+  const showRails = true;
 
   const [calendars, setCalendars] = useState<CalendarSummary[]>([]);
   const [events, setEvents] = useState<EventSummary[]>([]);
@@ -760,7 +760,7 @@ export default function CalendarPage() {
       <div style={{ flex: 1, display: "flex", minHeight: 0, minWidth: 0 }}>
         {/* Focus rail: fixed sections, only the calendar list scrolls. */}
         {showRails && (
-          <aside style={{ width: 240, minWidth: 240, borderRight: "1px solid var(--border-subtle)", overflow: "hidden", padding: "12px 10px", display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
+          <aside className="calendar-rail" style={{ width: 240, minWidth: 240, borderRight: "1px solid var(--border-subtle)", overflow: "hidden", padding: "12px 10px", display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
             <section style={{ flexShrink: 0, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: "12px 14px" }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", marginBottom: 8 }}>
                 Up next

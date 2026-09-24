@@ -96,6 +96,8 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M12 10v5m0 3v.5" />
     </>
   ),
+  eye: <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" /><circle cx="12" cy="12" r="2.5" /></>,
+  "eye-off": <><path d="M3 3l18 18M10.6 6.2A10.7 10.7 0 0112 6c6.5 0 10 6 10 6a18 18 0 01-3.1 3.8M6.2 6.3C3.5 8 2 12 2 12s3.5 6 10 6a9.8 9.8 0 003.2-.5" /><path d="M9.9 9.9a3 3 0 004.2 4.2" /></>,
   "alert-triangle": (
     <>
       <path d="M12 3l10 18H2z" />

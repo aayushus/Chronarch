@@ -453,10 +453,10 @@ function DesktopMonthView(props: {
     : "";
 
   return (
-    <div style={{ background: "#17171a", border: "1px solid #2c2c2e", borderRadius: 12, overflow: "hidden", display: "flex", alignItems: "stretch" }}>
+    <div style={{ background: "var(--bg-panel)", border: "1px solid var(--border)", borderRadius: "var(--card-radius)", overflow: "hidden", display: "flex", alignItems: "stretch" }}>
       {/* Left: event info */}
       <div style={{ flex: "0 0 240px", padding: "28px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-        <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#3a3a3c", color: "#f5f5f7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>
+        <div style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--bg-raised-hover)", color: "var(--text-primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>
           {initials(meta.host_name)}
         </div>
         <div style={{ fontSize: 13, color: "#98989d" }}>{meta.host_name}</div>
@@ -558,7 +558,7 @@ function DesktopMonthView(props: {
           <>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: "#f5f5f7" }}>{pickedLabel || "Pick a day"}</div>
-              <div style={{ display: "flex", background: "#1e1e21", borderRadius: 8, padding: 2 }}>
+              <div style={{ display: "flex", background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--control-radius)", padding: 2 }}>
                 {(["12h", "24h"] as const).map((opt) => {
                   const active = (opt === "12h") === props.hour12;
                   return (
@@ -644,7 +644,7 @@ function BookForm(props: {
 
 function DoneCard({ meta, done }: { meta: LinkMeta; done: { status: string; start: string; booker_token: string } }) {
   return (
-    <div style={{ background: "#1e1e21", borderRadius: 12, padding: 28, textAlign: "center" }}>
+    <div style={{ background: "var(--bg-panel)", border: "1px solid var(--border-subtle)", borderRadius: "var(--card-radius)", padding: 28, textAlign: "center" }}>
       <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(48, 209, 88, 0.14)", color: "var(--success)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 20, marginBottom: 12 }}>✓</div>
       <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, color: "#f5f5f7" }}>
         {done.status === "pending" ? "Request received" : "You're booked"}

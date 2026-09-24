@@ -152,11 +152,11 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-    <aside className="mount-rise" style={panelStyle} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
+    <aside className="mount-rise" role="dialog" aria-modal="true" aria-labelledby="event-detail-title" style={panelStyle} onClick={(e) => e.stopPropagation()}>
       <div style={{ background: eventColor, color: headerText, padding: "16px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, lineHeight: 1.3 }}>{event.title}</div>
+          <div id="event-detail-title" style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, lineHeight: 1.3 }}>{event.title}</div>
           <button
             onClick={onClose}
             className="icon-btn hoverable"
@@ -172,7 +172,7 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
           {start.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
         </div>
         <div className="tabular-nums" style={{ fontSize: 12, fontWeight: 500, color: headerText === "#ffffff" ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.75)", marginTop: 2 }}>
-          {formatTimeRange(start, end)}
+          {event.all_day ? "All day" : formatTimeRange(start, end)}
         </div>
         {isRecurring && (
           <div style={{ fontSize: 11.5, color: headerText === "#ffffff" ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.7)", marginTop: 4 }}>
@@ -196,7 +196,7 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
 
       <section style={{ padding: "18px 24px", borderBottom: "1px solid var(--border-subtle)" }}>
         <SectionLabel>At a glance</SectionLabel>
-        <DetailRow label="When" value={`${start.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · ${formatTimeRange(start, end)}`} />
+        <DetailRow label="When" value={`${start.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · ${event.all_day ? "All day" : formatTimeRange(start, end)}`} />
         {event.location && <DetailRow label="Where" value={event.location ?? ""} />}
         {canJoin && <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, padding: "9px 10px", background: "var(--bg-raised-hover)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)" }}><ProviderBadge provider={conference.provider} /><a href={conference.url ?? undefined} target="_blank" rel="noreferrer" style={{ flex: 1, minWidth: 0, overflow: "hidden", color: "var(--accent)", fontSize: 12, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conference.url}</a><button className="btn-secondary hoverable" style={{ padding: "5px 9px", fontSize: 11 }} onClick={copyInvite}>Copy invite</button></div>}
       </section>

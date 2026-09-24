@@ -777,7 +777,7 @@ function CreateCredentialModal({
             </button>
             <button
               type="submit"
-              disabled={saving || users.length === 0}
+              disabled={saving || (!selfServe && users.length === 0)}
               className="btn-primary hoverable"
               style={{ padding: "8px 18px", fontSize: 13, fontWeight: 600 }}
             >
@@ -801,4 +801,3 @@ const modalInputStyle: React.CSSProperties = {
   boxSizing: "border-box",
   colorScheme: "dark",
 };
-

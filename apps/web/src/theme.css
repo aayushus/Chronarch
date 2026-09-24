@@ -2,6 +2,7 @@
   --bg-app: #1c1c1e;  --bg-sidebar: rgba(23, 23, 26, 0.78);
   --bg-panel: rgba(35, 35, 38, 0.82);
   --bg-card: var(--bg-raised);
+  --bg-subtle: rgba(255, 255, 255, 0.06);
   --bg-raised: #2c2c2e;
   --bg-raised-hover: #3a3a3c;
   --border: #3a3a3c;
@@ -71,6 +72,7 @@
   --bg-panel: rgba(255, 255, 255, 0.85);
   --bg-raised: #ffffff;
   --bg-card: #ffffff;
+  --bg-subtle: #f1f1f4;
   --bg-raised-hover: #e9e9ee;
   --border: #d9d9de;
   --border-subtle: #e6e6ea;
@@ -603,4 +605,18 @@ kbd {
 }
 .btn-danger:hover {
   background: rgba(255, 69, 58, 0.22);
+}
+
+@media (max-width: 900px) {
+  .settings-rail { width: 190px !important; min-width: 190px !important; }
+  .settings-main { padding: 24px 20px !important; }
+  .login-shell { width: min(94vw, 560px) !important; }
+  .login-shell > :first-child { display: none !important; }
+}
+@media (max-width: 700px) {
+  .settings-rail { display: none !important; }
+  .settings-main { padding: 20px 14px !important; }
+}
+@media (max-width: 1080px) {
+  .calendar-rail { display: none !important; }
 }

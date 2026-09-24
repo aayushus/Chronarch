@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { CalendarSummary } from "../api/calendar";
 import AttendeePicker, { PickerAttendee } from "./AttendeePicker";
@@ -50,23 +50,40 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
   const [allDay, setAllDay] = useState(initialAllDay);
   const [attendees, setAttendees] = useState<PickerAttendee[]>([]);
   const [repeat, setRepeat] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    titleRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!calendarId || !title) return;
+    const cleanTitle = title.trim();
+    if (!calendarId) { setError("Choose a writable calendar."); return; }
+    if (!cleanTitle) { setError("Enter an event title."); return; }
+    if (!date || (!allDay && (!startTime || !endTime))) { setError("Choose a date and time."); return; }
+    const start = new Date(`${date}T${startTime || "00:00"}`);
+    const end = new Date(`${date}T${endTime || "00:00"}`);
+    if (!allDay && end <= start) { setError("End time must be after start time."); return; }
+    if (saving) return;
+    setError(null); setSaving(true);
     const withAttendees = attendees.length > 0 ? { attendees } : {};
     const withRepeat = repeat ? { recurrence: { freq: repeat } } : {};
     if (allDay) {
       const dayStart = new Date(`${date}T00:00`);
       const dayEnd = new Date(dayStart);
       dayEnd.setDate(dayEnd.getDate() + 1);
-      onCreate({ calendar_id: calendarId, title, start: dayStart.toISOString(), end: dayEnd.toISOString(), all_day: true, ...withAttendees, ...withRepeat });
+      onCreate({ calendar_id: calendarId, title: cleanTitle, start: dayStart.toISOString(), end: dayEnd.toISOString(), all_day: true, ...withAttendees, ...withRepeat });
     } else {
       onCreate({
         calendar_id: calendarId,
-        title,
-        start: new Date(`${date}T${startTime}`).toISOString(),
-        end: new Date(`${date}T${endTime}`).toISOString(),
+        title: cleanTitle,
+        start: start.toISOString(),
+        end: end.toISOString(),
         all_day: false,
         ...withAttendees,
         ...withRepeat,
@@ -75,9 +92,12 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
       <form
         className="modal-card mount-rise"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="quick-create-title"
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
         style={{
@@ -86,15 +106,16 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
           gap: 12,
         }}
       >
-        <div style={{ fontSize: 16, fontWeight: 700 }}>New Event</div>
+        <div id="quick-create-title" style={{ fontSize: 16, fontWeight: 700 }}>New Event</div>
         <input
-          autoFocus
+          ref={titleRef}
           placeholder="Event Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required
           className="input-standard"
         />
+        {error && <div role="alert" style={{ color: "var(--danger)", fontSize: 12 }}>{error}</div>}
         {writable.length === 0 ? (
           <div style={{ fontSize: 12, color: "var(--warning)" }}>No writable calendars available.</div>
         ) : (
@@ -132,12 +153,11 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
           <button type="button" onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>
             Cancel
           </button>
-          <button type="submit" disabled={writable.length === 0} className="btn-primary" style={{ flex: 1 }}>
-            Create
+          <button type="submit" disabled={writable.length === 0 || saving} className="btn-primary" style={{ flex: 1 }}>
+            {saving ? "Creating…" : "Create"}
           </button>
         </div>
       </form>
     </div>
   );
 }
-

@@ -64,8 +64,10 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
   const gridRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [creating, setCreating] = useState<CreateState | null>(null);
-  const dayEvents = events.filter((e) => !e.all_day && sameDay(new Date(e.start), day));
-  const allDayEvents = events.filter((e) => e.all_day && sameDay(new Date(e.start), day));
+  const dayStart = new Date(day); dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
+  const dayEvents = events.filter((e) => !e.all_day && new Date(e.start) < dayEnd && new Date(e.end) > dayStart);
+  const allDayEvents = events.filter((e) => e.all_day && new Date(e.start) < dayEnd && new Date(e.end) > dayStart);
 
   const laidOut = packOverlaps(
     dayEvents,

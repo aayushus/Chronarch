@@ -192,7 +192,7 @@ export default function LoginPage() {
       }}
     >
       <div
-        className="mount-rise"
+        className="mount-rise login-shell"
         style={{
           display: "flex",
           width: 880,

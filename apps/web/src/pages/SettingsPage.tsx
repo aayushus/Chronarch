@@ -142,7 +142,7 @@ export default function SettingsPage() {
 
       <div style={{ flex: 1, display: "flex", minHeight: 0, minWidth: 0 }}>
       <aside
-        className="vibrancy"
+        className="vibrancy settings-rail"
         style={{
           width: 240,
           minWidth: 240,
@@ -209,7 +209,7 @@ export default function SettingsPage() {
         </div>
       </aside>
 
-      <main style={{ flex: 1, overflowY: "auto", padding: "32px 48px", minWidth: 0 }}>
+      <main className="settings-main" style={{ flex: 1, overflowY: "auto", padding: "32px 48px", minWidth: 0 }}>
         <div key={section} className="view-enter" style={{ maxWidth: 880, margin: "0 auto" }}>
           {filtered.length === 0 ? (
             <div style={{ fontSize: 13, color: "var(--text-tertiary)", padding: "32px 0", textAlign: "center" }}>
