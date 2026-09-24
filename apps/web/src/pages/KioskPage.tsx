@@ -62,6 +62,22 @@ function fmtRange(e: KioskEvent): string {
   return `${fmtTime(e.start)} – ${fmtTime(e.end)}`;
 }
 
+function isCancelled(e: KioskEvent): boolean {
+  return /^\s*cancelled?\s*:/i.test(e.title);
+}
+
+function overlapGroups(items: KioskEvent[]): KioskEvent[][] {
+  const groups: KioskEvent[][] = [];
+  for (const event of items) {
+    const group = groups.find((candidate) => candidate.some((other) =>
+      !event.all_day && !other.all_day && new Date(event.start).getTime() < new Date(other.end).getTime() && new Date(event.end).getTime() > new Date(other.start).getTime(),
+    ));
+    if (group) group.push(event);
+    else groups.push([event]);
+  }
+  return groups;
+}
+
 export default function KioskPage() {
   const { token } = useParams<{ token: string }>();
   const [meta, setMeta] = useState<KioskMeta | null>(null);
@@ -71,6 +87,8 @@ export default function KioskPage() {
   const [now, setNow] = useState(() => new Date());
   const [weekOffset, setWeekOffset] = useState(0);
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const [hideCancelled, setHideCancelled] = useState(false);
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [filterOpen, setFilterOpen] = useState(false);
   const [wakeUntil, setWakeUntil] = useState(0);
   const [headerWeather, setHeaderWeather] = useState<DayWeather | null>(null);
@@ -200,15 +218,16 @@ export default function KioskPage() {
   );
 
   const visibleEvents = useMemo(
-    () => (hiddenIds.size === 0 ? events : events.filter((e) => !hiddenIds.has(e.calendar_id))),
-    [events, hiddenIds],
+    () => events.filter((e) => !hiddenIds.has(e.calendar_id) && (!hideCancelled || !isCancelled(e))),
+    [events, hiddenIds, hideCancelled],
   );
   const nextEvent = useMemo(
     () => visibleEvents
-      .filter((event) => new Date(event.end).getTime() > now.getTime() && !/^\s*(?:canceled|cancelled)\s*:/i.test(event.title))
+      .filter((event) => new Date(event.end).getTime() > now.getTime() && !isCancelled(event))
       .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())[0] ?? null,
     [visibleEvents, now],
   );
+  const wallpaperUrl = `https://picsum.photos/seed/chronarch-${now.toISOString().slice(0, 10)}/1920/1080`;
 
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
@@ -230,6 +249,33 @@ export default function KioskPage() {
       else next.add(id);
       return next;
     });
+  }
+
+  function renderEventCard(e: KioskEvent, compact = false) {
+    const cancelled = isCancelled(e);
+    const surface = cancelled
+      ? "repeating-linear-gradient(135deg, rgba(170,170,175,.22) 0, rgba(170,170,175,.22) 5px, rgba(120,120,130,.12) 5px, rgba(120,120,130,.12) 10px)"
+      : tint(e.calendar_color, 0.28);
+    return (
+      <button
+        key={e.id}
+        onClick={() => setSelectedEvent(e)}
+        style={{ display: compact ? "flex" : undefined, alignItems: compact ? "center" : undefined, gap: compact ? 14 : undefined, background: surface, border: "none", borderRadius: compact ? 12 : 10, padding: compact ? "12px 16px" : "9px 11px", minWidth: 0, minHeight: compact ? 44 : 48, maxHeight: compact ? undefined : 78, overflow: "hidden", textAlign: "left", cursor: "pointer", color: "inherit", font: "inherit", opacity: cancelled ? .72 : 1, width: "100%" }}
+      >
+        {!compact && <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.25, display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", textDecoration: cancelled ? "line-through" : "none" }}>{e.title}</div>}
+        {compact && <span style={{ width: 22, height: 22, borderRadius: "50%", background: e.calendar_color, color: "#fff", fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{(e.calendar_name || "?")[0]?.toUpperCase()}</span>}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {compact && <div style={{ fontSize: 15, fontWeight: 600, textDecoration: cancelled ? "line-through" : "none" }}>{e.title}</div>}
+          <div style={{ fontSize: compact ? 13 : 12.5, color: darkMode ? "#c6ced8" : "#6b6b73", marginTop: compact ? 2 : 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, overflow: "hidden" }}>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {fmtRange(e)}{!e.masked && e.location ? ` · ${e.location}` : ""}
+              {!e.masked && e.location ? <EventWeather location={e.location} start={e.start} color={darkMode ? "#c6ced8" : "#6b6b73"} /> : null}
+            </span>
+            {!compact && <span title={e.calendar_name} style={{ width: 20, height: 20, borderRadius: "50%", background: e.calendar_color, color: "#fff", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{(e.calendar_name || "?")[0]?.toUpperCase()}</span>}
+          </div>
+        </div>
+      </button>
+    );
   }
 
   if (error && !meta) {
@@ -282,7 +328,7 @@ export default function KioskPage() {
 
   if (screensaver) {
     return (
-      <div className="kiosk-screensaver" onClick={() => setScreensaver(false)}>
+      <div className="kiosk-screensaver" onClick={() => setScreensaver(false)} style={{ backgroundImage: `linear-gradient(rgba(10,15,24,.76),rgba(10,15,24,.84)), url("${wallpaperUrl}")` }}>
         <div className="kiosk-screensaver-content">
           <div className="kiosk-name">{meta?.name || "Chronarch Kiosk"}</div>
           <div className="kiosk-screensaver-time">{now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</div>
@@ -299,8 +345,9 @@ export default function KioskPage() {
   const freshness = lastLoadedAt ? `Updated ${Math.max(0, Math.round((Date.now() - lastLoadedAt.getTime()) / 60000))}m ago` : "Updating…";
 
   return (
-    <div className={`kiosk-live ${darkMode ? "kiosk-live-dark" : ""}`} style={{ height: "100vh", background: PAGE, color: INK, padding: "14px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", width: "100%", margin: "0 auto", background: CARD, borderRadius: 10, padding: "14px 28px 10px", boxShadow: "0 8px 30px rgba(0,0,0,0.08)", overflow: "hidden" }}>
+    <div className={`kiosk-live ${darkMode ? "kiosk-live-dark" : ""}`} style={{ height: "100vh", background: PAGE, color: INK, padding: "14px", display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+      <div className="kiosk-wallpaper" aria-hidden="true" style={{ backgroundImage: `url("${wallpaperUrl}")` }} />
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", width: "100%", margin: "0 auto", background: CARD, borderRadius: 10, padding: "14px 28px 10px", boxShadow: "0 8px 30px rgba(0,0,0,0.08)", overflow: "hidden", position: "relative", zIndex: 1 }}>
         {/* Header: date/time/weather left, controls right. */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12, flexShrink: 0 }}>
           <div>
@@ -311,7 +358,7 @@ export default function KioskPage() {
               {now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
             </span>
             {headerWeather && (
-              <span style={{ fontWeight: 400, color: MUTED, marginLeft: 10 }}>{wmoGlyph(headerWeather.code)} {headerWeather.tempMax === null ? "–" : `${Math.round(headerWeather.tempMax)}°`}</span>
+              <span style={{ fontWeight: 400, color: MUTED, marginLeft: 10 }}>{wmoGlyph(headerWeather.code)} {headerWeather.tempMax === null ? "–" : `${Math.round(headerWeather.tempMax)}°`} · {wmoLabel(headerWeather.code)} · {meta?.location_label || "Local weather"} · low {headerWeather.tempMin === null ? "–" : `${Math.round(headerWeather.tempMin)}°`}</span>
             )}
             <span style={{ fontSize: 12, fontWeight: 500, color: FAINT, marginLeft: 10 }}>{freshness}</span>
             </div>
@@ -322,28 +369,32 @@ export default function KioskPage() {
               <button
                 onClick={() => setViewModeAndPersist("week")}
                 aria-pressed={viewMode === "week"}
-                style={{ border: "none", background: viewMode === "week" ? INK : "#fff", color: viewMode === "week" ? "#fff" : INK, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                style={{ border: "none", background: viewMode === "week" ? INK : (darkMode ? "#2b313a" : "#fff"), color: viewMode === "week" ? "#fff" : INK, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
               >
                 Week
               </button>
               <button
                 onClick={() => setViewModeAndPersist("agenda")}
                 aria-pressed={viewMode === "agenda"}
-                style={{ border: "none", background: viewMode === "agenda" ? INK : "#fff", color: viewMode === "agenda" ? "#fff" : INK, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                style={{ border: "none", background: viewMode === "agenda" ? INK : (darkMode ? "#2b313a" : "#fff"), color: viewMode === "agenda" ? "#fff" : INK, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
               >
                 Agenda
               </button>
             </div>
-            <button onClick={() => setFilterOpen((v) => !v)} style={{ border: "1px solid #e3e1da", background: "#fff", borderRadius: 6, padding: "10px 16px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>
+            <button onClick={() => setFilterOpen((v) => !v)} style={{ border: "1px solid var(--wall-line)", background: darkMode ? "#2b313a" : "#fff", borderRadius: 6, padding: "10px 16px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>
               ⊘ Filter{hiddenIds.size > 0 ? ` (${calendars.length - hiddenIds.size}/${calendars.length})` : ""}
             </button>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: MUTED, whiteSpace: "nowrap", cursor: "pointer" }}>
+              <input type="checkbox" checked={hideCancelled} onChange={(event) => setHideCancelled(event.target.checked)} style={{ accentColor: "#6f73e8" }} />
+              Hide cancelled
+            </label>
             <button onClick={() => setWeekOffset((v) => v - 1)} aria-label="Previous week" style={{ border: "none", background: "transparent", fontSize: 20, color: MUTED, cursor: "pointer", padding: "10px 14px" }}>‹</button>
             <button onClick={() => setWeekOffset(0)} style={{ border: "none", background: "transparent", fontSize: 14, fontWeight: 700, color: INK, cursor: "pointer", padding: "10px 14px" }}>Today</button>
             <button onClick={() => setWeekOffset((v) => v + 1)} aria-label="Next week" style={{ border: "none", background: "transparent", fontSize: 20, color: MUTED, cursor: "pointer", padding: "10px 14px" }}>›</button>
-            <button onClick={() => setScreensaver(true)} style={{ border: "1px solid #e3e1da", background: "#fff", borderRadius: 6, padding: "10px 12px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>Screensaver</button>
-            <button onClick={() => setDarkMode((v) => !v)} style={{ border: "1px solid #e3e1da", background: "#fff", borderRadius: 6, padding: "10px 12px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>{darkMode ? "Light mode" : "Dark mode"}</button>
+            <button onClick={() => setScreensaver(true)} style={{ border: "1px solid var(--wall-line)", background: darkMode ? "#2b313a" : "#fff", borderRadius: 6, padding: "10px 12px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>Screensaver</button>
+            <button onClick={() => setDarkMode((v) => !v)} style={{ border: "1px solid var(--wall-line)", background: darkMode ? "#2b313a" : "#fff", borderRadius: 6, padding: "10px 12px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>{darkMode ? "Light mode" : "Dark mode"}</button>
             {filterOpen && (
-              <div style={{ position: "absolute", top: 36, right: 70, background: "#fff", border: "1px solid #e3e1da", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 8, zIndex: 10, minWidth: 200 }}>
+              <div style={{ position: "absolute", top: 36, right: 70, background: darkMode ? "#20262e" : "#fff", border: "1px solid var(--wall-line)", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 8, zIndex: 10, minWidth: 200 }}>
                 {calendars.map((c) => {
                   const hidden = hiddenIds.has(c.id);
                   return (
@@ -374,7 +425,10 @@ export default function KioskPage() {
         {viewMode === "week" ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 10, flex: 1, minHeight: 0 }}>
             {weekDays.map((day) => {
-              const items = byDay.get(localKey(day)) ?? [];
+              const dayKey = localKey(day);
+              const items = byDay.get(dayKey) ?? [];
+              const shownItems = expandedDays.has(dayKey) ? items : items.slice(0, 14);
+              const hiddenCount = items.length - shownItems.length;
               const isToday = localKey(day) === localKey(now);
               return (
                 <div key={localKey(day)} style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
@@ -388,28 +442,16 @@ export default function KioskPage() {
                     )}
                   </div>
                   <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8, flexShrink: 0 }}>
-                    {items.length === 0 ? "No events" : `${items.length} event${items.length === 1 ? "" : "s"}`}
+                    {items.length === 0 ? "No events" : `${items.length} event${items.length === 1 ? "" : "s"}${overlapGroups(items).filter((group) => group.length > 1).length ? ` · ${overlapGroups(items).filter((group) => group.length > 1).length} concurrent` : ""}`}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, minHeight: 0, overflowY: "auto" }}>
-                    {items.map((e) => (
-                      <button
-                        key={e.id}
-                        onClick={() => setSelectedEvent(e)}
-                        style={{ background: tint(e.calendar_color, 0.28), border: "none", borderRadius: 10, padding: "9px 11px", minWidth: 0, minHeight: 48, maxHeight: 78, overflow: "hidden", textAlign: "left", cursor: "pointer", color: "inherit", font: "inherit" }}
-                      >
-                        <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.25, display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden" }}>{e.title}</div>
-                        <div style={{ fontSize: 12.5, color: "#6b6b73", marginTop: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {fmtRange(e)}
-                            {!e.masked && e.location ? ` · ${e.location}` : ""}
-                            {!e.masked && e.location ? <EventWeather location={e.location} start={e.start} color="#6b6b73" /> : null}
-                          </span>
-                          <span title={e.calendar_name} style={{ width: 20, height: 20, borderRadius: "50%", background: e.calendar_color, color: "#fff", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                            {(e.calendar_name || "?")[0]?.toUpperCase()}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+                    {overlapGroups(shownItems).map((group, index) => group.length > 1 ? (
+                      <div key={`parallel-${dayKey}-${index}`} style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(group.length, 2)}, minmax(0, 1fr))`, gap: 6 }}>
+                        <div style={{ gridColumn: "1 / -1", color: MUTED, fontSize: 10, fontWeight: 700 }}>Concurrent · {fmtTime(group[0].start)}</div>
+                        {group.map((event) => renderEventCard(event))}
+                      </div>
+                    ) : renderEventCard(group[0]))}
+                    {hiddenCount > 0 && <button onClick={() => setExpandedDays((prev) => new Set(prev).add(dayKey))} style={{ border: "none", background: "var(--wall-well)", color: MUTED, borderRadius: 7, padding: "7px 10px", fontSize: 12, cursor: "pointer" }}>+ {hiddenCount} more</button>}
                   </div>
                 </div>
               );
@@ -418,31 +460,22 @@ export default function KioskPage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 18, flex: 1, minHeight: 0, overflowY: "auto" }}>
             {weekDays.map((day) => {
-              const items = byDay.get(localKey(day)) ?? [];
+              const dayKey = localKey(day);
+              const items = byDay.get(dayKey) ?? [];
               if (items.length === 0) return null;
+              const shownItems = expandedDays.has(dayKey) ? items : items.slice(0, 14);
+              const hiddenCount = items.length - shownItems.length;
               return (
                 <div key={localKey(day)}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: MUTED, marginBottom: 8 }}>{dayLabel(day, now)}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {items.map((e) => (
-                      <button
-                        key={e.id}
-                        onClick={() => setSelectedEvent(e)}
-                        style={{ display: "flex", alignItems: "center", gap: 14, background: tint(e.calendar_color, 0.28), border: "none", borderRadius: 12, padding: "12px 16px", minHeight: 44, textAlign: "left", cursor: "pointer", color: "inherit", font: "inherit" }}
-                      >
-                        <span style={{ width: 22, height: 22, borderRadius: "50%", background: e.calendar_color, color: "#fff", fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          {(e.calendar_name || "?")[0]?.toUpperCase()}
-                        </span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 15, fontWeight: 600 }}>{e.title}</div>
-                          <div style={{ fontSize: 13, color: "#6b6b73", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {fmtRange(e)}
-                            {!e.masked && e.location ? ` · ${e.location}` : ""}
-                            {!e.masked && e.location ? <EventWeather location={e.location} start={e.start} color="#6b6b73" /> : null}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+                    {overlapGroups(shownItems).map((group, index) => group.length > 1 ? (
+                      <div key={`parallel-agenda-${dayKey}-${index}`} style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(group.length, 2)}, minmax(0, 1fr))`, gap: 8 }}>
+                        <div style={{ gridColumn: "1 / -1", color: MUTED, fontSize: 11, fontWeight: 700 }}>Parallel at {fmtTime(group[0].start)} · {group.length} events</div>
+                        {group.map((event) => renderEventCard(event, true))}
+                      </div>
+                    ) : renderEventCard(group[0]))}
+                    {hiddenCount > 0 && <button onClick={() => setExpandedDays((prev) => new Set(prev).add(dayKey))} style={{ border: "none", background: "var(--wall-well)", color: MUTED, borderRadius: 7, padding: "8px 10px", fontSize: 12, cursor: "pointer" }}>+ {hiddenCount} more</button>}
                   </div>
                 </div>
               );
@@ -452,7 +485,7 @@ export default function KioskPage() {
             )}
           </div>
         )}
-        <div style={{ fontSize: 13, color: FAINT, marginTop: 10, flexShrink: 0 }}>{rangeLabel}</div>
+        <div style={{ fontSize: 13, color: FAINT, marginTop: 10, flexShrink: 0 }}>Chronarch Kiosk · {rangeLabel} · Tap an event for a summary</div>
       </div>
 
       {selectedEvent && (
@@ -460,10 +493,10 @@ export default function KioskPage() {
           onClick={() => setSelectedEvent(null)}
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, zIndex: 20 }}
         >
-          <div onClick={(ev) => ev.stopPropagation()} style={{ background: CARD, borderRadius: 20, padding: "24px 28px", maxWidth: 440, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+          <div onClick={(ev) => ev.stopPropagation()} role="dialog" aria-modal="true" style={{ background: CARD, borderRadius: 12, padding: "24px 28px", maxWidth: 520, maxHeight: "min(720px, calc(100vh - 32px))", width: "100%", overflowY: "auto", overflowWrap: "anywhere", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-              <div style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.3 }}>{selectedEvent.title}</div>
-              <button onClick={() => setSelectedEvent(null)} aria-label="Close" style={{ border: "none", background: "#f2f1ec", borderRadius: "50%", width: 36, height: 36, fontSize: 16, color: INK, cursor: "pointer", flexShrink: 0 }}>✕</button>
+              <div style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.3, minWidth: 0, overflowWrap: "anywhere" }}>{selectedEvent.title}</div>
+              <button onClick={() => setSelectedEvent(null)} aria-label="Close" style={{ border: "none", background: darkMode ? "#343c47" : "#f2f1ec", borderRadius: "50%", width: 36, height: 36, fontSize: 16, color: INK, cursor: "pointer", flexShrink: 0 }}>✕</button>
             </div>
             <div style={{ fontSize: 15, color: MUTED, marginTop: 10 }}>
               {selectedEvent.all_day ? "All day" : `${fmtTime(selectedEvent.start)} – ${fmtTime(selectedEvent.end)}`}
@@ -474,7 +507,7 @@ export default function KioskPage() {
               <div style={{ fontSize: 14, color: INK, marginTop: 12 }}>📍 {selectedEvent.location}</div>
             )}
             {!selectedEvent.masked && selectedEvent.description && (
-              <div style={{ fontSize: 14, color: INK, marginTop: 12, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{selectedEvent.description}</div>
+              <div style={{ fontSize: 14, color: INK, marginTop: 12, lineHeight: 1.5, overflowWrap: "anywhere" }}>{selectedEvent.description.split(/\n\s*\n|(?<=[.!?])\s+/)[0]}</div>
             )}
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16 }}>
               <span style={{ width: 12, height: 12, borderRadius: "50%", background: selectedEvent.calendar_color, flexShrink: 0 }} />

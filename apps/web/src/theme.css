@@ -232,8 +232,10 @@ textarea::selection {
 }
 .kiosk-live-name { color: var(--wall-muted); font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
 .kiosk-live-range { color: var(--wall-muted); font-size: 12px; margin-top: 3px; }
+.kiosk-wallpaper { position: absolute; inset: -28px; pointer-events: none; background-position: center; background-size: cover; filter: blur(26px) saturate(.7); opacity: .13; transform: scale(1.08); }
 .kiosk-live-dark { --wall-page: #171b21; --wall-card: #20262e; --wall-ink: #eef2f7; --wall-muted: #aab4c2; --wall-faint: #7e8998; --wall-line: #343b46; }
-.kiosk-screensaver { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; overflow: hidden; color: #fff; background: linear-gradient(rgba(10,15,24,.76),rgba(10,15,24,.84)), radial-gradient(circle at 50% 38%,rgba(255,218,118,.12),transparent 30%), #111722; cursor: pointer; }
+.kiosk-live-dark .kiosk-wallpaper { opacity: .08; }
+.kiosk-screensaver { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; overflow: hidden; color: #fff; background-size: cover; background-position: center; background-repeat: no-repeat; cursor: pointer; }
 .kiosk-screensaver::before { content: ""; position: absolute; inset: -30px; background: linear-gradient(135deg, rgba(75, 108, 155, .42), rgba(24, 31, 45, .6)); filter: blur(28px); opacity: .75; }
 .kiosk-screensaver-content { position: relative; display: grid; justify-items: center; gap: 14px; text-align: center; }
 .kiosk-screensaver-content .kiosk-name { color: #b8c2cf; font-size: 12px; letter-spacing: .18em; text-transform: uppercase; }
