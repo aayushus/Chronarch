@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router-dom";
 
 import { apiFetch, friendlyError } from "../api/client";
-import { geocodeLocation, getDayWeather, formatDayWeather } from "../api/weather";
+import { geocodeLocation, getDayWeather, wmoGlyph, wmoLabel, type DayWeather } from "../api/weather";
 import { addDays, dayLabel, isAsleep, pickCountdowns, startOfWeekSunday, tint } from "../lib/kiosk";
 import EventWeather from "../components/EventWeather";
 
@@ -73,7 +73,7 @@ export default function KioskPage() {
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [filterOpen, setFilterOpen] = useState(false);
   const [wakeUntil, setWakeUntil] = useState(0);
-  const [headerWeather, setHeaderWeather] = useState<string | null>(null);
+  const [headerWeather, setHeaderWeather] = useState<DayWeather | null>(null);
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     try {
@@ -166,7 +166,7 @@ export default function KioskPage() {
       if (!geo || !live) return;
       const todayISO = new Date().toISOString().slice(0, 10);
       const day = await getDayWeather(geo.latitude, geo.longitude, todayISO);
-      if (day && live) setHeaderWeather(formatDayWeather(day));
+      if (day && live) setHeaderWeather(day);
     })();
     return () => {
       live = false;
@@ -181,6 +181,12 @@ export default function KioskPage() {
   const visibleEvents = useMemo(
     () => (hiddenIds.size === 0 ? events : events.filter((e) => !hiddenIds.has(e.calendar_id))),
     [events, hiddenIds],
+  );
+  const nextEvent = useMemo(
+    () => visibleEvents
+      .filter((event) => new Date(event.end).getTime() > now.getTime())
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())[0] ?? null,
+    [visibleEvents, now],
   );
 
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
@@ -221,12 +227,34 @@ export default function KioskPage() {
     return (
       <div
         onClick={() => setWakeUntil(Date.now() + WAKE_OVERRIDE_MS)}
-        style={{ minHeight: "100vh", background: "#000", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+        className={`kiosk-sleep kiosk-sleep-${headerWeather ? (headerWeather.code >= 95 ? "storm" : headerWeather.code >= 71 ? "snow" : headerWeather.code >= 51 ? "rain" : "clear") : "clear"}`}
+        style={{ minHeight: "100vh", background: "#050608", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative", overflow: "hidden" }}
       >
-        <div style={{ fontSize: 64, fontWeight: 200, color: "#3a3a3c", letterSpacing: "-0.02em" }}>
-          {now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+        <div className="kiosk-sleep-atmosphere" aria-hidden="true" />
+        <div style={{ position: "relative", zIndex: 1, textAlign: "center", padding: 24 }}>
+          <div style={{ fontSize: "clamp(72px, 10vw, 144px)", lineHeight: 1, fontWeight: 200, color: "rgba(245,245,247,.88)", letterSpacing: "-0.045em", fontVariantNumeric: "tabular-nums" }}>
+            {now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+          </div>
+          <div style={{ fontSize: 18, color: "rgba(245,245,247,.52)", marginTop: 16 }}>
+            {now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+            {meta?.location_label ? ` · ${meta.location_label}` : ""}
+          </div>
+          {headerWeather && (
+            <div style={{ fontSize: 17, color: "rgba(245,245,247,.62)", marginTop: 12 }}>
+              <span style={{ fontSize: 25, marginRight: 8 }}>{wmoGlyph(headerWeather.code)}</span>
+              {wmoLabel(headerWeather.code)} · {headerWeather.tempMax === null ? "–" : `${Math.round(headerWeather.tempMax)}°`}
+              {headerWeather.precipProb !== null && headerWeather.precipProb >= 30 ? ` · ${Math.round(headerWeather.precipProb)}% rain` : ""}
+            </div>
+          )}
+          {nextEvent && (
+            <div style={{ marginTop: 34, fontSize: 16, color: "rgba(245,245,247,.7)" }}>
+              <span style={{ color: "rgba(10,132,255,.95)", fontWeight: 700 }}>Next</span>
+              {" · "}{nextEvent.masked ? "Busy" : nextEvent.title}
+              {` · ${nextEvent.all_day ? "All day" : fmtTime(nextEvent.start)}`}
+            </div>
+          )}
+          <div style={{ fontSize: 12, color: "rgba(245,245,247,.28)", marginTop: 42 }}>Tap anywhere to wake</div>
         </div>
-        <div style={{ fontSize: 12, color: "#2c2c2e", marginTop: 12 }}>tap to wake</div>
       </div>
     );
   }
@@ -247,7 +275,7 @@ export default function KioskPage() {
               {now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
             </span>
             {headerWeather && (
-              <span style={{ fontWeight: 400, color: MUTED, marginLeft: 10 }}>{headerWeather}</span>
+              <span style={{ fontWeight: 400, color: MUTED, marginLeft: 10 }}>{wmoGlyph(headerWeather.code)} {headerWeather.tempMax === null ? "–" : `${Math.round(headerWeather.tempMax)}°`}</span>
             )}
             <span style={{ fontSize: 12, fontWeight: 500, color: FAINT, marginLeft: 10 }}>{freshness}</span>
           </div>
@@ -290,21 +318,6 @@ export default function KioskPage() {
             )}
           </div>
         </div>
-
-        {/* Per-calendar strips. */}
-        {calendars.length > 0 && (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, flexShrink: 0 }}>
-            {calendars.map((c) => {
-              const todayCount = (byDay.get(localKey(new Date())) ?? []).filter((e) => e.calendar_id === c.id).length;
-              const dimmed = hiddenIds.has(c.id);
-              return (
-                <button key={c.id} onClick={() => toggleHidden(c.id)} title={dimmed ? `Show ${c.name}` : `Hide ${c.name}`} style={{ border: "none", borderRadius: 14, padding: "5px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", background: dimmed ? "#eee" : tint(c.color, 0.22), color: dimmed ? FAINT : INK, opacity: dimmed ? 0.6 : 1 }}>
-                  {c.name} · {todayCount}
-                </button>
-              );
-            })}
-          </div>
-        )}
 
         {/* Countdowns. */}
         {countdowns.length > 0 && (

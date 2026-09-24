@@ -203,6 +203,34 @@ textarea::selection {
   cursor: ns-resize;
 }
 
+/* Quiet ambient motion for the kiosk sleep screen. */
+.kiosk-sleep-atmosphere {
+  position: absolute;
+  inset: -20%;
+  opacity: .34;
+  background: radial-gradient(circle at 50% 45%, rgba(70, 95, 150, .22), transparent 42%);
+  animation: kioskAmbient 18s ease-in-out infinite alternate;
+}
+.kiosk-sleep-rain .kiosk-sleep-atmosphere {
+  background: repeating-linear-gradient(112deg, transparent 0 18px, rgba(110, 155, 220, .08) 19px 20px, transparent 21px 42px);
+  animation-duration: 2.8s;
+}
+.kiosk-sleep-snow .kiosk-sleep-atmosphere {
+  background: radial-gradient(circle, rgba(240,245,255,.18) 0 2px, transparent 3px) 0 0 / 46px 46px;
+  animation-duration: 12s;
+}
+.kiosk-sleep-storm .kiosk-sleep-atmosphere {
+  background: radial-gradient(circle at 50% 40%, rgba(90, 100, 155, .28), transparent 48%);
+  animation-duration: 5s;
+}
+@keyframes kioskAmbient {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); }
+  to { transform: translate3d(2%, 1%, 0) scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kiosk-sleep-atmosphere { animation: none; }
+}
+
 /* --- Global keyboard focus visibility (Chronarch design philosophy) --- */
 :focus {
   outline: none;
