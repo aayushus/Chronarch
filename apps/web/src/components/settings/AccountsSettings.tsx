@@ -72,9 +72,14 @@ export default function AccountsSettings() {
     const connected = params.get("accounts_connected");
     const errParam = params.get("accounts_error");
     if (connected) {
-      setBanner({ kind: "success", text: `Connected a ${connected} account successfully.` });
+      const label = connected === "microsoft" ? "Microsoft 365" : connected === "google" ? "Google Calendar" : connected;
+      setBanner({ kind: "success", text: `${label} connected successfully. Calendars are now available in Chronarch.` });
+      // The OAuth round-trip can return while the initial account list load is
+      // still in flight. Refresh explicitly so the new account appears in the
+      // Connected Accounts section immediately.
+      adminListAccounts().then(setAccounts).catch((e) => setError(friendlyError(e)));
     } else if (errParam) {
-      setBanner({ kind: "error", text: ERROR_MESSAGES[errParam] ?? `Connection failed (${errParam}).` });
+      setBanner({ kind: "error", text: ERROR_MESSAGES[errParam] ?? `The provider sign-in did not complete (${errParam}). No account was connected.` });
     }
     if (connected || errParam) {
       window.history.replaceState({}, "", window.location.pathname);
@@ -285,27 +290,14 @@ export default function AccountsSettings() {
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                    <div
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 8,
-                        background: isGoogle
-                          ? "rgba(10, 132, 255, 0.12)"
-                          : isMicrosoft
-                          ? "rgba(48, 209, 88, 0.12)"
-                          : "rgba(255, 159, 10, 0.12)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 18,
-                      }}
-                    >
-                      {isGoogle ? "G" : isMicrosoft ? "🪟" : isCaldav ? "📅" : "📁"}
-                    </div>
+                    <ProviderLogo provider={a.provider} />
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
                         <span>{a.provider_account_email}</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, color: a.sync_status === "error" ? "var(--danger)" : "var(--success)", fontWeight: 700 }}>
+                          <span style={{ width: 7, height: 7, borderRadius: "50%", background: a.sync_status === "error" ? "var(--danger)" : "var(--success)" }} />
+                          {a.sync_status === "error" ? "Needs attention" : "Connected"}
+                        </span>
                         <span
                           style={{
                             fontSize: 10.5,
@@ -809,7 +801,7 @@ function ConnectAccountWizardModal({
                       color: "var(--accent)",
                     }}
                   >
-                    G
+                    <ProviderLogo provider="google" />
                   </div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 600 }}>Google Calendar</div>
@@ -830,7 +822,7 @@ function ConnectAccountWizardModal({
                       color: isGoogleConfigured ? "var(--success)" : "var(--warning)",
                     }}
                   >
-                    {isGoogleConfigured ? "READY" : "SETUP NEEDED"}
+                    {isGoogleConfigured ? "READY TO CONNECT" : "SETUP NEEDED"}
                   </span>
                   <span style={{ color: "var(--text-tertiary)", fontSize: 14 }}>→</span>
                 </div>
@@ -866,7 +858,7 @@ function ConnectAccountWizardModal({
                       fontSize: 18,
                     }}
                   >
-                    🪟
+                    <ProviderLogo provider="microsoft" />
                   </div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 600 }}>Microsoft 365 / Outlook</div>
@@ -887,7 +879,7 @@ function ConnectAccountWizardModal({
                       color: isMicrosoftConfigured ? "var(--success)" : "var(--warning)",
                     }}
                   >
-                    {isMicrosoftConfigured ? "READY" : "SETUP NEEDED"}
+                    {isMicrosoftConfigured ? "READY TO CONNECT" : "SETUP NEEDED"}
                   </span>
                   <span style={{ color: "var(--text-tertiary)", fontSize: 14 }}>→</span>
                 </div>
@@ -1724,6 +1716,32 @@ function ProviderCredentialCard({
       </div>
     </div>
   );
+}
+
+function ProviderLogo({ provider }: { provider: string }) {
+  if (provider === "google") {
+    return (
+      <div aria-label="Google" title="Google" style={{ width: 36, height: 36, borderRadius: 8, background: "#fff", border: "1px solid var(--border-subtle)", display: "grid", placeItems: "center" }}>
+        <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
+          <path fill="#4285F4" d="M21.35 12.27c0-.72-.06-1.42-.18-2.09H12v3.96h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.7 2.91-4.2 2.91-7.26Z" />
+          <path fill="#34A853" d="M12 21.6c2.63 0 4.84-.87 6.45-2.36l-3.14-2.45c-.87.58-1.98.92-3.31.92-2.54 0-4.7-1.72-5.47-4.03H3.28v2.53A9.75 9.75 0 0 0 12 21.6Z" />
+          <path fill="#FBBC05" d="M6.53 13.68A5.86 5.86 0 0 1 6.22 12c0-.58.1-1.15.31-1.68V7.79H3.28A9.74 9.74 0 0 0 2.25 12c0 1.57.38 3.06 1.03 4.21l3.25-2.53Z" />
+          <path fill="#EA4335" d="M12 6.29c1.43 0 2.71.49 3.72 1.46l2.79-2.79C16.84 3.38 14.63 2.4 12 2.4a9.75 9.75 0 0 0-8.72 5.39l3.25 2.53C7.3 8.01 9.46 6.29 12 6.29Z" />
+        </svg>
+      </div>
+    );
+  }
+  if (provider === "microsoft") {
+    return (
+      <div aria-label="Microsoft" title="Microsoft" style={{ width: 36, height: 36, borderRadius: 8, background: "#fff", border: "1px solid var(--border-subtle)", display: "grid", placeItems: "center" }}>
+        <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
+          <path fill="#f35325" d="M2 2h9.5v9.5H2z" /><path fill="#81bc06" d="M12.5 2H22v9.5h-9.5z" />
+          <path fill="#05a6f0" d="M2 12.5h9.5V22H2z" /><path fill="#ffba08" d="M12.5 12.5H22V22h-9.5z" />
+        </svg>
+      </div>
+    );
+  }
+  return <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(94, 92, 230, 0.15)", display: "grid", placeItems: "center", fontSize: 18 }}>{provider === "caldav" ? "📅" : "📁"}</div>;
 }
 
 function SetupHelpPanel({ provider }: { provider: "google" | "microsoft" }) {
