@@ -507,6 +507,7 @@ function ConnectAccountWizardModal({
 }) {
   const [selectedProvider, setSelectedProvider] = useState<WizardProvider>(null);
   const [googleReview, setGoogleReview] = useState(false);
+  const [editMicrosoftConfig, setEditMicrosoftConfig] = useState(false);
   const [setupHelpOpen, setSetupHelpOpen] = useState(false);
 
   // Form states for OAuth configuration
@@ -562,6 +563,7 @@ function ConnectAccountWizardModal({
   function selectProvider(provider: WizardProvider) {
     setSelectedProvider(provider);
     setGoogleReview(false);
+    setEditMicrosoftConfig(false);
     setConfigError(null);
     setSetupHelpOpen(false);
   }
@@ -1205,7 +1207,7 @@ function ConnectAccountWizardModal({
               </div>
             )}
 
-            {isMicrosoftConfigured ? (
+            {isMicrosoftConfigured && !editMicrosoftConfig ? (
               <div>
                 <div
                   style={{
@@ -1239,6 +1241,18 @@ function ConnectAccountWizardModal({
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
                   <button onClick={onClose} className="btn-secondary hoverable">
                     Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditMicrosoftConfig(true);
+                      setClientId("");
+                      setClientSecret("");
+                      setTenantId(oauth.microsoft?.tenant_id || "common");
+                      setConfigError(null);
+                    }}
+                    className="btn-secondary hoverable"
+                  >
+                    Edit credentials
                   </button>
                   <button
                     onClick={handleMicrosoftDirectConnect}
@@ -1301,7 +1315,7 @@ function ConnectAccountWizardModal({
                   }}
                 >
                   <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", marginBottom: 10 }}>
-                    Step 2: Enter Application (Client) ID & Secret
+                    {editMicrosoftConfig ? "Update Microsoft credentials" : "Step 2: Enter Application (Client) ID & Secret"}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <div>
@@ -1356,7 +1370,7 @@ function ConnectAccountWizardModal({
                     className="btn-primary hoverable"
                     style={{ padding: "8px 20px" }}
                   >
-                    {savingConfig ? "Saving Credentials…" : connecting ? "Redirecting…" : "Save & Connect Microsoft"}
+                    {savingConfig ? "Saving Credentials…" : connecting ? "Redirecting…" : editMicrosoftConfig ? "Save & Reconnect Microsoft" : "Save & Connect Microsoft"}
                   </button>
                 </div>
               </div>
