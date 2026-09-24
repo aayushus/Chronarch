@@ -152,9 +152,10 @@ interface Props {
   name: IconName;
   size?: number;
   strokeWidth?: number;
+  style?: React.CSSProperties;
 }
 
-export default function Icon({ name, size = 14, strokeWidth = 2 }: Props) {
+export default function Icon({ name, size = 14, strokeWidth = 2, style }: Props) {
   return (
     <svg
       width={size}
@@ -166,7 +167,7 @@ export default function Icon({ name, size = 14, strokeWidth = 2 }: Props) {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
-      style={{ flexShrink: 0 }}
+      style={{ flexShrink: 0, ...style }}
     >
       {PATHS[name]}
     </svg>

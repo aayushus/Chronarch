@@ -236,7 +236,12 @@ export default function CalendarPage() {
 
   async function refreshEvents() {
     invalidateEventsCache();
-    setEvents(await fetchEventsLazy(rangeStart, rangeEnd));
+    const [freshEvents, freshCalendars] = await Promise.all([
+      fetchEventsLazy(rangeStart, rangeEnd, user?.id ?? user?.email),
+      listCalendars(),
+    ]);
+    setEvents(freshEvents);
+    setCalendars(freshCalendars);
   }
 
   function handleCreateRange(start: Date, end: Date, allDay: boolean) {
@@ -424,10 +429,16 @@ export default function CalendarPage() {
 
   async function handleSyncNow() {
     setIsSyncing(true);
+    setError(null);
     try {
       const res = await triggerCalendarSync();
       setLastSyncedAt(res.last_synced_at);
       await refreshEvents();
+      const synced = res.events_synced ?? 0;
+      const failed = res.errors?.length ?? 0;
+      if (failed > 0) {
+        setError(`Sync finished with ${failed} account error${failed === 1 ? "" : "s"}. ${synced} event${synced === 1 ? "" : "s"} refreshed.`);
+      }
     } catch (e) {
       setError(friendlyError(e));
     } finally {
@@ -619,10 +630,13 @@ export default function CalendarPage() {
           onClick={handleSyncNow}
           disabled={isSyncing}
           className="hoverable"
-          title="Sync now"
-          style={{ height: 32, boxSizing: "border-box", background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 10, color: "var(--text-secondary)", padding: "8px 10px", cursor: isSyncing ? "wait" : "pointer", flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+          title={isSyncing ? "Syncing calendars…" : "Sync calendars now"}
+          aria-label={isSyncing ? "Syncing calendars" : "Sync calendars now"}
+          aria-busy={isSyncing}
+          style={{ height: 32, boxSizing: "border-box", background: isSyncing ? "var(--accent-soft)" : "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 10, color: isSyncing ? "var(--accent)" : "var(--text-secondary)", padding: isSyncing ? "8px 11px" : "8px 10px", cursor: isSyncing ? "wait" : "pointer", flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "background 160ms ease, color 160ms ease" }}
         >
-          <Icon name="refresh" size={14} />
+          <Icon name="refresh" size={14} style={isSyncing ? { animation: "chronarch-spin 900ms linear infinite" } : undefined} />
+          {isSyncing && <span style={{ fontSize: 12, fontWeight: 600 }}>Syncing…</span>}
         </button>
         <Link
           to="/settings"

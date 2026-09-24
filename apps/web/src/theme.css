@@ -280,6 +280,12 @@ textarea::selection {
   from { opacity: 0; transform: translateY(12px) scale(0.97); }
   to { opacity: 1; transform: none; }
 }
+@keyframes chronarch-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chronarch-spin { animation: none !important; }
+}
 
 /* --- Now-line glow (Chronarch design philosophy) --- */
 .now-glow {
