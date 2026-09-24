@@ -9,7 +9,10 @@ dependencies = [
     "chronarch-core",
     "python-jose[cryptography]>=3.5.0",
     "passlib[bcrypt]>=1.7",
-    "bcrypt<5.1",
+    # Passlib's bcrypt backend is incompatible with bcrypt 5.x's changed
+    # 72-byte validation and backend metadata. Keep the runtime pinned until
+    # the password hashing implementation is migrated away from Passlib.
+    "bcrypt==4.0.1",
     "python-multipart>=0.0.32",
     "celery[redis]>=5.6.3",
 ]
