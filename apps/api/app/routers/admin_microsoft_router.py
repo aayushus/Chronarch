@@ -59,7 +59,7 @@ async def get_connect_url(
         client_id, _client_secret, tenant_id = await resolve_microsoft_credentials(session)
         url = build_consent_url(
             REDIRECT_URI,
-            state=sign_oauth_state(admin.id),
+            state=await sign_oauth_state(admin.id),
             client_id=client_id,
             tenant_id=tenant_id,
         )
@@ -83,7 +83,7 @@ async def callback(
         return RedirectResponse(f"{settings_url}?accounts_error=missing_code_or_state")
 
     try:
-        admin_user_id = verify_oauth_state(state)
+        admin_user_id = await verify_oauth_state(state)
     except ValueError:
         return RedirectResponse(f"{settings_url}?accounts_error=invalid_state")
 

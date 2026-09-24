@@ -170,7 +170,7 @@ async def test_calendar_patch_rejects_non_owner(session):
 )
 async def test_oauth_state_cannot_authenticate_an_api_request(session):
     user = await _admin(session, "admin-1", "admin@example.com")
-    state = sign_oauth_state(user.id)
+    state = await sign_oauth_state(user.id)
 
     with pytest.raises(HTTPException) as raised:
         await get_current_user(

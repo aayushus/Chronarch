@@ -60,7 +60,7 @@ async def get_connect_url(
 ):
     try:
         client_id, _client_secret = await resolve_google_credentials(session)
-        url = build_consent_url(REDIRECT_URI, state=sign_oauth_state(admin.id), client_id=client_id)
+        url = build_consent_url(REDIRECT_URI, state=await sign_oauth_state(admin.id), client_id=client_id)
     except RuntimeError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
     return ConnectUrlOut(url=url)
@@ -81,7 +81,7 @@ async def callback(
         return RedirectResponse(f"{settings_url}?accounts_error=missing_code_or_state")
 
     try:
-        admin_user_id = verify_oauth_state(state)
+        admin_user_id = await verify_oauth_state(state)
     except ValueError:
         return RedirectResponse(f"{settings_url}?accounts_error=invalid_state")
 

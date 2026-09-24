@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from cryptography.fernet import Fernet
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, text
 
 from chronarch_core import booking as booking_module
 from chronarch_core import contacts
@@ -13,9 +13,10 @@ from chronarch_core.availability import find_free_slots
 from chronarch_core.booking import HoldStore
 from chronarch_core.crypto import TokenCipher, rotate_all_encrypted_data
 from chronarch_core.models.account import Account
+from chronarch_core.models.booking import Booking, BookingLink
 from chronarch_core.models.calendar import Calendar
 from chronarch_core.models.contact import Contact
-from chronarch_core.models.enums import CalendarKind, ProviderType, UserRole
+from chronarch_core.models.enums import BookingStatus, CalendarKind, ProviderType, UserRole
 from chronarch_core.models.event import UnifiedEvent
 from chronarch_core.models.user import User
 
@@ -286,3 +287,65 @@ async def test_encryption_rotation_includes_caldav_password(session):
     await rotate_all_encrypted_data(session, old_key, new_key)
 
     assert new_cipher.decrypt(account.encrypted_caldav_password) == "caldav-secret"
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="booking cancellation can violate the event foreign key",
+)
+async def test_booking_cancellation_preserves_database_integrity(session):
+    await session.rollback()
+    await session.execute(text("PRAGMA foreign_keys=ON"))
+    user = User(
+        id="fk-owner",
+        email="fk-owner@example.com",
+        display_name="Owner",
+        password_hash="x",
+        role=UserRole.ADMIN,
+    )
+    account = Account(
+        id="fk-account",
+        owner_user_id=user.id,
+        provider=ProviderType.GOOGLE,
+        provider_account_email=user.email,
+        provider_account_id="fk-provider",
+    )
+    calendar = Calendar(
+        id="fk-calendar",
+        account_id=account.id,
+        provider_calendar_id="fk-provider-calendar",
+        kind=CalendarKind.PRIMARY,
+        name="Work",
+        provider_writable=True,
+        blocks_availability=True,
+    )
+    link = BookingLink(
+        owner_user_id=user.id,
+        slug="fk-booking",
+        title="Intro",
+        calendar_id=calendar.id,
+    )
+    start = datetime(2026, 9, 24, 15, 0, tzinfo=timezone.utc)
+    event = UnifiedEvent(
+        provider_account_id=account.id,
+        calendar_id=calendar.id,
+        provider_event_id="fk-event",
+        title="Intro",
+        start=start,
+        end=start + timedelta(hours=1),
+    )
+    booking = Booking(
+        link_id=link.id,
+        booker_name="Booker",
+        booker_email="booker@example.com",
+        start=start,
+        end=start + timedelta(hours=1),
+        status=BookingStatus.CONFIRMED,
+        event_id=event.id,
+    )
+    session.add_all([user, account, calendar, link, event, booking])
+    await session.flush()
+
+    await booking_module.cancel_booking(session, booking)
+
+    assert booking.status == BookingStatus.CANCELLED

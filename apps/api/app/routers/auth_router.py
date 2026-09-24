@@ -14,6 +14,7 @@ from ..auth import (
     hash_password,
     revoke_token,
     verify_password,
+    revoke_all_user_sessions,
 )
 from ..config import (
     LOGIN_RATE_LIMIT_REQUESTS,
@@ -122,6 +123,7 @@ async def reset_password(body: ResetPasswordRequest, session: AsyncSession = Dep
     user.reset_token = None
     user.reset_token_expires = None
     user.force_password_change = False
+    await revoke_all_user_sessions(user.id)
     await session.flush()
     return {"status": "ok", "message": "Password updated successfully. You can now log in."}
 
@@ -352,5 +354,6 @@ async def change_my_password(
         )
     user.password_hash = hash_password(body.new_password)
     user.force_password_change = False
+    await revoke_all_user_sessions(user.id)
     await session.flush()
     return _me_response(user)

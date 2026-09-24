@@ -69,8 +69,19 @@ async def is_token_revoked(jti: str | None) -> bool:
         r = get_redis_client()
         return bool(await r.exists(f"revoked_token:{jti}"))
     except Exception as exc:
-        logger.warning("Failed to check token revocation in Redis: %s", exc)
-        return False
+        logger.error("Failed closed while checking token revocation: %s", exc)
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Session validation is temporarily unavailable") from exc
+
+
+async def revoke_all_user_sessions(user_id: str) -> None:
+    """Invalidate every JWT issued before this instant."""
+    try:
+        # Add a small boundary so tokens issued in the same clock tick as the
+        # password operation are invalidated as well.
+        await get_redis_client().set(f"revoked_user_before:{user_id}", str(datetime.now(timezone.utc).timestamp() + 1))
+    except Exception as exc:
+        logger.error("Failed closed while recording session invalidation: %s", exc)
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Session invalidation is temporarily unavailable") from exc
 
 
 async def revoke_token(token: str) -> None:
@@ -101,6 +112,7 @@ async def get_current_user(
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = payload.get("sub")
         jti = payload.get("jti")
+        issued_at = float(payload.get("iat", 0))
     except JWTError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
 
@@ -110,6 +122,15 @@ async def get_current_user(
     user = (await session.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if user is None or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+    try:
+        revoked_before = await get_redis_client().get(f"revoked_user_before:{user.id}")
+    except Exception as exc:
+        logger.error("Failed closed while checking user session invalidation: %s", exc)
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Session validation is temporarily unavailable") from exc
+    if revoked_before and issued_at <= float(revoked_before):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session has been invalidated")
+    if user.force_password_change:
+        raise HTTPException(status.HTTP_428_PRECONDITION_REQUIRED, "Password change required")
     return user
 
 
@@ -118,4 +139,3 @@ def build_auth_context(user: User, actor_type: ActorType) -> AuthContext:
     # delegates are gated per-calendar by their DelegationCalendarGrants.
     return AuthContext(user_id=user.id, role=user.role, actor_type=actor_type,
                        is_admin=user.role == UserRole.ADMIN)
-

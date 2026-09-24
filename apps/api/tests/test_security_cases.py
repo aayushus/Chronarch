@@ -37,6 +37,19 @@ class _Redis:
     async def exists(self, key):
         return 0
 
+    async def set(self, key, value):
+        self.counts[key] = value
+
+    async def setex(self, key, seconds, value):
+        self.counts[key] = value
+        self.expiries[key] = seconds
+
+    async def get(self, key):
+        return self.counts.get(key)
+
+    async def getdel(self, key):
+        return self.counts.pop(key, None)
+
 
 def _request(ip: str, forwarded: str) -> Request:
     return Request({
@@ -107,10 +120,6 @@ async def test_rate_limiter_ignores_forwarded_header_spoofing(monkeypatch):
     assert redis.expiries["rate_limit:security-test:10.0.0.5"] == 60
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="force_password_change is returned but not enforced by get_current_user",
-)
 async def test_temporary_password_cannot_use_protected_routes(session, monkeypatch):
     monkeypatch.setattr(auth_module, "get_redis_client", lambda: _Redis())
     user = await _admin(session, "temporary")
@@ -125,12 +134,9 @@ async def test_temporary_password_cannot_use_protected_routes(session, monkeypat
     assert raised.value.status_code in {403, 428}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="password changes do not revoke previously issued JWT sessions",
-)
 async def test_password_change_revokes_previous_sessions(session, monkeypatch):
-    monkeypatch.setattr(auth_module, "get_redis_client", lambda: _Redis())
+    redis = _Redis()
+    monkeypatch.setattr(auth_module, "get_redis_client", lambda: redis)
     user = await _admin(session, "password-change")
     old_token = create_access_token(user.id)
     other_token = create_access_token(user.id)
@@ -158,15 +164,13 @@ async def test_password_change_revokes_previous_sessions(session, monkeypatch):
     assert raised.value.status_code == 401
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="OAuth state JWTs are replayable because no one-time identifier is consumed",
-)
-def test_oauth_state_is_single_use():
-    state = sign_oauth_state("admin-1")
-    assert verify_oauth_state(state) == "admin-1"
+async def test_oauth_state_is_single_use(monkeypatch):
+    redis = _Redis()
+    monkeypatch.setattr(auth_module, "get_redis_client", lambda: redis)
+    state = await sign_oauth_state("admin-1")
+    assert await verify_oauth_state(state) == "admin-1"
     with pytest.raises(ValueError):
-        verify_oauth_state(state)
+        await verify_oauth_state(state)
 
 
 async def test_caldav_connect_rejects_private_target_before_network(session, monkeypatch):
@@ -258,8 +262,11 @@ async def test_sync_errors_do_not_expose_provider_secrets(session, monkeypatch):
     )
     session.add(account)
     await session.flush()
+    sync_called = False
 
     async def fail_sync(session, account):
+        nonlocal sync_called
+        sync_called = True
         raise RuntimeError("provider rejected Bearer provider-secret-token")
 
     monkeypatch.setattr(google_sync, "sync_google_account", fail_sync)
@@ -271,5 +278,6 @@ async def test_sync_errors_do_not_expose_provider_secrets(session, monkeypatch):
         )
 
     assert raised.value.status_code == 500
+    assert sync_called is True
     assert "provider-secret-token" not in str(raised.value.detail)
     assert "provider-secret-token" not in (account.last_sync_error or "")

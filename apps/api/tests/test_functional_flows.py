@@ -65,6 +65,16 @@ class FakeRedis:
         self.values[key] = value
         return True
 
+    async def set(self, key, value):
+        self.values[key] = value
+        return True
+
+    async def get(self, key):
+        return self.values.get(key)
+
+    async def getdel(self, key):
+        return self.values.pop(key, None)
+
 
 @pytest_asyncio.fixture
 async def api(monkeypatch):
@@ -583,11 +593,7 @@ async def test_admin_creates_delegate_and_delegate_logs_in_asgi(api):
     assert duplicate.status_code == 409
     assert login_response.status_code == 200
     assert login_response.json()["force_password_change"] is True
-    assert me.status_code == 200
-    assert me.json()["permissions"] == [
-        "copilot.use",
-        "mcp_keys.create_self",
-    ]
+    assert me.status_code == 428
 
 
 @pytest.mark.xfail(
@@ -963,7 +969,7 @@ async def test_delegation_rejects_another_owners_calendar_asgi(api):
     reason="OAuth state JWTs are currently accepted as API bearer tokens",
 )
 async def test_oauth_state_cannot_access_authenticated_route_asgi(api):
-    state = sign_oauth_state("user-owner")
+    state = await sign_oauth_state("user-owner")
     response = await api.client.get(
         "/api/v1/auth/me",
         headers=bearer(state),
