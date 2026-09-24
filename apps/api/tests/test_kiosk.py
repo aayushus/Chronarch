@@ -190,10 +190,8 @@ async def test_pair_code_flow_end_to_end(session):
     delivered = await pub.pair_status(code_res["pairing_id"])
     assert delivered == {"status": "approved", "token": paired["token"]}
 
-    # Single-shot delivery: the token comes back once.
-    with pytest.raises(HTTPException) as exc:
-        await pub.pair_status(code_res["pairing_id"])
-    assert exc.value.status_code == 404
+    # Delivery is retry-safe until the pairing TTL expires.
+    assert await pub.pair_status(code_res["pairing_id"]) == delivered
 
     # Single-use code: pairing again with the same code fails.
     with pytest.raises(HTTPException) as exc:

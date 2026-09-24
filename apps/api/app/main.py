@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .config import CORS_ORIGINS
+from .config import CORS_ORIGINS, validate_runtime_config
 from .routers import (
     admin_accounts_router,
     admin_ai_router,
@@ -30,6 +30,7 @@ from .routers import (
     webhooks_router,
 )
 
+validate_runtime_config()
 app = FastAPI(title="Chronarch API", version="0.1.0")
 
 # Wildcard origins cannot be combined with credentials (browsers reject
@@ -69,5 +70,4 @@ app.include_router(booking_links_router.router)
 app.include_router(public_booking_router.router)
 app.include_router(kiosk_router.router)
 app.include_router(public_kiosk_router.router)
-
 

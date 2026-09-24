@@ -74,7 +74,7 @@ def _friendly_litellm_error(status_code: int, *, key_configured: bool = True) ->
     return "The AI service returned an unexpected error. Try again in a bit."
 
 LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000/v1/chat/completions")
-LITELLM_MASTER_KEY = os.environ.get("LITELLM_MASTER_KEY", "sk-litellm-dev")
+LITELLM_MASTER_KEY = os.environ.get("LITELLM_MASTER_KEY", "")
 
 COPILOT_TOOLS = [
     {

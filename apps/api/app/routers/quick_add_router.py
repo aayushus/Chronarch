@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/quick-add", tags=["quick-add"])
 
 LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000/v1/chat/completions")
-LITELLM_MASTER_KEY = os.environ.get("LITELLM_MASTER_KEY", "sk-litellm-dev")
+LITELLM_MASTER_KEY = os.environ.get("LITELLM_MASTER_KEY", "")
 
 
 class QuickAddParseRequest(BaseModel):

@@ -1,5 +1,6 @@
 import os
 import warnings
+from urllib.parse import urlparse
 
 _INSECURE_JWT_VALUES = {"", "dev-secret-change-me", "change-me-to-a-random-string"}
 
@@ -29,6 +30,7 @@ REMEMBER_ME_DAYS = int(os.environ.get("REMEMBER_ME_DAYS", "30"))
 # OAuth redirect URIs (must exactly match what's registered with the
 # provider) and where the OAuth callback sends the browser back to.
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "http://localhost:3000")
+ENVIRONMENT = os.environ.get("ENVIRONMENT", "development").strip().lower()
 
 
 def get_cors_origins() -> list[str]:
@@ -51,6 +53,27 @@ CORS_ORIGINS = get_cors_origins()
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
+
+def validate_runtime_config() -> None:
+    """Fail closed for production instead of silently using dev fallbacks."""
+    if ENVIRONMENT not in {"production", "prod"}:
+        return
+
+    parsed = urlparse(APP_BASE_URL)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.hostname in {"localhost", "127.0.0.1", "::1"}:
+        raise RuntimeError("Production APP_BASE_URL must be an absolute HTTPS URL on a public hostname")
+    if not CORS_ORIGINS or CORS_ORIGINS == ["*"] or any(
+        urlparse(origin).scheme != "https" or urlparse(origin).hostname in {"localhost", "127.0.0.1", "::1"}
+        for origin in CORS_ORIGINS
+    ):
+        raise RuntimeError("Production CORS_ORIGINS must contain only explicit HTTPS origins")
+    if os.environ.get("ALLOW_INSECURE_DEV_SECRET") == "1" or JWT_SECRET in _INSECURE_JWT_VALUES:
+        raise RuntimeError("ALLOW_INSECURE_DEV_SECRET is forbidden in production")
+    if not os.environ.get("LITELLM_MASTER_KEY") or os.environ["LITELLM_MASTER_KEY"] == "sk-litellm-dev":
+        raise RuntimeError("LITELLM_MASTER_KEY must be explicitly configured in production")
+    if not REDIS_URL or "localhost" in REDIS_URL or "127.0.0.1" in REDIS_URL:
+        raise RuntimeError("Production REDIS_URL must point to the configured Redis service")
+
 # Rate limiting settings (requests per window)
 LOGIN_RATE_LIMIT_REQUESTS = int(os.environ.get("LOGIN_RATE_LIMIT_REQUESTS", "10"))
 LOGIN_RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get("LOGIN_RATE_LIMIT_WINDOW_SECONDS", "60"))
@@ -69,4 +92,3 @@ SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", SMTP_USER or "noreply@chronarch.internal")
 SMTP_TLS = os.environ.get("SMTP_TLS", "true").lower() in ("true", "1", "yes")
-

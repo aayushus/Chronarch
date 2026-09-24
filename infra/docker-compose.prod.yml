@@ -46,7 +46,11 @@ services:
     env_file:
       - .env
     environment:
+      ENVIRONMENT: production
+      APP_BASE_URL: ${APP_BASE_URL:?Set public HTTPS APP_BASE_URL in infra/.env}
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set explicit HTTPS CORS_ORIGINS in infra/.env}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?Set LITELLM_MASTER_KEY in infra/.env}
     volumes:
       - ./volumes/litellm-dynamic:${LITELLM_DYNAMIC_DIR:-/srv/litellm-dynamic}
     depends_on:
@@ -127,6 +131,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?Set LITELLM_MASTER_KEY in infra/.env}
     volumes:
       - ./volumes/litellm-dynamic:/app/dynamic:ro
     ports:
