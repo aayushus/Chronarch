@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { CalendarSummary, EventSummary } from "../api/calendar";
 import { useAppearance } from "../appearance";
 import { WEEKDAY_SHORT, formatHour, formatHourInZone, formatTimeRange, sameDay, startOfDay, startOfWeek } from "../lib/dates";
-import { AllDayChip } from "./EventCard";
+import { AllDayChip, isCancelledEvent } from "./EventCard";
 import { contrastText } from "../lib/color";
 import {
   SNAP_MINUTES,
@@ -331,6 +331,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                         <AllDayChip
                           color={color}
                           title={e.title}
+                          cancelled={isCancelledEvent(e)}
                           onOpen={() => !dragging && onSelectEvent(e)}
                           onMenu={(mev) => onEventMenu?.(mev, e)}
                         />
@@ -518,7 +519,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                         height,
                         left: `calc(${column * widthPct}% + ${dayShift * 100}%)`,
                         width: `calc(${widthPct}% - 3px)`,
-                        background: color,
+                        background: isCancelledEvent(event) ? "repeating-linear-gradient(135deg, rgba(128,128,128,.18) 0 6px, rgba(128,128,128,.07) 6px 12px), var(--bg-raised)" : color,
                         border: "1px solid rgba(255, 255, 255, 0.15)",
                         boxShadow: "0 2px 8px rgba(0, 0, 0, 0.18)",
                         borderRadius: 6,
@@ -527,11 +528,12 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                         cursor: canDrag ? "grab" : "pointer",
                         fontSize: 11.5,
                         fontWeight: 700,
-                        color: contrastText(color),
+                        color: isCancelledEvent(event) ? "var(--text-secondary)" : contrastText(color),
                         display: "flex",
                         flexDirection: "column",
                         justifyContent: "center",
                         userSelect: "none",
+                        opacity: isCancelledEvent(event) ? 0.82 : 1,
                         zIndex: isDragging ? 5 : undefined,
                       }}
                     >
@@ -547,7 +549,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                           lineHeight: 1.2,
                         }}
                       >
-                        {event.title}
+                        {isCancelledEvent(event) && <span style={{ fontSize: 9, letterSpacing: .5, color: "var(--text-tertiary)" }}>CANCELLED </span>}{event.title}
                       </span>
                       {height > 32 && (
                         <div className="tabular-nums" style={{ fontSize: 10, fontWeight: 500, color: contrastText(color) === "#ffffff" ? "rgba(255, 255, 255, 0.88)" : "rgba(0, 0, 0, 0.7)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>

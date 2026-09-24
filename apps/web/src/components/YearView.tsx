@@ -3,6 +3,7 @@ import React, { useMemo } from "react";
 import { EventSummary } from "../api/calendar";
 import { CalendarSummary } from "../api/calendar";
 import { sameDay } from "../lib/dates";
+import { isCancelledEvent } from "./EventCard";
 
 interface Props {
   year: number;
@@ -158,7 +159,9 @@ export default function YearView({ year, events, calendarById, selectedDate, onS
                           width: 3.5,
                           height: 3.5,
                           borderRadius: 999,
-                          background: calendarById[e.calendar_id]?.color ?? "var(--accent)",
+                          background: isCancelledEvent(e)
+                            ? "repeating-linear-gradient(135deg, #8c8c93 0 2px, #d0d0d4 2px 4px)"
+                            : calendarById[e.calendar_id]?.color ?? "var(--accent)",
                         }}
                       />
                     ))}

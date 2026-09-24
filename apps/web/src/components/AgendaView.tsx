@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 
 import { CalendarSummary, EventSummary } from "../api/calendar";
 import { sameDay } from "../lib/dates";
-import { AllDayChip, EventCard } from "./EventCard";
+import { AllDayChip, EventCard, isCancelledEvent } from "./EventCard";
 import EventWeather from "./EventWeather";
 
 interface Props {
@@ -97,7 +97,7 @@ export default function AgendaView({ days, events, calendarById, onSelectEvent, 
                 return (
                   <div key={e.id} style={{ marginBottom: 8 }}>
                     {e.all_day ? (
-                      <AllDayChip color={color} title={e.title} onOpen={() => onSelectEvent(e)} />
+                      <AllDayChip color={color} title={e.title} cancelled={isCancelledEvent(e)} onOpen={() => onSelectEvent(e)} />
                     ) : (
                       <EventCard
                         color={color}
@@ -105,6 +105,7 @@ export default function AgendaView({ days, events, calendarById, onSelectEvent, 
                         meta={<>{`${fmtTime(start)} – ${fmtTime(end)}`}{e.location ? ` · ${e.location}` : ""}<EventWeather location={e.location ?? null} start={e.start} /></>}
                         attendees={e.attendees}
                         providerBadge={badge}
+                        cancelled={isCancelledEvent(e)}
                         onOpen={() => onSelectEvent(e)}
                       />
                     )}

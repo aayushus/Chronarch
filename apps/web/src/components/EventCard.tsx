@@ -1,7 +1,7 @@
 import React from "react";
 
 import { useAppearance } from "../appearance";
-import type { Attendee } from "../api/calendar";
+import type { Attendee, EventSummary } from "../api/calendar";
 import { contrastText, tint } from "../lib/color";
 
 /** Mondays card language: white floating card, colored top bar, ink title,
@@ -90,12 +90,17 @@ export interface EventCardProps {
   compact?: boolean;
   /** Provider badge label e.g. "G", "MS", "ICS" */
   providerBadge?: string;
+  cancelled?: boolean;
   onOpen: () => void;
   onMenu?: (e: React.MouseEvent) => void;
 }
 
+export function isCancelledEvent(event: Pick<EventSummary, "title">): boolean {
+  return /^\s*(?:canceled|cancelled)\s*:/i.test(event.title);
+}
+
 /** Standard timed-event card (month cells, agenda rows). */
-export function EventCard({ color, title, meta, attendees = [], selected, compact, providerBadge, onOpen, onMenu }: EventCardProps) {
+export function EventCard({ color, title, meta, attendees = [], selected, compact, providerBadge, cancelled, onOpen, onMenu }: EventCardProps) {
   const { shown, extra } = avatarStack(attendees);
   return (
     <div
@@ -110,8 +115,8 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
       }}
       className="event-block"
       style={{
-        background: color,
-        border: "1px solid rgba(255, 255, 255, 0.15)",
+        background: cancelled ? "repeating-linear-gradient(135deg, rgba(128,128,128,.18) 0 6px, rgba(128,128,128,.07) 6px 12px), var(--bg-raised)" : color,
+        border: cancelled ? "1px solid var(--border-subtle)" : "1px solid rgba(255, 255, 255, 0.15)",
         borderRadius: 8,
         boxShadow: "0 2px 8px rgba(0, 0, 0, 0.18)",
         padding: compact ? "5px 8px" : "8px 12px",
@@ -122,6 +127,7 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
         flexDirection: "column",
         justifyContent: "center",
         outline: selected ? "2px solid #ffffff" : "none",
+        opacity: cancelled ? 0.82 : 1,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -147,7 +153,7 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
         style={{
           fontSize: compact ? 12 : 13,
           fontWeight: 700,
-          color: contrastText(color),
+          color: cancelled ? "var(--text-secondary)" : contrastText(color),
           lineHeight: 1.3,
           display: "-webkit-box",
           WebkitBoxOrient: "vertical",
@@ -156,10 +162,10 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
           textOverflow: "ellipsis",
         }}
       >
-        {title}
+        {cancelled && <span style={{ fontSize: 9, letterSpacing: .5, color: "var(--text-tertiary)", marginRight: 5 }}>CANCELLED</span>}{title}
       </div>
       {meta && (
-        <div style={{ fontSize: compact ? 10.5 : 11.5, fontWeight: 500, color: contrastText(color) === "#ffffff" ? "rgba(255, 255, 255, 0.88)" : "rgba(0, 0, 0, 0.7)", marginTop: compact ? 2 : 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ fontSize: compact ? 10.5 : 11.5, fontWeight: 500, color: cancelled ? "var(--text-tertiary)" : (contrastText(color) === "#ffffff" ? "rgba(255, 255, 255, 0.88)" : "rgba(0, 0, 0, 0.7)"), marginTop: compact ? 2 : 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {meta}
         </div>
       )}
@@ -190,8 +196,8 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
 export function allDayInk(theme: "dark" | "light"): string {
   return theme === "dark" ? "#ffffff" : "var(--card-ink)";
 }
-export function AllDayChip({ color, title, selected, onOpen, onMenu }: {
-  color: string; title: string; selected?: boolean; onOpen: () => void; onMenu?: (e: React.MouseEvent) => void;
+export function AllDayChip({ color, title, selected, cancelled, onOpen, onMenu }: {
+  color: string; title: string; selected?: boolean; cancelled?: boolean; onOpen: () => void; onMenu?: (e: React.MouseEvent) => void;
 }) {
   const { theme } = useAppearance();
   return (
@@ -207,12 +213,12 @@ export function AllDayChip({ color, title, selected, onOpen, onMenu }: {
       }}
       className="event-block"
       style={{
-        background: tint(color.startsWith("#") ? color : "#0a84ff", theme === "dark" ? 0.45 : 0.32),
+        background: cancelled ? "repeating-linear-gradient(135deg, rgba(128,128,128,.18) 0 6px, rgba(128,128,128,.07) 6px 12px), var(--bg-raised)" : tint(color.startsWith("#") ? color : "#0a84ff", theme === "dark" ? 0.45 : 0.32),
         borderRadius: 8,
         padding: "6px 10px",
         fontSize: 12,
         fontWeight: 600,
-        color: allDayInk(theme),
+        color: cancelled ? "var(--text-secondary)" : allDayInk(theme),
         cursor: "pointer",
         display: "flex",
         alignItems: "center",
@@ -223,7 +229,7 @@ export function AllDayChip({ color, title, selected, onOpen, onMenu }: {
         outline: selected ? `2px solid ${color}` : "none",
       }}
     >
-      {title}
+      {cancelled && <span style={{ fontSize: 9, letterSpacing: .5, color: "var(--text-tertiary)", marginRight: 5 }}>CANCELLED</span>}{title}
     </div>
   );
 }

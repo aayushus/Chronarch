@@ -2,7 +2,7 @@ import React from "react";
 
 import { CalendarSummary, EventSummary } from "../api/calendar";
 import { WEEKDAY_SHORT, getISOWeek, monthTime, sameDay, startOfMonth } from "../lib/dates";
-import { AllDayChip, EventCard } from "./EventCard";
+import { AllDayChip, EventCard, isCancelledEvent } from "./EventCard";
 
 interface Props {
   monthAnchor: Date;
@@ -108,6 +108,7 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                         <AllDayChip
                           color={color}
                           title={e.title}
+                          cancelled={isCancelledEvent(e)}
                           onOpen={() => onSelectEvent(e)}
                           onMenu={(ev) => onEventMenu?.(ev, e)}
                         />
@@ -121,6 +122,7 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                           meta={monthTime(e.start, e.end)}
                           attendees={e.attendees}
                           providerBadge={badge}
+                          cancelled={isCancelledEvent(e)}
                           onOpen={() => onSelectEvent(e)}
                           onMenu={(ev) => onEventMenu?.(ev, e)}
                         />
@@ -142,4 +144,3 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
     </div>
   );
 }
-

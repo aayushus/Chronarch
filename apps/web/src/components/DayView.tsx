@@ -13,6 +13,7 @@ import {
   yFromMinutes,
 } from "../lib/gridMath";
 import { packOverlaps, dayLane } from "../lib/layout";
+import { isCancelledEvent } from "./EventCard";
 
 const HOUR_HEIGHT = 56;
 const START_HOUR = 0;
@@ -253,21 +254,21 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
               }}
               className="event-block hoverable"
               style={{
-                background: color,
-                color: contrastText(color.startsWith("#") ? color : "#0a84ff"),
+                background: isCancelledEvent(e) ? "repeating-linear-gradient(135deg, rgba(128,128,128,.18) 0 6px, rgba(128,128,128,.07) 6px 12px), var(--bg-raised)" : color,
+                color: isCancelledEvent(e) ? "var(--text-secondary)" : contrastText(color.startsWith("#") ? color : "#0a84ff"),
                 borderRadius: 6,
                 padding: "4px 10px",
                 fontSize: 12,
                 fontWeight: 600,
                 marginBottom: 4,
                 cursor: canWrite(cal) ? "grab" : "pointer",
-                opacity: dragging ? 0.4 : 1,
+                opacity: dragging ? 0.4 : isCancelledEvent(e) ? 0.82 : 1,
                 userSelect: "none",
                 display: "flex",
                 alignItems: "center",
               }}
             >
-              {e.title}
+              {isCancelledEvent(e) && <span style={{ fontSize: 9, letterSpacing: .5, color: "var(--text-tertiary)", marginRight: 5 }}>CANCELLED</span>}{e.title}
             </div>
           );
         })}

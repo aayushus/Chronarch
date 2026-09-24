@@ -83,15 +83,6 @@ export default function KioskPage() {
   });
   const [selectedEvent, setSelectedEvent] = useState<KioskEvent | null>(null);
 
-  // Quick Add (NL parse → confirm → create on the default calendar).
-  const [qaText, setQaText] = useState("");
-  const [qaDateHint, setQaDateHint] = useState<Date | null>(null);
-  const [qaParsing, setQaParsing] = useState(false);
-  const [qaDraft, setQaDraft] = useState<{ title: string; start: string; end: string; location?: string | null } | null>(null);
-  const [qaError, setQaError] = useState<string | null>(null);
-  const [qaDone, setQaDone] = useState<string | null>(null);
-  const qaInputRef = useRef<HTMLInputElement>(null);
-
   function setViewModeAndPersist(mode: ViewMode) {
     setViewMode(mode);
     try {
@@ -117,14 +108,6 @@ export default function KioskPage() {
       if (idleReload.current) clearTimeout(idleReload.current);
       events.forEach((ev) => window.removeEventListener(ev, resetIdle));
     };
-  }, []);
-
-  const browserTz = useMemo(() => {
-    try {
-      return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    } catch {
-      return "UTC";
-    }
   }, []);
 
   const weekStart = useMemo(
@@ -213,58 +196,6 @@ export default function KioskPage() {
       else next.add(id);
       return next;
     });
-  }
-
-  function addForDay(day: Date) {
-    setQaDateHint(day);
-    setQaDraft(null);
-    setQaError(null);
-    qaInputRef.current?.focus();
-    qaInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-
-  async function submitQuickAdd() {
-    const text = qaText.trim();
-    if (!token || !text || qaParsing) return;
-    setQaParsing(true);
-    setQaError(null);
-    setQaDone(null);
-    try {
-      const dated = qaDateHint
-        ? `${text} on ${qaDateHint.toLocaleDateString(undefined, { month: "long", day: "numeric" })}`
-        : text;
-      const draft = await apiFetch<{ title: string; start: string; end: string; location?: string | null }>(
-        `/kiosk-display/${token}/quick-add/parse`,
-        { method: "POST", body: JSON.stringify({ text: dated, timezone: browserTz }) },
-      );
-      setQaDraft(draft);
-    } catch (e) {
-      setQaError(friendlyError(e));
-    } finally {
-      setQaParsing(false);
-    }
-  }
-
-  async function confirmQuickAdd() {
-    if (!token || !qaDraft) return;
-    setQaParsing(true);
-    setQaError(null);
-    try {
-      await apiFetch(`/kiosk-display/${token}/quick-add/create`, {
-        method: "POST",
-        body: JSON.stringify({ draft: qaDraft, timezone: browserTz }),
-      });
-      setQaDraft(null);
-      setQaText("");
-      setQaDateHint(null);
-      setQaDone("Added to your calendar.");
-      setTimeout(() => setQaDone(null), 3000);
-      void load();
-    } catch (e) {
-      setQaError(friendlyError(e));
-    } finally {
-      setQaParsing(false);
-    }
   }
 
   if (error && !meta) {
@@ -395,18 +326,15 @@ export default function KioskPage() {
                   </div>
                   <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8, flexShrink: 0 }}>
                     {items.length === 0 ? "No events" : `${items.length} event${items.length === 1 ? "" : "s"}`}
-                    <button onClick={() => addForDay(day)} style={{ border: "none", background: "none", color: FAINT, fontSize: 12.5, cursor: "pointer", marginLeft: 8, padding: 0 }}>
-                      + Add event
-                    </button>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, minHeight: 0, overflowY: "auto" }}>
                     {items.map((e) => (
                       <button
                         key={e.id}
                         onClick={() => setSelectedEvent(e)}
-                        style={{ background: tint(e.calendar_color, 0.28), border: "none", borderRadius: 10, padding: "10px 12px", minWidth: 0, minHeight: 44, textAlign: "left", cursor: "pointer", color: "inherit", font: "inherit" }}
+                        style={{ background: tint(e.calendar_color, 0.28), border: "none", borderRadius: 10, padding: "9px 11px", minWidth: 0, minHeight: 48, maxHeight: 78, overflow: "hidden", textAlign: "left", cursor: "pointer", color: "inherit", font: "inherit" }}
                       >
-                        <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35 }}>{e.title}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.25, display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden" }}>{e.title}</div>
                         <div style={{ fontSize: 12.5, color: "#6b6b73", marginTop: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {fmtRange(e)}
@@ -462,60 +390,6 @@ export default function KioskPage() {
           </div>
         )}
         <div style={{ fontSize: 13, color: FAINT, marginTop: 10, flexShrink: 0 }}>{rangeLabel}</div>
-      </div>
-
-      {/* Quick Add bar */}
-      <div style={{ maxWidth: 1200, width: "100%", margin: "12px auto 0", background: CARD, borderRadius: 16, padding: "14px 20px", boxShadow: "0 8px 30px rgba(0,0,0,0.08)", flexShrink: 0 }}>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            ref={qaInputRef}
-            value={qaText}
-            onChange={(e) => setQaText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void submitQuickAdd();
-              }
-            }}
-            placeholder={qaDateHint ? `Add for ${dayLabel(qaDateHint, now)}… e.g. Dentist at 3pm` : "Quick add: Lunch with John tomorrow at noon…"}
-            aria-label="Quick add event"
-            style={{ flex: 1, border: "1px solid #e3e1da", borderRadius: 12, padding: "10px 16px", fontSize: 14, color: INK, background: "#faf9f6", outline: "none", minWidth: 0 }}
-          />
-          <button
-            onClick={() => void submitQuickAdd()}
-            disabled={qaParsing || !qaText.trim()}
-            style={{ border: "none", borderRadius: 12, padding: "10px 22px", fontSize: 14, fontWeight: 700, background: INK, color: "#fff", cursor: qaParsing || !qaText.trim() ? "default" : "pointer", opacity: qaParsing || !qaText.trim() ? 0.5 : 1, whiteSpace: "nowrap" }}
-          >
-            {qaParsing ? "Parsing…" : "✨ Add"}
-          </button>
-        </div>
-        {qaDateHint && !qaDraft && (
-          <div style={{ fontSize: 12, color: MUTED, marginTop: 8 }}>
-            Adding to {dayLabel(qaDateHint, now)} ·{" "}
-            <button onClick={() => setQaDateHint(null)} style={{ border: "none", background: "none", color: MUTED, cursor: "pointer", textDecoration: "underline", padding: 0, fontSize: 12 }}>
-              clear
-            </button>
-          </div>
-        )}
-        {qaError && <div style={{ fontSize: 13, color: "#c62828", marginTop: 10 }}>{qaError}</div>}
-        {qaDone && <div style={{ fontSize: 13, color: "#2e7d32", marginTop: 10 }}>{qaDone}</div>}
-        {qaDraft && (
-          <div style={{ marginTop: 12, background: tint("#0a84ff", 0.1), border: "1px solid rgba(10, 132, 255, 0.3)", borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>{qaDraft.title}</div>
-              <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>
-                {new Date(qaDraft.start).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                {qaDraft.location ? ` · ${qaDraft.location}` : ""} · default calendar
-              </div>
-            </div>
-            <button onClick={() => setQaDraft(null)} style={{ border: "1px solid #e3e1da", background: "#fff", borderRadius: 10, padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: INK }}>
-              Cancel
-            </button>
-            <button onClick={() => void confirmQuickAdd()} disabled={qaParsing} style={{ border: "none", borderRadius: 10, padding: "8px 20px", fontSize: 13, fontWeight: 700, background: INK, color: "#fff", cursor: "pointer", opacity: qaParsing ? 0.5 : 1 }}>
-              {qaParsing ? "Adding…" : "Confirm"}
-            </button>
-          </div>
-        )}
       </div>
 
       {selectedEvent && (

@@ -33,6 +33,7 @@ export default function KioskSettings() {
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [sleepStart, setSleepStart] = useState("22:00");
+  const pairUrl = `${window.location.origin}/kiosk/pair`;
   const [sleepEnd, setSleepEnd] = useState("07:00");
   const [creating, setCreating] = useState(false);
   const [pairCode, setPairCode] = useState("");
@@ -293,8 +294,35 @@ export default function KioskSettings() {
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>Pair with code</div>
               <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "6px 0 0", lineHeight: 1.5 }}>
-                Open <code style={{ fontSize: 12, padding: "2px 5px", background: "var(--bg-app)", borderRadius: 4 }}>/kiosk/pair</code> on the wall display and enter the 6-digit code it displays.
+                On the wall display, open this page and enter the 6-digit code shown there:
               </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+                <a
+                  href={pairUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="input-standard"
+                  style={{ flex: 1, minWidth: 0, padding: "9px 10px", fontSize: 12, color: "var(--accent)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: "none" }}
+                  title={pairUrl}
+                >
+                  {pairUrl}
+                </a>
+                <button
+                  type="button"
+                  className="btn-secondary hoverable"
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(pairUrl);
+                    toast("Pairing page link copied");
+                  }}
+                  style={{ flexShrink: 0, padding: "9px 11px", fontSize: 12, fontWeight: 600 }}
+                >
+                  Copy link
+                </button>
+              </div>
+              <a href={pairUrl} target="_blank" rel="noreferrer" className="btn-secondary hoverable" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, alignSelf: "flex-start", marginTop: 10, padding: "8px 12px", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
+                Open pairing page
+                <span aria-hidden="true">↗</span>
+              </a>
             </div>
 
             <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", minHeight: 90 }}>

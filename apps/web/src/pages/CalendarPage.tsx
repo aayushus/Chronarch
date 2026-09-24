@@ -21,7 +21,7 @@ import ConflictConfirmModal from "../components/ConflictConfirmModal";
 import CopilotDrawer from "../components/CopilotDrawer";
 import EventContextMenu from "../components/EventContextMenu";
 import EventDetailPanel from "../components/EventDetailPanel";
-import { avatarInitials } from "../components/EventCard";
+import { avatarInitials, isCancelledEvent } from "../components/EventCard";
 import IcsImportModal from "../components/IcsImportModal";
 import Icon from "../components/Icon";
 import MiniMonth from "../components/MiniMonth";
@@ -93,6 +93,9 @@ export default function CalendarPage() {
   const [viewMode, setViewMode] = useState<CalendarViewMode>("week");
   const [viewedDate, setViewedDate] = useState(new Date());
   const [hiddenCalendarIds, setHiddenCalendarIds] = useState<Set<string>>(new Set());
+  const [hideCancelled, setHideCancelled] = useState(() => {
+    try { return localStorage.getItem("chronarch_hide_cancelled") === "1"; } catch { return false; }
+  });
   const [selectedEvent, setSelectedEvent] = useState<EventSummary | null>(null);
   const [createDraft, setCreateDraft] = useState<
     { start: Date; end: Date; allDay: boolean; title?: string; calendarId?: string } | null
@@ -205,7 +208,7 @@ export default function CalendarPage() {
     }
     return [...groups.entries()];
   }, [calendars]);
-  const visibleEvents = events.filter((e) => !hiddenCalendarIds.has(e.calendar_id));
+  const visibleEvents = events.filter((e) => !hiddenCalendarIds.has(e.calendar_id) && (!hideCancelled || !isCancelledEvent(e)));
   const writableCalendars = useMemo(
     () => calendars.filter((c) => c.can_create ?? c.writable),
     [calendars]
@@ -712,6 +715,20 @@ export default function CalendarPage() {
             {stats.count} meetings · {formatMinutes(stats.meetingMinutes)} booked
           </div>
 
+          <label title="Hide cancelled meetings" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={hideCancelled}
+              onChange={(e) => {
+                const next = e.target.checked;
+                setHideCancelled(next);
+                try { localStorage.setItem("chronarch_hide_cancelled", next ? "1" : "0"); } catch { /* storage unavailable */ }
+              }}
+              style={{ accentColor: "var(--accent)" }}
+            />
+            Hide cancelled
+          </label>
+
           {showRails && (
             <button
               onClick={toggleTodayRail}
@@ -755,7 +772,7 @@ export default function CalendarPage() {
                     }
                   }}
                   className="hoverable"
-                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left", width: "100%" }}
+                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left", width: "100%", color: "var(--text-primary)" }}
                 >
                   <div style={{ fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {stats.upNext.title}
@@ -773,9 +790,10 @@ export default function CalendarPage() {
                 Calendars
               </div>
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-                {calendarGroups.map(([accountId, group]) => (
-                  <div key={accountId} style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 11, color: "var(--text-tertiary)", padding: "2px 8px 3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {calendarGroups.map(([accountId, group], groupIndex) => (
+                  <div key={accountId} style={{ marginBottom: 12, paddingTop: groupIndex === 0 ? 0 : 10, borderTop: groupIndex === 0 ? "none" : "1px solid var(--border-subtle)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 700, color: "var(--text-secondary)", padding: "2px 8px 6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-tertiary)", opacity: 0.7, flexShrink: 0 }} />
                       {group.label}
                     </div>
                     {group.calendars.map((cal) => (
