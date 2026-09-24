@@ -581,7 +581,7 @@ export default function CalendarPage() {
       )}
 
       {/* Command header */}
-      <header style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 24px", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
+      <header style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
             {greeting(now.getHours())}, {displayName.split(" ")[0]}
@@ -637,11 +637,11 @@ export default function CalendarPage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "8px 24px",
+          padding: "6px 16px",
           borderBottom: "1px solid var(--border-subtle)",
           flexShrink: 0,
           background: "var(--bg-app)",
-          gap: 16,
+          gap: 12,
           flexWrap: "wrap",
         }}
       >
@@ -680,7 +680,7 @@ export default function CalendarPage() {
         </div>
 
         {/* Right: Segmented view mode selector & meeting statistics */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ height: 32, boxSizing: "border-box", display: "inline-flex", alignItems: "center", background: "var(--wash-deep)", borderRadius: 10, padding: 3, border: "1px solid var(--border-subtle)" }}>
             {(["day", "week", "month", "agenda", "year"] as CalendarViewMode[]).map((mode) => {
               const active = viewMode === mode;
@@ -758,7 +758,7 @@ export default function CalendarPage() {
       <div style={{ flex: 1, display: "flex", minHeight: 0, minWidth: 0 }}>
         {/* Focus rail: fixed sections, only the calendar list scrolls. */}
         {showRails && (
-          <aside style={{ width: 280, minWidth: 280, borderRight: "1px solid var(--border-subtle)", overflow: "hidden", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 14, minHeight: 0 }}>
+          <aside style={{ width: 240, minWidth: 240, borderRight: "1px solid var(--border-subtle)", overflow: "hidden", padding: "12px 10px", display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
             <section style={{ flexShrink: 0, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: "12px 14px" }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", marginBottom: 8 }}>
                 Up next
@@ -826,7 +826,7 @@ export default function CalendarPage() {
         )}
 
         {/* Main canvas */}
-        <main style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, padding: 16 }}>
+        <main style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, padding: 8 }}>
           {showSetupNag && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(10, 132, 255, 0.1)", border: "1px solid rgba(10, 132, 255, 0.3)", borderRadius: 10, padding: "9px 14px", marginBottom: 12, fontSize: 13, flexShrink: 0 }}>
               <span style={{ flex: 1, minWidth: 0 }}>Welcome! Connect a calendar to bring this to life — takes about a minute.</span>

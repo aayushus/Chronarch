@@ -263,7 +263,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
               background: "none",
               border: "none",
               cursor: "pointer",
-              padding: "8px 4px",
+              padding: "6px 4px",
               textAlign: "center",
               color: sameDay(d, today) ? "var(--danger)" : "var(--text-primary)",
             }}

@@ -117,9 +117,9 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
       style={{
         background: cancelled ? "repeating-linear-gradient(135deg, rgba(128,128,128,.18) 0 6px, rgba(128,128,128,.07) 6px 12px), var(--bg-raised)" : color,
         border: cancelled ? "1px solid var(--border-subtle)" : "1px solid rgba(255, 255, 255, 0.15)",
-        borderRadius: 8,
-        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.18)",
-        padding: compact ? "5px 8px" : "8px 12px",
+        borderRadius: 6,
+        boxShadow: "0 1px 5px rgba(0, 0, 0, 0.14)",
+        padding: compact ? "4px 6px" : "6px 8px",
         cursor: "pointer",
         minWidth: 0,
         position: "relative",
