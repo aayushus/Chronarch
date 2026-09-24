@@ -23,7 +23,7 @@ import {
   filterNav,
   groupSections,
 } from "../components/settings/settingsNav";
-import { avatarInitials } from "../components/EventCard";
+import UserAvatar from "../components/UserAvatar";
 
 const COMPONENTS: Record<SettingsSection, React.ComponentType> = {
   account: AccountSettings,
@@ -137,12 +137,7 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
-        <span
-          title={user?.email}
-          style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-        >
-          {avatarInitials(displayName)}
-        </span>
+        <UserAvatar email={user?.email} name={displayName} size={32} />
       </header>
 
       <div style={{ flex: 1, display: "flex", minHeight: 0, minWidth: 0 }}>

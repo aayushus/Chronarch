@@ -74,6 +74,7 @@ export default function KioskPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [wakeUntil, setWakeUntil] = useState(0);
   const [headerWeather, setHeaderWeather] = useState<string | null>(null);
+  const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     try {
       return localStorage.getItem(VIEW_MODE_KEY) === "agenda" ? "agenda" : "week";
@@ -133,6 +134,12 @@ export default function KioskPage() {
       setMeta(m);
       setEvents(agenda.events);
       setCalendars(agenda.calendars ?? []);
+      setLastLoadedAt(new Date());
+      try {
+        if (!localStorage.getItem(VIEW_MODE_KEY) && agenda.events.length > 24) setViewMode("agenda");
+      } catch {
+        if (agenda.events.length > 24) setViewMode("agenda");
+      }
       setError(null);
     } catch (e) {
       setError(friendlyError(e));
@@ -226,10 +233,12 @@ export default function KioskPage() {
 
   const countdowns = pickCountdowns(visibleEvents, now);
   const rangeLabel = `${weekDays[0].toLocaleDateString(undefined, { month: "long", day: "numeric" })} – ${weekDays[6].toLocaleDateString(undefined, { month: "long", day: "numeric" })}`;
+  const denseWeek = visibleEvents.length > 24;
+  const freshness = lastLoadedAt ? `Updated ${Math.max(0, Math.round((Date.now() - lastLoadedAt.getTime()) / 60000))}m ago` : "Updating…";
 
   return (
     <div style={{ height: "100vh", background: PAGE, color: INK, padding: "24px 28px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", maxWidth: 1200, width: "100%", margin: "0 auto", background: CARD, borderRadius: 20, padding: "20px 28px", boxShadow: "0 8px 30px rgba(0,0,0,0.08)", overflow: "hidden" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", maxWidth: 1200, width: "100%", margin: "0 auto", background: CARD, borderRadius: 10, padding: "20px 28px", boxShadow: "0 8px 30px rgba(0,0,0,0.08)", overflow: "hidden" }}>
         {/* Header: date/time/weather left, controls right. */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12, flexShrink: 0 }}>
           <div style={{ fontSize: 19, fontWeight: 700 }}>
@@ -240,9 +249,10 @@ export default function KioskPage() {
             {headerWeather && (
               <span style={{ fontWeight: 400, color: MUTED, marginLeft: 10 }}>{headerWeather}</span>
             )}
+            <span style={{ fontSize: 12, fontWeight: 500, color: FAINT, marginLeft: 10 }}>{freshness}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
-            <div style={{ display: "flex", border: "1px solid #e3e1da", borderRadius: 16, overflow: "hidden" }}>
+            <div style={{ display: "flex", border: "1px solid #e3e1da", borderRadius: 6, overflow: "hidden" }}>
               <button
                 onClick={() => setViewModeAndPersist("week")}
                 aria-pressed={viewMode === "week"}
@@ -258,14 +268,14 @@ export default function KioskPage() {
                 Agenda
               </button>
             </div>
-            <button onClick={() => setFilterOpen((v) => !v)} style={{ border: "1px solid #e3e1da", background: "#fff", borderRadius: 16, padding: "10px 16px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>
+            <button onClick={() => setFilterOpen((v) => !v)} style={{ border: "1px solid #e3e1da", background: "#fff", borderRadius: 6, padding: "10px 16px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>
               ⊘ Filter{hiddenIds.size > 0 ? ` (${calendars.length - hiddenIds.size}/${calendars.length})` : ""}
             </button>
             <button onClick={() => setWeekOffset((v) => v - 1)} aria-label="Previous week" style={{ border: "none", background: "transparent", fontSize: 20, color: MUTED, cursor: "pointer", padding: "10px 14px" }}>‹</button>
             <button onClick={() => setWeekOffset(0)} style={{ border: "none", background: "transparent", fontSize: 14, fontWeight: 700, color: INK, cursor: "pointer", padding: "10px 14px" }}>Today</button>
             <button onClick={() => setWeekOffset((v) => v + 1)} aria-label="Next week" style={{ border: "none", background: "transparent", fontSize: 20, color: MUTED, cursor: "pointer", padding: "10px 14px" }}>›</button>
             {filterOpen && (
-              <div style={{ position: "absolute", top: 36, right: 70, background: "#fff", border: "1px solid #e3e1da", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 8, zIndex: 10, minWidth: 200 }}>
+              <div style={{ position: "absolute", top: 36, right: 70, background: "#fff", border: "1px solid #e3e1da", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 8, zIndex: 10, minWidth: 200 }}>
                 {calendars.map((c) => {
                   const hidden = hiddenIds.has(c.id);
                   return (
@@ -305,6 +315,13 @@ export default function KioskPage() {
                 <div style={{ fontSize: 12, color: MUTED, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}</div>
               </div>
             ))}
+          </div>
+        )}
+
+        {denseWeek && viewMode === "week" && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: "#f3f7fc", border: "1px solid #d8e8fa", borderRadius: 10, padding: "9px 12px", marginBottom: 12, flexShrink: 0 }}>
+            <span style={{ fontSize: 12.5, color: MUTED }}>Busy week — Agenda view is easier to scan.</span>
+            <button onClick={() => setViewModeAndPersist("agenda")} style={{ border: "none", borderRadius: 8, padding: "6px 10px", background: INK, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>Switch to Agenda</button>
           </div>
         )}
 

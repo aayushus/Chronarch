@@ -21,7 +21,8 @@ import ConflictConfirmModal from "../components/ConflictConfirmModal";
 import CopilotDrawer from "../components/CopilotDrawer";
 import EventContextMenu from "../components/EventContextMenu";
 import EventDetailPanel from "../components/EventDetailPanel";
-import { avatarInitials, isCancelledEvent } from "../components/EventCard";
+import { isCancelledEvent } from "../components/EventCard";
+import UserAvatar from "../components/UserAvatar";
 import IcsImportModal from "../components/IcsImportModal";
 import Icon from "../components/Icon";
 import MiniMonth from "../components/MiniMonth";
@@ -626,7 +627,7 @@ export default function CalendarPage() {
           title="Account & settings"
           style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none", flexShrink: 0 }}
         >
-          {avatarInitials(displayName)}
+          <UserAvatar email={user?.email} name={displayName} size={32} />
         </Link>
       </header>
 
