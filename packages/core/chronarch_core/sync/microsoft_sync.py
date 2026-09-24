@@ -89,22 +89,37 @@ async def sync_microsoft_account(session: AsyncSession, account: Account) -> dic
             synced_calendars.append((calendar, remote_cal))
             calendars_synced += 1
 
-        # 2. Fetch events in parallel across all calendars using asyncio.gather (Performance 2B)
+        # 2. Fetch events in parallel. Microsoft invalidates delta links;
+        # rebuild that calendar's window when Graph rejects one.
+        async def fetch_calendar(remote_cal):
+            calendar_id = remote_cal.provider_calendar_id
+            token = (account.delta_tokens or {}).get(calendar_id)
+            try:
+                return await connector.list_events(
+                    calendar_id, window_start=window_start, window_end=window_end,
+                    sync_token=token, calendar_writable=remote_cal.writable,
+                )
+            except Exception as exc:
+                import httpx
+                if not (token and isinstance(exc, httpx.HTTPStatusError)
+                        and exc.response.status_code == 410):
+                    raise
+                tokens = dict(account.delta_tokens or {})
+                tokens.pop(calendar_id, None)
+                account.delta_tokens = tokens
+                return await connector.list_events(
+                    calendar_id, window_start=window_start, window_end=window_end,
+                    sync_token=None, calendar_writable=remote_cal.writable,
+                )
+
         fetch_results = await asyncio.gather(*[
-            connector.list_events(
-                r_cal.provider_calendar_id,
-                window_start=window_start,
-                window_end=window_end,
-                sync_token=(account.delta_tokens or {}).get(r_cal.provider_calendar_id) or account.delta_token,
-                calendar_writable=r_cal.writable,
-            )
-            for _, r_cal in synced_calendars
+            fetch_calendar(r_cal) for _, r_cal in synced_calendars
         ], return_exceptions=True)
 
-        partial_failure = False
+        partial_failures: list[str] = []
         for (calendar, remote_cal), res in zip(synced_calendars, fetch_results):
             if isinstance(res, Exception):
-                partial_failure = True
+                partial_failures.append(f"{remote_cal.name}: {type(res).__name__}")
                 continue
             remote_events, deleted_ids, delta_link = res
             if delta_link:
@@ -161,9 +176,12 @@ async def sync_microsoft_account(session: AsyncSession, account: Account) -> dic
                 event.last_synced_at = datetime.now(timezone.utc)
                 events_synced += 1
 
-        account.sync_status = "error" if partial_failure else "ok"
+        account.sync_status = "error" if partial_failures else "ok"
         account.last_synced_at = datetime.now(timezone.utc).isoformat()
-        account.last_sync_error = "One or more calendars failed to sync" if partial_failure else None
+        account.last_sync_error = (
+            "Calendar sync failed: " + "; ".join(partial_failures)
+            if partial_failures else None
+        )
     except Exception as exc:
         import httpx
         is_auth_error = False
