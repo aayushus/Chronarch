@@ -90,6 +90,7 @@ def find_free_slots(
     blocking_calendar_ids: set[str],
     *,
     working_hours: tuple[int, int] | None = None,  # hours, or wall-clock minutes
+    working_days: set[int] | None = None,
     buffer: timedelta = timedelta(0),
     buffer_before: timedelta | None = None,
     buffer_after: timedelta | None = None,
@@ -122,7 +123,7 @@ def find_free_slots(
     for busy_start, busy_end in boundaries:
         if cursor < busy_start:
             gap_start, gap_end = cursor, min(busy_start, window_end)
-            slots.extend(_slice_by_working_hours(gap_start, gap_end, duration, working_hours))
+            slots.extend(_slice_by_working_hours(gap_start, gap_end, duration, working_hours, working_days))
         cursor = max(cursor, busy_end)
         if cursor >= window_end or len(slots) >= max_results:
             break
@@ -135,6 +136,7 @@ def _slice_by_working_hours(
     gap_end: datetime,
     duration: timedelta,
     working_hours: tuple[int, int] | None,
+    working_days: set[int] | None = None,
 ) -> list[FreeSlot]:
     if gap_end - gap_start < duration:
         return []
@@ -157,6 +159,9 @@ def _slice_by_working_hours(
         results: list[FreeSlot] = []
         day_cursor = gap_start
         while day_cursor < gap_end:
+            if working_days is not None and day_cursor.isoweekday() not in working_days:
+                day_cursor = (day_cursor + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                continue
             day_start = day_cursor.replace(hour=start_hour, minute=start_minute, second=0, microsecond=0)
             day_end = (
                 (day_cursor + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -184,6 +189,9 @@ def _slice_by_working_hours(
     last_day = gap_end.date()
     one_day = timedelta(days=1)
     while day <= last_day:
+        if working_days is not None and day.isoweekday() not in working_days:
+            day += one_day
+            continue
         day_start = datetime.combine(day, _time(start_hour, start_minute), tzinfo=tz)
         if end_hour == 24:
             day_end = datetime.combine(day + one_day, _time(0, 0), tzinfo=tz)

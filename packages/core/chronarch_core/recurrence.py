@@ -106,11 +106,16 @@ def _split_rrule_text(text: str, cut: datetime) -> tuple[str, str]:
     body = text.split(":", 1)[1] if ":" in text else text
     fields = [f for f in body.split(";") if f]
     keep_until = next((f.split("=", 1)[1] for f in fields if f.startswith("UNTIL=")), None)
+    keep_count = next((f.split("=", 1)[1] for f in fields if f.startswith("COUNT=")), None)
     base = [f for f in fields
             if not f.startswith(("COUNT=", "UNTIL="))]
     day_before = (cut - timedelta(days=1)).strftime("%Y%m%d")
     truncated = ";".join(base + [f"UNTIL={day_before}"])
-    restarted = ";".join(base + ([f"UNTIL={keep_until}"] if keep_until else []))
+    # A finite series must remain finite after a future split.  We preserve
+    # the original count here; occurrence-specific providers may refine the
+    # remaining count when they know the exact cut index, but dropping COUNT
+    # silently turns a finite series into an infinite one.
+    restarted = ";".join(base + ([f"COUNT={keep_count}"] if keep_count else []) + ([f"UNTIL={keep_until}"] if keep_until else []))
     return f"RRULE:{truncated}", f"RRULE:{restarted}"
 
 
@@ -135,8 +140,12 @@ def split_series(recurrence: dict, cut: datetime) -> tuple[dict | None, dict | N
         trunc = {"pattern": graph.get("pattern", {}),
                  "range": {"type": "endDate", "endDate": day_before}}
         restart_range = graph.get("range", {})
-        if not isinstance(restart_range, dict) or restart_range.get("type") == "numbered":
+        if not isinstance(restart_range, dict):
             restart_range = {"type": "noEnd"}
+        elif restart_range.get("type") == "numbered":
+            # Keep a finite restarted series finite. The exact remaining
+            # count is provider-specific; dropping the bound is unsafe.
+            restart_range = dict(restart_range)
         return {"type": trunc}, {"type": {"pattern": graph.get("pattern", {}), "range": restart_range}}
     return None, None
 

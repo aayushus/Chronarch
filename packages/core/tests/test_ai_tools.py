@@ -47,6 +47,23 @@ async def test_create_event_by_owner_succeeds_and_writes_audit(session):
     assert event.title == "Board Meeting"
 
 
+async def test_create_event_rejects_server_side_overlap(session):
+    """Direct writers cannot bypass the conflict gate used by the UI."""
+    exec_user, _ea_user, calendar = await _seed(session)
+    ctx = AuthContext(user_id=exec_user.id, role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
+    start = datetime(2026, 9, 17, 10, 0, tzinfo=timezone.utc)
+    await ai_tools.create_event(
+        session, ctx, calendar_id=calendar.id, title="Existing",
+        start=start, end=start + timedelta(hours=1), is_owner=True,
+    )
+    with pytest.raises(ValueError, match="conflicts"):
+        await ai_tools.create_event(
+            session, ctx, calendar_id=calendar.id, title="Overlap",
+            start=start + timedelta(minutes=30), end=start + timedelta(hours=1, minutes=30),
+            is_owner=True,
+        )
+
+
 async def test_ea_without_grant_cannot_create_event(session):
     _exec_user, ea_user, calendar = await _seed(session)
     ctx = AuthContext(user_id=ea_user.id, role=UserRole.DELEGATE, actor_type=ActorType.DELEGATE_UI)
@@ -55,6 +72,22 @@ async def test_ea_without_grant_cannot_create_event(session):
     with pytest.raises(ai_tools.PermissionDenied):
         await ai_tools.create_event(
             session, ctx, calendar_id=calendar.id, title="Sneaky Meeting", start=start, end=start + timedelta(hours=1),
+        )
+
+
+async def test_delegate_create_only_cannot_add_attendees(session):
+    _exec_user, ea_user, calendar = await _seed(session)
+    ctx = AuthContext(user_id=ea_user.id, role=UserRole.DELEGATE, actor_type=ActorType.DELEGATE_UI)
+    grant = DelegationCalendarGrant(
+        id="grant-attendee-create", delegation_id="del-1", calendar_id=calendar.id,
+        can_create=True, can_manage_attendees=False,
+    )
+    start = datetime(2026, 9, 17, 11, 0, tzinfo=timezone.utc)
+    with pytest.raises(ai_tools.PermissionDenied, match="manage_attendees"):
+        await ai_tools.create_event(
+            session, ctx, calendar_id=calendar.id, title="Invite attempt",
+            start=start, end=start + timedelta(hours=1),
+            attendees=[{"email": "guest@example.com"}], delegation_grant=grant,
         )
 
 

@@ -29,6 +29,16 @@ docker compose --env-file .env -f infra/docker-compose.yml up -d --build
 
 `--env-file .env` is required because Compose loads `.env` next to the compose file by default, while the environment file resides at the repo root.
 
+Production uses a separate deployment environment file and must be invoked
+explicitly from the repository root:
+
+```bash
+docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d
+```
+
+Do not reuse the local `.env` for production. `infra/.env` must contain the
+public HTTPS `APP_BASE_URL`, explicit `CORS_ORIGINS`, and production secrets.
+
 ### Seed Admin User
 
 Seed an initial executive/admin account:
@@ -78,4 +88,3 @@ pytest -q
 - [`apps/mcp/app/server.py`](apps/mcp/app/server.py) — Model Context Protocol HTTP service.
 - [`apps/api/`](apps/api/) — FastAPI application routing web requests, OAuth flows, and background sync triggers.
 - [`apps/web/`](apps/web/) — Modern React calendar frontend with multi-calendar overlay, contextual AI copilot drawer, and unified settings layout.
-

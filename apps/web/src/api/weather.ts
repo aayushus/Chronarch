@@ -100,6 +100,8 @@ function writeCache<T>(key: string, value: T, ttlMs: number): void {
 // without this, each one fires its own network request.
 const geoInFlight = new Map<string, Promise<GeoHit | null>>();
 const dayInFlight = new Map<string, Promise<DayWeather | null>>();
+const GEOCODING_URL = import.meta.env.VITE_WEATHER_GEOCODING_URL || "https://geocoding-api.open-meteo.com/v1/search";
+const FORECAST_URL = import.meta.env.VITE_WEATHER_FORECAST_URL || "https://api.open-meteo.com/v1/forecast";
 
 /** Resolve "Edmonton" / "Hall B" → coords. Returns null when unresolvable
  * (vague room names simply get no chip — never an error). */
@@ -119,7 +121,7 @@ export async function geocodeLocation(name: string): Promise<GeoHit | null> {
 async function _geocodeLocation(query: string, key: string): Promise<GeoHit | null> {
   try {
     const res = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`,
+      `${GEOCODING_URL}?name=${encodeURIComponent(query)}&count=1&language=en&format=json`,
     );
     if (!res.ok) return null;
     const data = (await res.json()) as {
@@ -163,7 +165,7 @@ async function _getDayWeather(lat: number, lon: number, dateISO: string, key: st
       start_date: dateISO,
       end_date: dateISO,
     });
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`);
+    const res = await fetch(`${FORECAST_URL}?${params.toString()}`);
     if (!res.ok) return null;
     const data = (await res.json()) as {
       daily?: {

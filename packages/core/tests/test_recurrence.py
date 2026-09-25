@@ -313,13 +313,13 @@ def test_split_series_text_and_graph():
     trunc, restart = _r.split_series(
         {"rule": ["RRULE:FREQ=DAILY;COUNT=10"]}, cut)
     assert trunc == {"rule": ["RRULE:FREQ=DAILY;UNTIL=20260920"]}
-    assert restart == {"rule": ["RRULE:FREQ=DAILY"]}
+    assert restart == {"rule": ["RRULE:FREQ=DAILY;COUNT=10"]}
     graph = {"pattern": {"type": "weekly", "interval": 1},
              "range": {"type": "numbered", "numberOfOccurrences": 10}}
     trunc, restart = _r.split_series({"type": graph}, cut)
     assert trunc == {"type": {"pattern": graph["pattern"],
                               "range": {"type": "endDate", "endDate": "2026-09-20"}}}
-    assert restart == {"type": {"pattern": graph["pattern"], "range": {"type": "noEnd"}}}
+    assert restart == {"type": {"pattern": graph["pattern"], "range": {"type": "numbered", "numberOfOccurrences": 10}}}
     assert _r.split_series({"rule": ["GARBAGE"]}, cut) == (None, None)
     assert _r.split_series(None, cut) == (None, None)
 

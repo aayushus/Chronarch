@@ -112,6 +112,8 @@ async def create_delegation(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Owner or delegate user not found")
     if delegate.role != UserRole.DELEGATE:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Delegate user must have the delegate role")
+    if _admin.role != UserRole.ADMIN and _admin.id != owner.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the owner or an administrator may manage this delegation")
 
     deleg = Delegation(owner_user_id=body.owner_user_id, delegate_user_id=body.delegate_user_id)
     session.add(deleg)
@@ -129,6 +131,8 @@ async def set_delegation_active(
     deleg = await session.get(Delegation, delegation_id)
     if deleg is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Delegation not found")
+    if _admin.role != UserRole.ADMIN and _admin.id != deleg.owner_user_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the owner or an administrator may manage this delegation")
     deleg.active = active
     await session.flush()
     return await _to_out(session, deleg)
@@ -160,6 +164,8 @@ async def upsert_grant(
     deleg = await session.get(Delegation, delegation_id)
     if deleg is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Delegation not found")
+    if _admin.role != UserRole.ADMIN and _admin.id != deleg.owner_user_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the owner or an administrator may manage this delegation")
     calendar = await session.get(Calendar, calendar_id)
     if calendar is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Calendar not found")

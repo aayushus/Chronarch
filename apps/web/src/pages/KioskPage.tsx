@@ -235,7 +235,8 @@ export default function KioskPage() {
       .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())[0] ?? null,
     [visibleEvents, now],
   );
-  const wallpaperUrl = `https://picsum.photos/seed/chronarch-${now.toISOString().slice(0, 10)}/1920/1080`;
+  const wallpaperBase = import.meta.env.VITE_KIOSK_WALLPAPER_URL || "https://picsum.photos/seed/chronarch-{date}/1920/1080";
+  const wallpaperUrl = wallpaperBase.replace("{date}", now.toISOString().slice(0, 10));
 
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 

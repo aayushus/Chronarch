@@ -22,7 +22,8 @@ class Contact(Base, TimestampMixin):
     __tablename__ = "contacts"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_uuid)
-    email: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
+    email: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    owner_user_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     display_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     # Manual enrichment (Google-Contacts-style detail form; invites never

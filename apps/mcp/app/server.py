@@ -22,11 +22,14 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from sqlalchemy import select
 
 from chronarch_core import ai_tools
 from chronarch_core.permissions import describe_denial
 from chronarch_core.prompts import tool_description
 from chronarch_core.db import SessionLocal
+from chronarch_core.models.account import Account
+from chronarch_core.models.calendar import Calendar
 
 from .auth import InvalidCredential, resolve_auth_context
 
@@ -75,6 +78,13 @@ async def _caller_timezone(session, ctx, explicit: str | None) -> str:
     return "UTC"
 
 
+async def _owned_calendar_ids(session, ctx) -> set[str]:
+    """MCP credentials are scoped to the credential owner's calendars."""
+    accounts = select(Account.id).where(Account.owner_user_id == ctx.user_id)
+    rows = await session.execute(select(Calendar.id).where(Calendar.account_id.in_(accounts)))
+    return set(rows.scalars())
+
+
 def _as_aware(value: str, tz_name: str) -> datetime:
     from chronarch_core.timezones import ensure_aware
 
@@ -96,7 +106,8 @@ async def list_calendars() -> list[dict]:
 
     ctx, session = await _authed_context()
     async with session:
-        calendars = await ai_tools.list_calendars(session, ctx)
+        calendars = await ai_tools.list_calendars(
+            session, ctx, owner_calendar_ids=await _owned_calendar_ids(session, ctx))
         out = []
         for c in calendars:
             # MCP callers are never owners — gate on scopes + ai_can_* flags.
@@ -118,7 +129,9 @@ async def get_event(event_id: str) -> dict:
     ctx, session = await _authed_context()
     async with session:
         try:
-            e = await ai_tools.get_event(session, ctx, event_id=event_id)
+            e = await ai_tools.get_event(
+                session, ctx, event_id=event_id,
+                owner_calendar_ids=await _owned_calendar_ids(session, ctx))
         except ai_tools.PermissionDenied as exc:
             return {"error": describe_denial(exc.action, exc.reason)}
         except ValueError as exc:
@@ -144,6 +157,7 @@ async def get_events(window_start: str, window_end: str, calendar_ids: list[str]
             window_start=_as_aware(window_start, tz_name),
             window_end=_as_aware(window_end, tz_name),
             calendar_ids=calendar_ids,
+            owner_calendar_ids=await _owned_calendar_ids(session, ctx),
         )
         return [
             {"id": e.id, "calendar_id": e.calendar_id, "title": e.title,

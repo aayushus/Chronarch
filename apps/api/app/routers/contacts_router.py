@@ -68,7 +68,7 @@ async def search_contacts(
     _user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
-    rows = await _contacts.search_contacts(session, q, limit)
+    rows = await _contacts.search_contacts(session, q, limit, _user.id)
     return {"contacts": [_out(c) for c in rows]}
 
 
@@ -79,7 +79,7 @@ async def get_contact(
     session: AsyncSession = Depends(get_db_session),
 ):
     contact = await session.get(Contact, contact_id)
-    if contact is None or contact.deleted_at is not None:
+    if contact is None or contact.deleted_at is not None or contact.owner_user_id != _user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Contact not found.")
     return _out(contact)
 
@@ -93,7 +93,8 @@ async def create_contact(
     try:
         contact = await _contacts.create_contact(
             session, email=body.email, display_name=body.display_name,
-            phone=body.phone, company=body.company, job_title=body.job_title)
+            phone=body.phone, company=body.company, job_title=body.job_title,
+            owner_user_id=_user.id)
     except ValueError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc))
     return _out(contact)
@@ -123,7 +124,7 @@ async def delete_contact(
     _user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
-    if not await _contacts.delete_contact(session, contact_id):
+    if not await _contacts.delete_contact(session, contact_id, owner_user_id=_user.id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Contact not found.")
     return None
 
@@ -134,7 +135,7 @@ async def restore_contact(
     _user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
-    contact = await _contacts.restore_contact(session, contact_id)
+    contact = await _contacts.restore_contact(session, contact_id, owner_user_id=_user.id)
     if contact is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Contact not found.")
     return _out(contact)

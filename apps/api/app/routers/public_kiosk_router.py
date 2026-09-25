@@ -106,7 +106,8 @@ async def display_agenda(
     out = []
     for e in sorted(events, key=lambda x: (x.start, x.end)):
         cal = calendars.get(e.calendar_id)
-        masked = e.visibility == EventVisibility.PRIVATE
+        calendar_masked = bool(cal and cal.privacy_mask)
+        masked = calendar_masked or e.visibility == EventVisibility.PRIVATE
         out.append({
             "id": e.id,
             "title": "Busy" if masked else e.title,

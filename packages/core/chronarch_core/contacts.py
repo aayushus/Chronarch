@@ -70,12 +70,16 @@ async def refresh_contacts_for_account(session: AsyncSession, account_id: str) -
                     continue
                 name = _clean_name(person.get("name"))
                 contact = (
-                    await session.execute(select(Contact).where(Contact.email == email))
+                    await session.execute(select(Contact).where(
+                        Contact.email == email,
+                        Contact.owner_user_id == account.owner_user_id,
+                    ))
                 ).scalar_one_or_none()
                 now = _now()
                 if contact is None:
                     session.add(Contact(
                         email=email, display_name=name or None,
+                        owner_user_id=account.owner_user_id,
                         first_seen_at=now, last_seen_at=now, event_count=1,
                     ))
                 elif contact.deleted_at is not None:
@@ -143,10 +147,13 @@ async def resolve_contact(session: AsyncSession, query: str) -> dict:
     return {"status": "ambiguous", "candidates": hits}
 
 
-async def search_contacts(session: AsyncSession, query: str, limit: int = 10) -> list[Contact]:
+async def search_contacts(session: AsyncSession, query: str, limit: int = 10, owner_user_id: str | None = None) -> list[Contact]:
     """Substring search over names, emails, and companies, most-met first."""
     q = _norm(query)
-    contacts = list((await session.execute(_live_only(select(Contact)))).scalars())
+    stmt = _live_only(select(Contact))
+    if owner_user_id is not None:
+        stmt = stmt.where(Contact.owner_user_id == owner_user_id)
+    contacts = list((await session.execute(stmt)).scalars())
     if q:
         contacts = [c for c in contacts
                     if q in _norm(c.display_name or "") or q in _norm(c.email)
@@ -173,7 +180,7 @@ def _validate_email(email: str) -> str:
 async def create_contact(
     session: AsyncSession, *, email: str, display_name: str | None = None,
     phone: str | None = None, company: str | None = None,
-    job_title: str | None = None,
+    job_title: str | None = None, owner_user_id: str | None = None,
 ) -> Contact:
     """Manually add someone extraction hasn't seen. Manual rows start
     name-locked so a later invite can't overwrite what was typed here.
@@ -181,7 +188,8 @@ async def create_contact(
     invalid or duplicate email."""
     cleaned = _validate_email(email)
     existing = (
-        await session.execute(select(Contact).where(Contact.email == cleaned))
+        await session.execute(select(Contact).where(
+            Contact.email == cleaned, Contact.owner_user_id == owner_user_id))
     ).scalar_one_or_none()
     if existing is not None:
         if existing.deleted_at is not None:
@@ -196,6 +204,7 @@ async def create_contact(
         company=(company or "").strip() or None,
         job_title=(job_title or "").strip() or None,
         name_locked=True,
+        owner_user_id=owner_user_id,
     )
     session.add(contact)
     await session.flush()
@@ -234,21 +243,21 @@ async def update_contact(
     return contact
 
 
-async def delete_contact(session: AsyncSession, contact_id: str) -> bool:
+async def delete_contact(session: AsyncSession, contact_id: str, owner_user_id: str | None = None) -> bool:
     """Soft delete: the row stays (counts intact) but leaves every read, and
     refresh won't resurrect it. Returns False for missing rows."""
     contact = await session.get(Contact, contact_id)
-    if contact is None or contact.deleted_at is not None:
+    if contact is None or contact.deleted_at is not None or (owner_user_id is not None and contact.owner_user_id != owner_user_id):
         return False
     contact.deleted_at = _now()
     await session.flush()
     return True
 
 
-async def restore_contact(session: AsyncSession, contact_id: str) -> Contact | None:
+async def restore_contact(session: AsyncSession, contact_id: str, owner_user_id: str | None = None) -> Contact | None:
     """Undo a soft delete. Returns None for missing or live rows."""
     contact = await session.get(Contact, contact_id)
-    if contact is None or contact.deleted_at is None:
+    if contact is None or contact.deleted_at is None or (owner_user_id is not None and contact.owner_user_id != owner_user_id):
         return None
     contact.deleted_at = None
     await session.flush()

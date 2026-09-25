@@ -65,6 +65,16 @@ def test_find_free_slots_returns_gap_between_meetings():
     assert slots[0].end == _dt(11, 45)
 
 
+def test_find_free_slots_respects_iso_working_days():
+    saturday = datetime(2026, 9, 19, 9, 0, tzinfo=timezone.utc)
+    slots = find_free_slots(
+        window_start=saturday, window_end=saturday + timedelta(hours=8),
+        duration=timedelta(minutes=30), events=[], blocking_calendar_ids=set(),
+        working_hours=(9 * 60, 17 * 60), working_days={1, 2, 3, 4, 5},
+    )
+    assert slots == []
+
+
 def test_tentative_and_out_of_office_block_but_free_status_does_not():
     events = [
         _event("free-1", "cal-1", _dt(9, 0), _dt(10, 0), busy_status=BusyStatus.FREE),

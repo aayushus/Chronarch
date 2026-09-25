@@ -306,6 +306,10 @@ class GoogleConnector(BaseConnector):
 
     async def update_event(self, calendar_id: str, provider_event_id: str, patch: dict[str, Any]) -> RemoteEvent:
         body = dict(patch)
+        if "title" in body:
+            body["summary"] = body.pop("title")
+        if "description" in body:
+            body["description"] = body["description"] or ""
         # Normalized {email, name} entries become Google attendee resources.
         if isinstance(body.get("attendees"), list):
             body["attendees"] = [
@@ -470,4 +474,3 @@ class GoogleConnector(BaseConnector):
         except Exception as exc:
             if "404" not in str(exc):
                 raise
-

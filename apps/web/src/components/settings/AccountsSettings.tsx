@@ -14,6 +14,7 @@ import {
   adminEnsureWebhooks,
   adminGetGoogleConnectUrl,
   adminGetMicrosoftConnectUrl,
+  adminGetOAuthRedirectUris,
   adminListAccounts,
   adminListOAuthConfigs,
   adminSaveOAuthConfig,
@@ -510,6 +511,9 @@ function ConnectAccountWizardModal({
   const [configError, setConfigError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [copiedUri, setCopiedUri] = useState(false);
+  const [redirectUris, setRedirectUris] = useState<{ google: string; microsoft: string } | null>(null);
+
+  useEffect(() => { void adminGetOAuthRedirectUris().then(setRedirectUris).catch(() => {}); }, []);
 
   // Form states for ICS subscription
   const [icsName, setIcsName] = useState("");
@@ -527,9 +531,8 @@ function ConnectAccountWizardModal({
   const [caldavError, setCaldavError] = useState<string | null>(null);
   const [caldavTestOk, setCaldavTestOk] = useState<string | null>(null);
 
-  const origin = window.location.origin;
-  const googleRedirectUri = `${origin}/api/v1/admin/accounts/google/callback`;
-  const microsoftRedirectUri = `${origin}/api/v1/admin/accounts/microsoft/callback`;
+  const googleRedirectUri = redirectUris?.google ?? `${window.location.origin}/api/v1/admin/accounts/google/callback`;
+  const microsoftRedirectUri = redirectUris?.microsoft ?? `${window.location.origin}/api/v1/admin/accounts/microsoft/callback`;
 
   const isGoogleConfigured = !!oauth.google && (oauth.google.client_id_configured || oauth.google.client_secret_configured);
   const isMicrosoftConfigured = !!oauth.microsoft && (oauth.microsoft.client_id_configured || oauth.microsoft.client_secret_configured);

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from typing import Any
+from urllib.parse import urljoin
 import zoneinfo
 
 import icalendar
@@ -207,12 +208,22 @@ async def fetch_ics_feed(url: str, timeout: float = 20.0) -> bytes:
         "User-Agent": "Chronarch/1.0 (Calendar Subscription Sync; +https://github.com/aayushus/Chronarch)",
         "Accept": "text/calendar, text/plain, */*",
     }
-    async with httpx.AsyncClient(follow_redirects=True, timeout=timeout) as client:
-        async with client.stream("GET", url, headers=headers) as resp:
-            resp.raise_for_status()
-            content = bytearray()
-            async for chunk in resp.aiter_bytes():
-                content.extend(chunk)
-                if len(content) > MAX_ICS_FEED_BYTES:
-                    raise ValueError(f"ICS feed exceeds size limit of {MAX_ICS_FEED_BYTES // (1024*1024)}MB")
-            return bytes(content)
+    async with httpx.AsyncClient(follow_redirects=False, timeout=timeout) as client:
+        current = url
+        for hop in range(6):
+            _validate_feed_url(current)
+            async with client.stream("GET", current, headers=headers) as resp:
+                if resp.is_redirect:
+                    location = resp.headers.get("location")
+                    if not location:
+                        raise ValueError("ICS feed redirect did not include a location")
+                    current = urljoin(current, location)
+                    continue
+                resp.raise_for_status()
+                content = bytearray()
+                async for chunk in resp.aiter_bytes():
+                    content.extend(chunk)
+                    if len(content) > MAX_ICS_FEED_BYTES:
+                        raise ValueError(f"ICS feed exceeds size limit of {MAX_ICS_FEED_BYTES // (1024*1024)}MB")
+                return bytes(content)
+        raise ValueError("ICS feed exceeded the maximum redirect limit")

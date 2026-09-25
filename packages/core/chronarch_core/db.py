@@ -9,7 +9,7 @@ def _build_database_url() -> str:
         return explicit
     user = os.environ.get("POSTGRES_USER", "chronarch")
     pw = os.environ.get("POSTGRES_PASSWORD", "chronarch")
-    host = os.environ.get("POSTGRES_HOST", "postgres")
+    host = os.environ.get("POSTGRES_HOST", "localhost")
     port = os.environ.get("POSTGRES_PORT", "5432")
     db = os.environ.get("POSTGRES_DB", "chronarch")
     return f"postgresql+asyncpg://{user}:{pw}@{host}:{port}/{db}"

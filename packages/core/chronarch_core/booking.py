@@ -16,6 +16,7 @@ from __future__ import annotations
 import secrets
 import time
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -154,6 +155,16 @@ async def open_slots(
         hours = (int(sh) * 60 + int(sm), int(eh) * 60 + int(em))
     except (ValueError, AttributeError):
         hours = None
+    try:
+        host_tz = ZoneInfo(host.home_timezone or "UTC")
+    except Exception:
+        host_tz = timezone.utc
+    start = start.astimezone(host_tz)
+    end = end.astimezone(host_tz)
+    try:
+        working_days = {int(day) for day in (host.working_days or "1,2,3,4,5").split(",") if day.strip()}
+    except ValueError:
+        working_days = {1, 2, 3, 4, 5}
 
     slots = await ai_tools.find_free_slots(
         session, host_context(host),
@@ -161,7 +172,8 @@ async def open_slots(
         duration=timedelta(minutes=link.duration_minutes),
         # No calendar filter: every host-owned blocking calendar must block,
         # not just the destination.
-        working_hours=hours, buffer_before=buffer_before, buffer_after=buffer_after,
+        working_hours=hours, working_days=working_days,
+        buffer_before=buffer_before, buffer_after=buffer_after,
         min_notice=timedelta(minutes=link.min_notice_minutes), now=now,
         owner_calendar_ids=await host_calendar_ids(session, host.id),
     )

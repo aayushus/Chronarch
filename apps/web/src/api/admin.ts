@@ -1,5 +1,10 @@
 import { apiFetch } from "./client";
 
+export interface OAuthRedirectUris { google: string; microsoft: string }
+export function adminGetOAuthRedirectUris(): Promise<OAuthRedirectUris> {
+  return apiFetch<OAuthRedirectUris>("/admin/oauth/redirect-uris");
+}
+
 export interface AdminCalendar {
   id: string;
   name: string;

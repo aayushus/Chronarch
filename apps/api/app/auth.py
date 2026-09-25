@@ -102,9 +102,10 @@ async def revoke_token(token: str) -> None:
         logger.warning("Failed to record token revocation in Redis: %s", exc)
 
 
-async def get_current_user(
+async def _authenticate_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     session: AsyncSession = Depends(get_db_session),
+    *, allow_forced_password_change: bool = False,
 ) -> User:
     if credentials is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")
@@ -134,9 +135,23 @@ async def get_current_user(
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Session validation is temporarily unavailable") from exc
     if revoked_before and issued_at <= float(revoked_before):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session has been invalidated")
-    if user.force_password_change:
+    if user.force_password_change and not allow_forced_password_change:
         raise HTTPException(status.HTTP_428_PRECONDITION_REQUIRED, "Password change required")
     return user
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    session: AsyncSession = Depends(get_db_session),
+) -> User:
+    return await _authenticate_user(credentials, session)
+
+
+async def get_current_user_for_password_change(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    session: AsyncSession = Depends(get_db_session),
+) -> User:
+    return await _authenticate_user(credentials, session, allow_forced_password_change=True)
 
 
 def build_auth_context(user: User, actor_type: ActorType) -> AuthContext:

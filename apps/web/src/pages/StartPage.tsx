@@ -798,7 +798,7 @@ function OAuthGuideHelper({ provider }: { provider: "google" | "microsoft" }) {
   const [copiedRedirect, setCopiedRedirect] = useState(false);
 
   const origin = window.location.origin;
-  const redirectUri = `${origin.replace(":3100", ":8000")}/api/v1/admin/accounts/${provider}/callback`;
+  const redirectUri = `${origin}/api/v1/admin/accounts/${provider}/callback`;
 
   function copyText(val: string, type: "origin" | "redirect") {
     void navigator.clipboard.writeText(val);

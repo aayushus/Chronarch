@@ -9,6 +9,7 @@ vendor/bundle/
 .env.local
 .env.*.local
 .envrc
+.env 2
 
 # Logs
 *.log
@@ -56,6 +57,7 @@ ENV/
 # Local DB & SQLite
 *.db
 *.dump
+bugs.md
 *.sqlite3
 
 # Infra & Docker runtime data

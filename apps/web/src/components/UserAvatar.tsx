@@ -15,8 +15,9 @@ export default function UserAvatar({ email, name, size = 32, title }: UserAvatar
   const [failed, setFailed] = useState(false);
   const normalizedEmail = email?.trim().toLowerCase() ?? "";
   const label = name?.trim() || normalizedEmail.split("@")[0] || "?";
-  const url = normalizedEmail
-    ? `https://www.gravatar.com/avatar/${md5(normalizedEmail)}?s=${size * 2}&d=404`
+  const gravatarBase = import.meta.env.VITE_GRAVATAR_BASE_URL || "https://www.gravatar.com/avatar";
+  const url = normalizedEmail && gravatarBase
+    ? `${gravatarBase.replace(/\/$/, "")}/${md5(normalizedEmail)}?s=${size * 2}&d=404`
     : null;
 
   return (

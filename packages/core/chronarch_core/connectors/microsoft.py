@@ -475,6 +475,10 @@ class MicrosoftConnector(BaseConnector):
         for k in ("subject", "body", "location", "isAllDay"):
             if k in patch:
                 graph_patch[k] = patch[k]
+        if "title" in patch:
+            graph_patch["subject"] = patch["title"]
+        if "description" in patch:
+            graph_patch["body"] = {"contentType": "text", "content": patch["description"] or ""}
         if not graph_patch:
             graph_patch = patch
 

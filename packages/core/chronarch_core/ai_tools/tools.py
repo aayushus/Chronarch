@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..audit import write_audit_entry
@@ -263,17 +263,34 @@ async def get_events(
 
     stmt = select(UnifiedEvent).where(
         UnifiedEvent.calendar_id.in_(cal_by_id.keys()),
-        UnifiedEvent.start < window_end,
-        UnifiedEvent.end > window_start,
+        or_(
+            and_(UnifiedEvent.start < window_end, UnifiedEvent.end > window_start),
+            UnifiedEvent.recurrence.is_not(None),
+        ),
     )
     events = list((await session.execute(stmt)).scalars())
+
+    # Recurring masters are stored at their first occurrence. Expand them
+    # before applying the requested window so later instances are visible in
+    # ordinary calendar listings, not only in availability checks.
+    from copy import copy
+    from ..recurrence import occurrences
+    listed_events = []
+    for event in events:
+        if not event.recurrence:
+            listed_events.append(event)
+            continue
+        for occurrence_start, occurrence_end in occurrences(event, window_start, window_end):
+            instance = copy(event)
+            instance.start, instance.end = occurrence_start, occurrence_end
+            listed_events.append(instance)
 
     # Privacy masking (BRD §15): a viewer without VIEW_TITLE only gets the
     # free/busy block, never the row itself — masking happens at the API
     # serialization layer (apps/api), which redacts title/description for
     # any event where VIEW_TITLE is denied but VIEW_AVAILABILITY is allowed.
     visible = []
-    for event in events:
+    for event in listed_events:
         cal = cal_by_id[event.calendar_id]
         is_owner = bool(owner_calendar_ids and cal.id in owner_calendar_ids)
         grant = grants_by_calendar.get(cal.id) if grants_by_calendar else None
@@ -319,6 +336,7 @@ async def find_free_slots(
     duration: timedelta,
     calendar_ids: list[str] | None = None,
     working_hours: tuple[int, int] | None = None,
+    working_days: set[int] | None = None,
     buffer: timedelta = timedelta(0),
     buffer_before: timedelta | None = None,
     buffer_after: timedelta | None = None,
@@ -345,6 +363,7 @@ async def find_free_slots(
         probed,
         blocking_ids,
         working_hours=working_hours,
+        working_days=working_days,
         buffer=buffer,
         buffer_before=buffer_before,
         buffer_after=buffer_after,
@@ -531,6 +550,21 @@ async def create_event(
     if not decision.allowed:
         raise PermissionDenied(CalendarAction.CREATE, decision.reason)
     normalized_attendees = _normalize_attendees(attendees) if attendees else []
+    if normalized_attendees:
+        attendee_decision = resolve_permission(
+            ctx, calendar, CalendarAction.MANAGE_ATTENDEES,
+            is_owner=is_owner, delegation_grant=delegation_grant,
+        )
+        if not attendee_decision.allowed:
+            raise PermissionDenied(CalendarAction.MANAGE_ATTENDEES, attendee_decision.reason)
+    conflicts = await get_conflicts(
+        session, ctx, window_start=start, window_end=end,
+        calendar_ids=[calendar_id],
+        owner_calendar_ids={calendar_id} if is_owner else None,
+        grants_by_calendar={calendar_id: delegation_grant} if delegation_grant else None,
+    )
+    if conflicts:
+        raise ValueError("The requested time conflicts with an existing event.")
     canonical = _normalize_recurrence(recurrence) if recurrence is not None else None
     provider_event_id = ""
     stored_recurrence = None

@@ -11,6 +11,7 @@ from ..auth import (
     build_auth_context,
     create_access_token,
     get_current_user,
+    get_current_user_for_password_change,
     hash_password,
     revoke_token,
     verify_password,
@@ -131,7 +132,7 @@ async def reset_password(body: ResetPasswordRequest, session: AsyncSession = Dep
 @router.post("/logout", response_model=LogoutResponse)
 async def logout(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
-    _user: User = Depends(get_current_user),
+    _user: User = Depends(get_current_user_for_password_change),
 ):
     """Revoke current JWT access token so it cannot be used again."""
     if credentials:
@@ -233,7 +234,7 @@ def _me_response(user: User, *, permissions=None, roles=None) -> MeResponse:
 
 @router.get("/me", response_model=MeResponse)
 async def me(
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user_for_password_change),
     session: AsyncSession = Depends(get_db_session),
 ):
     from chronarch_core import rbac as _rbac
@@ -340,7 +341,7 @@ class PasswordChange(BaseModel):
 @router.post("/me/password", response_model=MeResponse, dependencies=[Depends(password_rate_limiter)])
 async def change_my_password(
     body: PasswordChange,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user_for_password_change),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Self-service password change. Requires the current password so a

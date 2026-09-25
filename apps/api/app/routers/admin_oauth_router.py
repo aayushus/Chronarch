@@ -18,6 +18,7 @@ from chronarch_core.models.user import User
 from chronarch_core.oauth import list_oauth_configs
 
 from ..admin_guard import require_permission
+from ..config import APP_BASE_URL
 from ..deps import get_db_session
 
 router = APIRouter(prefix="/api/v1/admin/oauth", tags=["admin"])
@@ -39,6 +40,20 @@ class OAuthConfigUpdate(BaseModel):
     client_id: str | None = None
     client_secret: str | None = None
     tenant_id: str | None = None
+
+
+class OAuthRedirectUris(BaseModel):
+    google: str
+    microsoft: str
+
+
+@router.get("/redirect-uris", response_model=OAuthRedirectUris)
+async def redirect_uris(_user: User = Depends(require_permission("oauth.view"))):
+    base = APP_BASE_URL.rstrip("/")
+    return OAuthRedirectUris(
+        google=f"{base}/api/v1/admin/accounts/google/callback",
+        microsoft=f"{base}/api/v1/admin/accounts/microsoft/callback",
+    )
 
 
 def _to_out(config: OAuthProviderConfig) -> OAuthConfigOut:
