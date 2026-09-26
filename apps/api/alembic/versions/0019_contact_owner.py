@@ -75,7 +75,7 @@ def _backfill_unambiguous_owners() -> None:
             continue
         self_email = str(account["provider_account_email"] or "").strip().lower()
         rows = conn.execute(sa.text(
-            "SELECT attendees, organizer FROM unified_events WHERE provider_account_id = :account_id"
+            "SELECT attendees, organizer FROM events WHERE provider_account_id = :account_id"
         ), {"account_id": account["id"]}).all()
         for attendees, organizer in rows:
             values = []
