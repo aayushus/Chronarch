@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { friendlyError } from "../api/client";
 
@@ -23,16 +23,18 @@ import EventContextMenu from "../components/EventContextMenu";
 import EventDetailPanel from "../components/EventDetailPanel";
 import { isCancelledEvent } from "../components/EventCard";
 import UserAvatar from "../components/UserAvatar";
+import { ErrorBanner } from "../components/ui";
 import IcsImportModal from "../components/IcsImportModal";
 import Icon from "../components/Icon";
 import MiniMonth from "../components/MiniMonth";
 import Palette, { PaletteAction } from "../components/Palette";
 import QuickCreateModal, { CreateDraft } from "../components/QuickCreateModal";
 import { addDays, startOfDay, startOfMonth, startOfWeek } from "../lib/dates";
-import { dayStats, formatMinutes, greeting } from "../lib/focus";
+import { dayStats, formatMinutes } from "../lib/focus";
 import { pickCountdowns } from "../lib/kiosk";
 import { fetchEventsLazy, invalidateEventsCache } from "../lib/eventsCache";
-import { contrastText } from "../lib/color";
+import { tint } from "../lib/color";
+import { useAppearance } from "../appearance";
 
 export type CalendarViewMode = "day" | "week" | "month" | "agenda" | "year";
 
@@ -85,6 +87,7 @@ export default function CalendarPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const workingHours = useMemo(() => workingHoursOf(user), [user]);
+  const { theme } = useAppearance();
   // Both fixed rails need a comfortable central canvas. Below this width the
   // calendar remains usable and the Today rail is available from the toolbar.
   // Keep the calendar list available on normal laptop widths; below this
@@ -113,6 +116,18 @@ export default function CalendarPage() {
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Action failures (create/move/delete/undo) are transient: the user can
+  // simply retry, so the banner clears itself. Load and auth failures stay
+  // until dismissed. One timer, reset on every new message.
+  const errorTimer = useRef<number | undefined>(undefined);
+  function showError(message: string | null, autoDismissMs?: number) {
+    window.clearTimeout(errorTimer.current);
+    setError(message);
+    if (message && autoDismissMs) {
+      errorTimer.current = window.setTimeout(() => setError(null), autoDismissMs);
+    }
+  }
+  useEffect(() => () => window.clearTimeout(errorTimer.current), []);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -145,7 +160,7 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => {
-    listCalendars().then(setCalendars).catch((e) => setError(friendlyError(e)));
+    listCalendars().then(setCalendars).catch((e) => showError(friendlyError(e)));
   }, []);
 
   // Deep link (?event=<id>): open the shared event on load.
@@ -190,7 +205,7 @@ export default function CalendarPage() {
         if (!cancelled) setEvents(fresh);
       })
       .catch((e) => {
-        if (!cancelled) setError(friendlyError(e));
+        if (!cancelled) showError(friendlyError(e));
       })
       .finally(() => {
         if (!cancelled) setEventsLoading(false);
@@ -242,6 +257,8 @@ export default function CalendarPage() {
     ]);
     setEvents(freshEvents);
     setCalendars(freshCalendars);
+    // A successful reload is the resolution of whatever failed before it.
+    showError(null);
   }
 
   function handleCreateRange(start: Date, end: Date, allDay: boolean) {
@@ -263,7 +280,7 @@ export default function CalendarPage() {
       }
       await commitCreate(body);
     } catch (e) {
-      setError(friendlyError(e));
+      showError(friendlyError(e), 6000);
     }
   }
 
@@ -283,7 +300,7 @@ export default function CalendarPage() {
     } catch (e) {
       setEvents(previous);
       setSelectedEvent(prevSelected);
-      setError(friendlyError(e));
+      showError(friendlyError(e), 6000);
     }
   }
 
@@ -296,7 +313,7 @@ export default function CalendarPage() {
       }
       await commitMove(eventId, newStart, newEnd, allDay);
     } catch (e) {
-      setError(friendlyError(e));
+      showError(friendlyError(e), 6000);
     }
   }
 
@@ -333,13 +350,13 @@ export default function CalendarPage() {
               });
               await refreshEvents();
             } catch (e) {
-              setError(friendlyError(e));
+              showError(friendlyError(e), 6000);
             }
           },
         });
       }
     } catch (e) {
-      setError(friendlyError(e));
+      showError(friendlyError(e), 6000);
     }
   }
 
@@ -357,7 +374,7 @@ export default function CalendarPage() {
       await refreshEvents();
       setSelectedEvent(copy);
     } catch (e) {
-      setError(friendlyError(e));
+      showError(friendlyError(e), 6000);
     }
   }
 
@@ -369,7 +386,7 @@ export default function CalendarPage() {
       if (selectedEvent?.id === updated.id) setSelectedEvent(updated);
       toast(next === "private" ? `“${event.title}” is now private.` : `“${event.title}” is no longer private.`);
     } catch (e) {
-      setError(friendlyError(e));
+      showError(friendlyError(e), 6000);
     }
   }
 
@@ -429,7 +446,7 @@ export default function CalendarPage() {
 
   async function handleSyncNow() {
     setIsSyncing(true);
-    setError(null);
+    showError(null);
     try {
       const res = await triggerCalendarSync();
       setLastSyncedAt(res.last_synced_at);
@@ -437,10 +454,10 @@ export default function CalendarPage() {
       const synced = res.events_synced ?? 0;
       const failed = res.errors?.length ?? 0;
       if (failed > 0) {
-        setError(`Sync finished with ${failed} account error${failed === 1 ? "" : "s"}. ${synced} event${synced === 1 ? "" : "s"} refreshed.`);
+        toast(`Sync finished with ${failed} account error${failed === 1 ? "" : "s"}. ${synced} event${synced === 1 ? "" : "s"} refreshed.`, { durationMs: 8000 });
       }
     } catch (e) {
-      setError(friendlyError(e));
+      showError(friendlyError(e));
     } finally {
       setIsSyncing(false);
     }
@@ -575,7 +592,7 @@ export default function CalendarPage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            fontSize: 13,
+            fontSize: "var(--text-md)",
             color: "var(--warning)",
           }}
         >
@@ -586,118 +603,81 @@ export default function CalendarPage() {
           <Link
             to="/settings?section=accounts"
             className="btn-secondary"
-            style={{ fontSize: 12, padding: "4px 10px", background: "var(--bg-card)", color: "var(--text-primary)" }}
+            style={{ fontSize: "var(--text-sm)", padding: "4px 10px", background: "var(--bg-card)", color: "var(--text-primary)" }}
           >
             Re-connect Account
           </Link>
         </div>
       )}
 
-      {/* Command header */}
-      <header style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
-            {greeting(now.getHours())}, {displayName.split(" ")[0]}
-          </div>
-          <div className="tabular-nums" style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-            {now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
-          </div>
-        </div>
-        <button
-          onClick={() => setPaletteOpen(true)}
-          className="hoverable"
-          style={{
-            flex: 1, display: "flex", alignItems: "center", gap: 8, background: "var(--bg-raised)",
-            border: "1px solid var(--border-subtle)", borderRadius: 10, padding: "8px 14px",
-            color: "var(--text-tertiary)", fontSize: 13, cursor: "pointer", minWidth: 0, maxWidth: 520, margin: "0 auto",
-          }}
-        >
-          <Icon name="search" size={14} />
-          <span style={{ flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            Jump to anything — try "lunch Friday"
-          </span>
-          <kbd>⌘K</kbd>
-        </button>
-        <button onClick={() => {
-          const s = new Date(viewedDate);
-          s.setHours(9, 0, 0, 0);
-          setCreateDraft({ start: s, end: new Date(s.getTime() + 30 * 60000), allDay: false });
-        }} className="btn-primary hoverable" style={{ flexShrink: 0 }}>
-          <span style={{ fontSize: 14, lineHeight: 1 }}>+</span>
-          <span>New Event</span>
-        </button>
-        <button
-          onClick={handleSyncNow}
-          disabled={isSyncing}
-          className="hoverable"
-          title={isSyncing ? "Syncing calendars…" : "Sync calendars now"}
-          aria-label={isSyncing ? "Syncing calendars" : "Sync calendars now"}
-          aria-busy={isSyncing}
-          style={{ height: 32, boxSizing: "border-box", background: isSyncing ? "var(--accent-soft)" : "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 10, color: isSyncing ? "var(--accent)" : "var(--text-secondary)", padding: isSyncing ? "8px 11px" : "8px 10px", cursor: isSyncing ? "wait" : "pointer", flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "background 160ms ease, color 160ms ease" }}
-        >
-          <Icon name="refresh" size={14} style={isSyncing ? { animation: "chronarch-spin 900ms linear infinite" } : undefined} />
-          {isSyncing && <span style={{ fontSize: 12, fontWeight: 600 }}>Syncing…</span>}
-        </button>
-        <Link
-          to="/settings"
-          title="Account & settings"
-          style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none", flexShrink: 0 }}
-        >
-          <UserAvatar email={user?.email} name={displayName} size={32} />
-        </Link>
-      </header>
-
-      {/* Date navigation & View mode toolbar */}
-      <div
+      {/* Command header — one 52px toolbar. Left answers "where am I";
+          right answers "what can I do". The range label is the largest text
+          in the bar because it is the most-scanned string in the product. */}
+      <header
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
-          padding: "6px 16px",
-          borderBottom: "1px solid var(--border-subtle)",
-          flexShrink: 0,
-          background: "var(--bg-app)",
-          gap: 12,
+          gap: 8,
+          rowGap: 8,
           flexWrap: "wrap",
+          minHeight: 52,
+          boxSizing: "border-box",
+          padding: "10px 16px",
+          borderBottom: "1px solid var(--border-subtle)",
+          background: "var(--bg-app)",
+          flexShrink: 0,
         }}
       >
-        {/* Left: Date navigation controls & Range label */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {/* Left: date navigation, then the range label (the focal element) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <button
             onClick={() => setViewedDate(new Date())}
             className="btn-secondary hoverable"
             title="Go to Today (T)"
-            style={{ height: 32, boxSizing: "border-box", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}
+            style={{ height: 32, boxSizing: "border-box", padding: "0 14px", fontSize: "var(--text-md)", fontWeight: 600, flexShrink: 0 }}
           >
             Today
           </button>
-          <div style={{ display: "flex", gap: 2 }}>
+          <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
             <button
               onClick={() => shift(-1)}
               className="btn-secondary hoverable"
+              aria-label="Previous period"
               title="Previous period (Left Arrow or ,)"
-              style={{ height: 32, boxSizing: "border-box", padding: "6px 10px", display: "inline-flex", alignItems: "center" }}
+              style={{ height: 32, boxSizing: "border-box", width: 32, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
             >
               <Icon name="chevronLeft" size={15} />
             </button>
             <button
               onClick={() => shift(1)}
               className="btn-secondary hoverable"
+              aria-label="Next period"
               title="Next period (Right Arrow or .)"
-              style={{ height: 32, boxSizing: "border-box", padding: "6px 10px", display: "inline-flex", alignItems: "center" }}
+              style={{ height: 32, boxSizing: "border-box", width: 32, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
             >
               <Icon name="chevronRight" size={15} />
             </button>
           </div>
 
-          <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.01em", marginLeft: 8, color: "var(--text-primary)" }}>
+          <div
+            className="date-header"
+            style={{
+              fontSize: "var(--text-xl)",
+              fontWeight: 700,
+              marginLeft: 4,
+              color: "var(--text-primary)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
             {formatDateRangeLabel(viewMode, viewedDate)}
           </div>
         </div>
 
-        {/* Right: Segmented view mode selector & meeting statistics */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ height: 32, boxSizing: "border-box", display: "inline-flex", alignItems: "center", background: "var(--wash-deep)", borderRadius: 10, padding: 3, border: "1px solid var(--border-subtle)" }}>
+        {/* Right: view switcher and filters, then actions — one primary. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto", flexShrink: 0 }}>
+          <div style={{ height: 32, boxSizing: "border-box", display: "inline-flex", alignItems: "center", background: "var(--wash-deep)", borderRadius: "var(--radius-lg)", padding: 3, border: "1px solid var(--border-subtle)" }}>
             {(["day", "week", "month", "agenda", "year"] as CalendarViewMode[]).map((mode) => {
               const active = viewMode === mode;
               return (
@@ -710,11 +690,11 @@ export default function CalendarPage() {
                     border: "none",
                     background: active ? "var(--bg-raised)" : "transparent",
                     boxShadow: active ? "var(--shadow-lift)" : "none",
-                    height: 24,
-                    padding: "5px 14px",
-                    fontSize: 12,
+                    height: 26,
+                    padding: "0 14px",
+                    fontSize: "var(--text-sm)",
                     fontWeight: active ? 700 : 500,
-                    borderRadius: 7,
+                    borderRadius: "var(--radius-sm)",
                     color: active ? "var(--text-primary)" : "var(--text-secondary)",
                     cursor: "pointer",
                     whiteSpace: "nowrap",
@@ -722,18 +702,17 @@ export default function CalendarPage() {
                   }}
                 >
                   {mode.charAt(0).toUpperCase() + mode.slice(1)}
-
                 </button>
               );
             })}
           </div>
 
-          <div className="tabular-nums" style={{ fontSize: 12, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
+          <div className="tabular-nums" style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
             {stats.count} meetings · {formatMinutes(stats.meetingMinutes)} booked
           </div>
 
-          <label title="Hide cancelled meetings" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", cursor: "pointer" }}>
-            <input
+          <label title="Hide cancelled meetings" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--text-sm)", color: "var(--text-secondary)", whiteSpace: "nowrap", cursor: "pointer" }}>
+            <input className="checkbox"
               type="checkbox"
               checked={hideCancelled}
               onChange={(e) => {
@@ -741,85 +720,122 @@ export default function CalendarPage() {
                 setHideCancelled(next);
                 try { localStorage.setItem("chronarch_hide_cancelled", next ? "1" : "0"); } catch { /* storage unavailable */ }
               }}
-              style={{ accentColor: "var(--accent)" }}
             />
             Hide cancelled
           </label>
 
-          {showRails && (
+          {/* View controls to the left of the hairline, actions to the right:
+              it keeps a dense row from reading as one undifferentiated strip. */}
+          <span aria-hidden="true" style={{ width: 1, height: 20, background: "var(--border-subtle)", flexShrink: 0 }} />
+
+          <button
+            onClick={() => {
+              const s = new Date(viewedDate);
+              s.setHours(9, 0, 0, 0);
+              setCreateDraft({ start: s, end: new Date(s.getTime() + 30 * 60000), allDay: false });
+            }}
+            className="btn-primary hoverable"
+            style={{ height: 32, boxSizing: "border-box", padding: "0 16px", flexShrink: 0 }}
+          >
+            <Icon name="plus" size={14} />
+            <span>New Event</span>
+          </button>
+
+          <button
+            onClick={() => setPaletteOpen(true)}
+            className="hoverable"
+            aria-label="Open command palette"
+            title="Command palette (⌘K)"
+            style={{
+              width: 200, height: 32, boxSizing: "border-box",
+              display: "flex", alignItems: "center", gap: 8,
+              background: "var(--bg-raised)", border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-sm)", padding: "0 10px",
+              color: "var(--text-tertiary)", fontSize: "var(--text-sm)", cursor: "pointer",
+            }}
+          >
+            <Icon name="search" size={13} />
+            <span style={{ flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              Jump to…
+            </span>
+            <kbd>⌘K</kbd>
+          </button>
+
+          <button
+            onClick={handleSyncNow}
+            disabled={isSyncing}
+            className="hoverable"
+            title={isSyncing ? "Syncing calendars…" : "Sync calendars now"}
+            aria-label={isSyncing ? "Syncing calendars" : "Sync calendars now"}
+            aria-busy={isSyncing}
+            style={{
+              height: 32, boxSizing: "border-box", width: 32,
+              background: isSyncing ? "var(--accent-soft)" : "var(--bg-raised)",
+              border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)",
+              color: isSyncing ? "var(--accent)" : "var(--text-secondary)",
+              cursor: isSyncing ? "wait" : "pointer", flexShrink: 0,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              transition: "background var(--transition-fast), color var(--transition-fast)",
+            }}
+          >
+            <Icon name="refresh" size={14} style={isSyncing ? { animation: "chronarch-spin 900ms linear infinite" } : undefined} />
+          </button>
+
+          {/* The rail's own close button only collapses, so the reopen affordance lives
+              here — and only while the rail is hidden, which keeps this from
+              becoming a second control for a visible panel. */}
+          {!todayRailOpen && (
             <button
               onClick={toggleTodayRail}
-              className="btn-secondary hoverable"
-              title={todayRailOpen ? "Collapse Today sidebar" : "Expand Today sidebar"}
-              aria-label={todayRailOpen ? "Collapse Today sidebar" : "Expand Today sidebar"}
+              className="hoverable"
+              title="Show Today sidebar"
+              aria-label="Show Today sidebar"
+              aria-expanded={false}
               style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                height: 32,
-                boxSizing: "border-box",
-                padding: "5px 10px",
-                fontSize: 12,
-                fontWeight: 600,
-                color: todayRailOpen ? "var(--text-primary)" : "var(--text-secondary)",
+                height: 32, boxSizing: "border-box", width: 32,
+                background: "var(--bg-raised)", border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-sm)", color: "var(--text-secondary)",
+                cursor: "pointer", flexShrink: 0,
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
               }}
             >
-              <Icon name="calendar" size={13} />
-              <span>{todayRailOpen ? "Hide Today" : "Show Today"}</span>
+              <Icon name="calendar" size={14} />
             </button>
           )}
+
+          <Link
+            to="/settings"
+            title="Account & settings"
+            aria-label="Account and settings"
+            style={{ width: 32, height: 32, flexShrink: 0, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}
+          >
+            <UserAvatar email={user?.email} name={displayName} size={32} />
+          </Link>
         </div>
-      </div>
+      </header>
 
       <div style={{ flex: 1, display: "flex", minHeight: 0, minWidth: 0 }}>
         {/* Focus rail: fixed sections, only the calendar list scrolls. */}
         {showRails && (
           <aside className="calendar-rail" style={{ width: 240, minWidth: 240, borderRight: "1px solid var(--border-subtle)", overflow: "hidden", padding: "12px 10px", display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
-            <section style={{ flexShrink: 0, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: "12px 14px" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", marginBottom: 8 }}>
-                Up next
-              </div>
-              {stats.upNext ? (
-                <button
-                  onClick={() => {
-                    const found = visibleEvents.find((e) => e.id === stats.upNext!.id);
-                    if (found) {
-                      setSelectedEvent(found);
-                      setViewedDate(new Date(found.start));
-                    }
-                  }}
-                  className="hoverable"
-                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left", width: "100%", color: "var(--text-primary)" }}
-                >
-                  <div style={{ fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {stats.upNext.title}
-                  </div>
-                  <div className="tabular-nums" style={{ fontSize: 12, color: "var(--accent)", marginTop: 2 }}>
-                    {new Date(stats.upNext.start).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
-                  </div>
-                </button>
-              ) : (
-                <div style={{ fontSize: 13, color: "var(--text-tertiary)" }}>Clear for the rest of the day.</div>
-              )}
-            </section>
             <section style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", padding: "0 4px 6px", flexShrink: 0 }}>
+              <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", padding: "0 4px 6px", flexShrink: 0 }}>
                 Calendars
               </div>
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
                 {calendarGroups.map(([accountId, group], groupIndex) => (
                   <div key={accountId} style={{ marginBottom: 12, paddingTop: groupIndex === 0 ? 0 : 10, borderTop: groupIndex === 0 ? "none" : "1px solid var(--border-subtle)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 700, color: "var(--text-secondary)", padding: "2px 8px 6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-secondary)", padding: "2px 8px 6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-tertiary)", opacity: 0.7, flexShrink: 0 }} />
                       {group.label}
                     </div>
                     {group.calendars.map((cal) => (
-                      <label key={cal.id} title={cal.name} className="hoverable" style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>
-                        <input
+                      <label key={cal.id} title={cal.name} className="hoverable" style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: "var(--text-md)" }}>
+                        <input className="checkbox"
                           type="checkbox"
+                          style={{ accentColor: cal.color }}
                           checked={!hiddenCalendarIds.has(cal.id)}
                           onChange={() => toggleCalendar(cal.id)}
-                          style={{ accentColor: cal.color, width: 14, height: 14 }}
                         />
                         <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-primary)", minWidth: 0 }}>
                           {cal.name}
@@ -844,9 +860,9 @@ export default function CalendarPage() {
         {/* Main canvas */}
         <main style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, padding: 8 }}>
           {showSetupNag && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(10, 132, 255, 0.1)", border: "1px solid rgba(10, 132, 255, 0.3)", borderRadius: 10, padding: "9px 14px", marginBottom: 12, fontSize: 13, flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(10, 132, 255, 0.1)", border: "1px solid rgba(10, 132, 255, 0.3)", borderRadius: "var(--radius-lg)", padding: "9px 14px", marginBottom: 12, fontSize: "var(--text-md)", flexShrink: 0 }}>
               <span style={{ flex: 1, minWidth: 0 }}>Welcome! Connect a calendar to bring this to life — takes about a minute.</span>
-              <Link to="/start" className="btn-primary hoverable" style={{ textDecoration: "none", padding: "5px 14px", fontSize: 12, whiteSpace: "nowrap" }}>
+              <Link to="/start" className="btn-primary hoverable" style={{ textDecoration: "none", padding: "5px 14px", fontSize: "var(--text-sm)", whiteSpace: "nowrap" }}>
                 Finish setup
               </Link>
               <button onClick={dismissNag} aria-label="Dismiss setup nag" style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", padding: 2, display: "inline-flex" }}>
@@ -854,13 +870,17 @@ export default function CalendarPage() {
               </button>
             </div>
           )}
+          {/* Sits above the canvas, not inside it: a failure must never
+              permanently steal height from the grid it is reporting on. */}
+          {error && (
+            <ErrorBanner onDismiss={() => showError(null)} margin="0 0 10px">
+              {error}
+            </ErrorBanner>
+          )}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, minWidth: 0, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-            <div style={{ height: 2, background: eventsLoading ? "var(--accent)" : "transparent", transition: "background 0.15s", flexShrink: 0 }} />
-            {error && (
-              <div style={{ color: "var(--danger)", fontSize: 12, padding: "6px 16px", flexShrink: 0 }}>{error}</div>
-            )}
+            <div style={{ height: 2, background: eventsLoading ? "var(--accent)" : "transparent", transition: "background var(--transition-fast)", flexShrink: 0 }} />
             <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column" }}>
-              <Suspense fallback={<div style={{ padding: 32, color: "var(--text-tertiary)", fontSize: 13 }}>Loading view…</div>}>
+              <Suspense fallback={<div style={{ padding: 32, color: "var(--text-tertiary)", fontSize: "var(--text-md)" }}>Loading view…</div>}>
                 {viewMode === "day" && (
                   <DayView
                     day={viewedDate}
@@ -946,13 +966,14 @@ export default function CalendarPage() {
           <aside style={{ width: 300, minWidth: 300, borderLeft: "1px solid var(--border-subtle)", overflowY: "auto", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 16, background: "var(--bg-app)" }}>
             <section>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)" }}>
+                <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)" }}>
                   Today
                 </div>
                 <button
                   onClick={toggleTodayRail}
                   title="Collapse Today sidebar"
                   aria-label="Collapse Today sidebar"
+                  aria-expanded={true}
                   className="hoverable"
                   style={{
                     background: "none",
@@ -960,7 +981,7 @@ export default function CalendarPage() {
                     color: "var(--text-tertiary)",
                     cursor: "pointer",
                     padding: 3,
-                    borderRadius: 4,
+                    borderRadius: "var(--radius-sm)",
                     display: "inline-flex",
                     alignItems: "center",
                   }}
@@ -969,13 +990,16 @@ export default function CalendarPage() {
                 </button>
               </div>
               {todayEvents.length === 0 ? (
-                <div style={{ fontSize: 13, color: "var(--text-tertiary)" }}>Nothing scheduled.</div>
+                <div style={{ fontSize: "var(--text-md)", color: "var(--text-tertiary)" }}>Nothing scheduled.</div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {todayEvents.map((e) => {
                     const cal = calendarById[e.calendar_id];
-                    const color = cal?.color ?? "var(--accent)";
-                    const textCol = contrastText(color);
+                    const color = cal?.color ?? "#0a84ff";
+                    // Card language, not a second calendar grid: a faint tint
+                    // of the calendar's own colour plus a 3px bar, in ink. The
+                    // grid next to this is the loud thing; the rail is a list.
+                    const base = color.startsWith("#") ? color : "#0a84ff";
                     return (
                       <button
                         key={e.id}
@@ -983,20 +1007,19 @@ export default function CalendarPage() {
                         className="hoverable"
                         style={{
                           textAlign: "left",
-                          background: color,
-                          border: "1px solid rgba(255, 255, 255, 0.15)",
-                          borderRadius: 8,
-                          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.18)",
-                          padding: "8px 12px",
+                          background: tint(base, theme === "dark" ? 0.28 : 0.16),
+                          border: "1px solid var(--border-subtle)",
+                          borderLeft: `3px solid ${base}`,
+                          borderRadius: "var(--radius-sm)",
+                          padding: "7px 10px",
                           cursor: "pointer",
                           minWidth: 0,
-                          transition: "transform 0.12s ease",
                         }}
                       >
-                        <div style={{ fontSize: 13, fontWeight: 700, color: textCol, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--card-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {e.title}
                         </div>
-                        <div className="tabular-nums" style={{ fontSize: 11.5, fontWeight: 500, color: textCol === "#ffffff" ? "rgba(255, 255, 255, 0.88)" : "rgba(0, 0, 0, 0.7)", marginTop: 2 }}>
+                        <div className="tabular-nums" style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--card-muted)", marginTop: 1 }}>
                           {new Date(e.start).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
                         </div>
                       </button>
@@ -1007,14 +1030,18 @@ export default function CalendarPage() {
             </section>
             {countdowns.length > 0 && (
               <section>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", marginBottom: 8 }}>
+                <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", marginBottom: 8 }}>
                   Coming up
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {countdowns.map((c) => (
-                    <div key={c.id} style={{ display: "flex", alignItems: "baseline", gap: 10, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 8, padding: "8px 12px", minWidth: 0 }}>
-                      <span className="tabular-nums" style={{ fontSize: 16, fontWeight: 800, color: "var(--accent)" }}>{c.days}d</span>
-                      <span style={{ fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}</span>
+                    <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", padding: "7px 10px", minWidth: 0 }}>
+                      <span
+                        aria-hidden="true"
+                        style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: calendarById[c.id]?.color ?? "var(--accent)" }}
+                      />
+                      <span className="tabular-nums" style={{ fontSize: "var(--text-md)", fontWeight: 700, color: "var(--text-primary)" }}>{c.days}d</span>
+                      <span style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}</span>
                     </div>
                   ))}
                 </div>
@@ -1106,7 +1133,7 @@ export default function CalendarPage() {
               if (pending.kind === "create") await commitCreate(pending.body);
               else await commitMove(pending.eventId, pending.start, pending.end, pending.allDay);
             } catch (e) {
-              setError(friendlyError(e));
+              showError(friendlyError(e), 6000);
             }
           }}
           onBack={() => {

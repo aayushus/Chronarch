@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { friendlyError } from "../../api/client";
 import { useAuth } from "../../api/auth";
 import { Badge, SectionHeader } from "../ui";
+import Icon from "../Icon";
 import {
   AISettings,
   adminClearAISettings,
@@ -119,17 +120,16 @@ function TierModelField({
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+        <label style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)" }}>
           {label}
         </label>
-        <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{hint}</span>
+        <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>{hint}</span>
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        <select
+        <select className="input-standard select"
           value={customMode ? "custom" : provider}
           onChange={(e) => pickProvider(e.target.value)}
-          className="input-standard"
-          style={{ flex: "0 0 150px", fontSize: 12 }}
+          style={{ flex: "0 0 150px" }}
           aria-label={`${label} provider`}
         >
           {PROVIDERS.map((p) => (
@@ -145,14 +145,13 @@ function TierModelField({
             onChange={(e) => onChange(e.target.value)}
             autoComplete="off"
             className="input-standard"
-            style={{ flex: 1, fontSize: 12 }}
+            style={{ flex: 1, fontSize: "var(--text-sm)" }}
           />
         ) : (
-          <select
+          <select className="input-standard select"
             value={inList ? model : ""}
             onChange={(e) => onChange(e.target.value)}
-            className="input-standard"
-            style={{ flex: 1, fontSize: 12 }}
+            style={{ flex: 1}}
             aria-label={`${label} model`}
           >
             {!inList && <option value="">{model || effective}</option>}
@@ -165,7 +164,7 @@ function TierModelField({
         )}
       </div>
       {!draft && effective && (
-        <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
+        <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginTop: 4 }}>
           Active: <code style={{ fontFamily: "var(--font-mono, monospace)" }}>{effective}</code>
         </div>
       )}
@@ -288,7 +287,7 @@ export default function AiSettings() {
 
   if (loading) {
     return (
-      <div style={{ padding: "32px 0", color: "var(--text-tertiary)", fontSize: 13 }}>
+      <div style={{ padding: "32px 0", color: "var(--text-tertiary)", fontSize: "var(--text-md)" }}>
         Loading AI preferences…
       </div>
     );
@@ -322,8 +321,8 @@ export default function AiSettings() {
       {saved && (
         <div
           style={{
-            fontSize: 13,
-            borderRadius: 10,
+            fontSize: "var(--text-md)",
+            borderRadius: "var(--radius-lg)",
             padding: "12px 16px",
             marginBottom: 20,
             background: "rgba(40, 200, 64, 0.12)",
@@ -334,12 +333,12 @@ export default function AiSettings() {
             justifyContent: "space-between",
           }}
         >
-          <span>✓ Settings saved successfully. Applies automatically within a few seconds — no restart needed.</span>
+          <span><Icon name="check" size={13} style={{ flexShrink: 0 }} /> Settings saved successfully. Applies automatically within a few seconds — no restart needed.</span>
           <button
             onClick={() => setSaved(false)}
-            style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: 16 }}
+            style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: "var(--text-lg)" }}
           >
-            ×
+            <Icon name="x" size={13} />
           </button>
         </div>
       )}
@@ -347,8 +346,8 @@ export default function AiSettings() {
       {keyCheckUnknown && (
         <div
           style={{
-            fontSize: 13,
-            borderRadius: 10,
+            fontSize: "var(--text-md)",
+            borderRadius: "var(--radius-lg)",
             padding: "12px 16px",
             marginBottom: 20,
             background: "rgba(255, 159, 10, 0.12)",
@@ -364,8 +363,8 @@ export default function AiSettings() {
       {error && (
         <div
           style={{
-            fontSize: 13,
-            borderRadius: 10,
+            fontSize: "var(--text-md)",
+            borderRadius: "var(--radius-lg)",
             padding: "12px 16px",
             marginBottom: 20,
             background: "rgba(255, 69, 58, 0.12)",
@@ -382,16 +381,16 @@ export default function AiSettings() {
         style={{
           background: "var(--bg-raised)",
           border: "1px solid var(--border-subtle)",
-          borderRadius: 12,
+          borderRadius: "var(--radius-xl)",
           padding: 20,
           marginBottom: 20,
         }}
       >
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
+          <div style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)" }}>
             Provider API Keys
           </div>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+          <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: 2 }}>
             Stored securely with encryption. Add any — the copilot falls back across
             providers when one runs out. Groq and Gemini need no credit card.
           </div>
@@ -441,30 +440,30 @@ export default function AiSettings() {
         style={{
           background: "var(--bg-raised)",
           border: "1px solid var(--border-subtle)",
-          borderRadius: 12,
+          borderRadius: "var(--radius-xl)",
           padding: 20,
           marginBottom: 20,
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
+            <div style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)" }}>
               Model Tier Routing
             </div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: 2 }}>
               Hierarchical fallback strategy ensures prompt responses even during provider outages.
             </div>
             {liveNote && (
-              <div style={{ fontSize: 11, color: "var(--success)", marginTop: 4 }}>
-                ✓ {liveNote}
+              <div style={{ fontSize: "var(--text-sm)", color: "var(--success)", marginTop: 4 }}>
+                <Icon name="check" size={13} style={{ flexShrink: 0 }} /> {liveNote}
               </div>
             )}
           </div>
         </div>
 
         {/* Quick Presets */}
-        <div style={{ marginBottom: 18, background: "var(--bg-app)", padding: 12, borderRadius: 10, border: "1px solid var(--border-subtle)" }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+        <div style={{ marginBottom: 18, background: "var(--bg-app)", padding: 12, borderRadius: "var(--radius-lg)", border: "1px solid var(--border-subtle)" }}>
+          <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>
             Quick Configuration Presets
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8 }}>
@@ -477,14 +476,14 @@ export default function AiSettings() {
                 style={{
                   background: "var(--bg-raised)",
                   border: "1px solid var(--border)",
-                  borderRadius: 8,
+                  borderRadius: "var(--radius-md)",
                   padding: "8px 12px",
                   textAlign: "left",
                   cursor: "pointer",
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{p.name}</div>
-                <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 2 }}>{p.desc}</div>
+                <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)" }}>{p.name}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)", marginTop: 2 }}>{p.desc}</div>
               </button>
             ))}
           </div>
@@ -530,7 +529,7 @@ export default function AiSettings() {
               background: "none",
               border: "none",
               padding: 0,
-              fontSize: 12,
+              fontSize: "var(--text-sm)",
               fontWeight: 600,
               color: "var(--primary)",
               cursor: "pointer",
@@ -545,10 +544,10 @@ export default function AiSettings() {
           {showAdvanced && (
             <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+                <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
                   Routing Strategy
                 </label>
-                <select
+                <select className="input-standard select"
                   value={strategy || settings?.routing_strategy || "simple-shuffle"}
                   onChange={(e) => setStrategy(e.target.value)}
                   style={fieldInputStyle}
@@ -561,7 +560,7 @@ export default function AiSettings() {
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+                <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
                   Request Timeout (Seconds)
                 </label>
                 <input
@@ -587,7 +586,7 @@ export default function AiSettings() {
             disabled={saving || !canManage}
             title={canManage ? undefined : "Read-only — you have ai.view but not ai.manage"}
             className="btn-primary"
-            style={{ padding: "8px 18px", fontSize: 13, fontWeight: 600 }}
+            style={{ padding: "8px 18px", fontSize: "var(--text-md)", fontWeight: 600 }}
           >
             {saving ? "Saving…" : "Save Preferences"}
           </button>
@@ -595,18 +594,18 @@ export default function AiSettings() {
             onClick={handleClear}
             disabled={saving || !canManage}
             className="btn-secondary"
-            style={{ padding: "8px 16px", fontSize: 13 }}
+            style={{ padding: "8px 16px", fontSize: "var(--text-md)" }}
           >
             Reset to Defaults
           </button>
           {!canManage && (
-            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+            <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>
               Read-only — ask an admin to change these.
             </span>
           )}
         </div>
 
-        <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+        <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>
           {dbFieldsCount === 0
             ? "Using default configuration"
             : `${dbFieldsCount} custom override${dbFieldsCount === 1 ? "" : "s"} active`}
@@ -618,19 +617,19 @@ export default function AiSettings() {
         style={{
           background: "var(--bg-raised)",
           border: "1px solid var(--border-subtle)",
-          borderRadius: 12,
+          borderRadius: "var(--radius-xl)",
           padding: 20,
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+          <div style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
             Active Effective Configuration
           </div>
           <span
             style={{
-              fontSize: 10,
+              fontSize: "var(--text-xs)",
               padding: "2px 6px",
-              borderRadius: 4,
+              borderRadius: "var(--radius-sm)",
               background: "var(--bg-app)",
               color: "var(--text-tertiary)",
             }}
@@ -707,14 +706,14 @@ function ProviderKeyRow({
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-        <span style={{ fontSize: 13, fontWeight: 700 }}>{title}</span>
+        <span style={{ fontSize: "var(--text-md)", fontWeight: 700 }}>{title}</span>
         <span
           style={{
-            fontSize: 10,
+            fontSize: "var(--text-xs)",
             fontWeight: 700,
             letterSpacing: 0.5,
             padding: "2px 6px",
-            borderRadius: 4,
+            borderRadius: "var(--radius-sm)",
             background: configured ? "rgba(48, 209, 88, 0.15)" : "var(--wash-faint)",
             color: configured ? "var(--success)" : "var(--text-tertiary)",
           }}
@@ -722,7 +721,7 @@ function ProviderKeyRow({
           {configured ? "CONFIGURED" : "NOT CONFIGURED"}
         </span>
       </div>
-      <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "0 0 10px" }}>{hint}</p>
+      <p style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", margin: "0 0 10px" }}>{hint}</p>
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         <div style={{ flex: 1, position: "relative" }}>
           <input
@@ -747,7 +746,7 @@ function ProviderKeyRow({
                 border: "none",
                 color: "var(--text-tertiary)",
                 cursor: "pointer",
-                fontSize: 11,
+                fontSize: "var(--text-sm)",
                 padding: 2,
               }}
             >
@@ -756,7 +755,7 @@ function ProviderKeyRow({
           )}
         </div>
       </div>
-      <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 8 }}>
+      <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginTop: 8 }}>
         Need a key? Generate one in{" "}
         <a href={dashboardUrl} target="_blank" rel="noreferrer" style={{ color: "var(--primary)", textDecoration: "none" }}>
           {dashboardLabel}
@@ -788,14 +787,14 @@ function ConfigRow({
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{label}</span>
+        <span style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)" }}>{label}</span>
         {source === "db" && (
           <span
             style={{
-              fontSize: 9,
+              fontSize: "var(--text-2xs)",
               fontWeight: 700,
               padding: "1px 4px",
-              borderRadius: 3,
+              borderRadius: "var(--radius-sm)",
               background: "rgba(10, 132, 255, 0.15)",
               color: "var(--primary)",
             }}
@@ -806,11 +805,11 @@ function ConfigRow({
       </div>
       <code
         style={{
-          fontSize: 12,
+          fontSize: "var(--text-sm)",
           fontFamily: "var(--font-mono, monospace)",
           background: "var(--bg-app)",
           padding: "3px 8px",
-          borderRadius: 6,
+          borderRadius: "var(--radius-sm)",
           color: "var(--text-primary)",
           border: "1px solid var(--border-subtle)",
         }}
@@ -825,10 +824,10 @@ const fieldInputStyle: React.CSSProperties = {
   width: "100%",
   background: "var(--bg-app)",
   border: "1px solid var(--border)",
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   color: "var(--text-primary)",
   padding: "8px 12px",
-  fontSize: 13,
+  fontSize: "var(--text-md)",
   boxSizing: "border-box",
   colorScheme: "dark",
 };

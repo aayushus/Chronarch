@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { friendlyError } from "../api/client";
 import { CopilotMessage, copilotChatStream } from "../api/calendar";
-import Icon from "./Icon";
+import Icon, { IconName } from "./Icon";
 import Markdown from "./Markdown";
 
 interface Props {
@@ -12,28 +12,28 @@ interface Props {
   viewMode?: string;
 }
 
-const QUICK_ACTIONS = [
+const QUICK_ACTIONS: { id: string; icon: IconName; label: string; prompt: string }[] = [
   {
     id: "today-summary",
-    icon: "📋",
+    icon: "calendar",
     label: "Today's Schedule",
     prompt: "Summarize my meetings and agenda for today with times and attendees.",
   },
   {
     id: "find-focus",
-    icon: "⏱️",
+    icon: "clock",
     label: "Find Deep Work",
     prompt: "Find available 45-minute focus time blocks in my calendar this week.",
   },
   {
     id: "earliest-tomorrow",
-    icon: "⚡",
+    icon: "sparkles",
     label: "Tomorrow's Kickoff",
     prompt: "What is my earliest meeting tomorrow, and are there any conflicts?",
   },
   {
     id: "external-guests",
-    icon: "👥",
+    icon: "users",
     label: "External Meetings",
     prompt: "List any meetings this week that include external guests or attendees.",
   },
@@ -145,7 +145,7 @@ export default function CopilotDrawer({
 
   return (
     <aside
-      className="vibrancy mount-rise"
+      className="vibrancy drawer-enter"
       style={{
         position: "fixed",
         right: 0,
@@ -177,20 +177,20 @@ export default function CopilotDrawer({
             style={{
               width: 32,
               height: 32,
-              borderRadius: 8,
+              borderRadius: "var(--radius-md)",
               background: "rgba(255, 159, 10, 0.15)",
               color: "var(--warning)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 16,
+              fontSize: "var(--text-lg)",
             }}
           >
             <Icon name="sparkles" size={16} />
           </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>Calendar Copilot</div>
-            <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: "var(--text-md)" }}>Calendar Copilot</div>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginTop: 1 }}>
               Active on {dateHeading} ({viewMode} view)
             </div>
           </div>
@@ -204,7 +204,7 @@ export default function CopilotDrawer({
             border: "none",
             color: "var(--text-secondary)",
             cursor: "pointer",
-            fontSize: 16,
+            fontSize: "var(--text-lg)",
             width: 28,
             height: 28,
             borderRadius: "var(--radius-sm)",
@@ -213,7 +213,7 @@ export default function CopilotDrawer({
             justifyContent: "center",
           }}
         >
-          ✕
+          <Icon name="x" size={14} />
         </button>
       </div>
 
@@ -225,7 +225,7 @@ export default function CopilotDrawer({
           background: "var(--wash-deep)",
         }}
       >
-        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+        <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>
           Suggested Inquiries
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
@@ -238,18 +238,18 @@ export default function CopilotDrawer({
               style={{
                 background: "var(--bg-raised)",
                 border: "1px solid var(--border-subtle)",
-                borderRadius: 8,
+                borderRadius: "var(--radius-md)",
                 padding: "6px 10px",
                 textAlign: "left",
                 cursor: loading ? "wait" : "pointer",
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
-                fontSize: 11.5,
+                fontSize: "var(--text-sm)",
                 color: "var(--text-primary)",
               }}
             >
-              <span>{action.icon}</span>
+              <Icon name={action.icon} size={13} style={{ color: "var(--text-tertiary)", flexShrink: 0 }} />
               <span style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {action.label}
               </span>
@@ -277,11 +277,11 @@ export default function CopilotDrawer({
               maxWidth: "88%",
               padding: "10px 14px",
               borderRadius: "var(--radius-md)",
-              fontSize: 13,
+              fontSize: "var(--text-md)",
               lineHeight: 1.45,
               whiteSpace: "pre-wrap",
               background: m.role === "user" ? "var(--accent)" : "var(--bg-raised)",
-              color: m.role === "user" ? "#fff" : "var(--text-primary)",
+              color: m.role === "user" ? "var(--text-on-fill)" : "var(--text-primary)",
               border: m.role === "user" ? "none" : "1px solid var(--border-subtle)",
               boxShadow: m.role === "user" ? "0 2px 8px rgba(10, 132, 255, 0.3)" : "none",
             }}
@@ -290,7 +290,7 @@ export default function CopilotDrawer({
               <details style={{ marginBottom: 8 }}>
                 <summary
                   style={{
-                    fontSize: 11,
+                    fontSize: "var(--text-sm)",
                     color: "var(--text-tertiary)",
                     cursor: "pointer",
                     listStyle: "none",
@@ -300,8 +300,8 @@ export default function CopilotDrawer({
                 </summary>
                 <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 3 }}>
                   {m.trace.map((t, i) => (
-                    <div key={i} style={{ fontSize: 11.5, color: "var(--text-secondary)" }}>
-                      ✓ {t.text}
+                    <div key={i} style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
+                      <Icon name="check" size={12} style={{ flexShrink: 0 }} /> {t.text}
                       {t.summary ? <span style={{ color: "var(--text-tertiary)" }}> — {t.summary}</span> : null}
                     </div>
                   ))}
@@ -325,7 +325,7 @@ export default function CopilotDrawer({
               borderRadius: "var(--radius-md)",
               background: "var(--bg-raised)",
               color: "var(--text-primary)",
-              fontSize: 13,
+              fontSize: "var(--text-md)",
               border: "1px solid var(--border-subtle)",
               display: "flex",
               flexDirection: "column",
@@ -340,10 +340,10 @@ export default function CopilotDrawer({
             {steps.map((s, i) => (
               <div
                 key={i}
-                style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text-secondary)" }}
+                style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}
               >
                 <span style={{ color: s.done ? "var(--success)" : "var(--warning)" }}>
-                  {s.done ? "✓" : <Icon name="refresh" size={12} />}
+                  {s.done ? <Icon name="check" size={12} /> : <Icon name="refresh" size={12} />}
                 </span>
                 <span>
                   {s.text}
@@ -360,7 +360,7 @@ export default function CopilotDrawer({
           <div
             style={{
               color: "var(--danger)",
-              fontSize: 12,
+              fontSize: "var(--text-sm)",
               padding: "10px 14px",
               borderRadius: "var(--radius-sm)",
               background: "rgba(255, 69, 58, 0.1)",
@@ -380,7 +380,7 @@ export default function CopilotDrawer({
                 href="/settings?section=ai"
                 onClick={onClose}
                 style={{
-                  fontSize: 11,
+                  fontSize: "var(--text-sm)",
                   color: "var(--accent)",
                   fontWeight: 600,
                   textDecoration: "underline",

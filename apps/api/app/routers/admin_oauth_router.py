@@ -120,7 +120,7 @@ async def upsert_config(
 
 @router.delete("/{provider}", response_model=OAuthConfigOut)
 async def clear_config(
-    provider: str, _user: User = Depends(require_permission("oauth.view")), session: AsyncSession = Depends(get_db_session)
+    provider: str, _user: User = Depends(require_permission("oauth.manage")), session: AsyncSession = Depends(get_db_session)
 ):
     config = await session.get(OAuthProviderConfig, _parse_provider(provider))
     if config is not None:

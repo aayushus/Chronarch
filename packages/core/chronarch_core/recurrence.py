@@ -99,7 +99,34 @@ def to_graph_recurrence(normalized: dict) -> dict:
     return {"pattern": pattern, "range": range_}
 
 
-def _split_rrule_text(text: str, cut: datetime) -> tuple[str, str]:
+def _remaining_count_rrule(text: str, cut: datetime, series_start: datetime | None) -> int | None:
+    """Return the number of original occurrences at/after ``cut``.
+
+    COUNT is relative to the original DTSTART, so a restarted rule must use
+    the remaining count rather than copying the original value.  If the
+    caller cannot provide DTSTART we retain the original bound as a safe
+    compatibility fallback.
+    """
+    if series_start is None:
+        return None
+    body = text.split(":", 1)[1] if ":" in text else text
+    count_field = next((f for f in body.split(";") if f.startswith("COUNT=")), None)
+    if not count_field:
+        return None
+    try:
+        original_count = int(count_field.split("=", 1)[1])
+        from dateutil.rrule import rrulestr
+        start = series_start if series_start.tzinfo else series_start.replace(tzinfo=timezone.utc)
+        start = start.astimezone(timezone.utc)
+        cut = cut if cut.tzinfo else cut.replace(tzinfo=timezone.utc)
+        rule = rrulestr(text, dtstart=start)
+        before = rule.between(start - timedelta(microseconds=1), cut, inc=False)
+        return max(0, original_count - len(before))
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _split_rrule_text(text: str, cut: datetime, series_start: datetime | None = None) -> tuple[str, str]:
     """Split one RRULE text at `cut` (an occurrence start): truncated rule
     (UNTIL the day before) + restarted rule (same pattern, no COUNT — counts
     don't survive splits). Preserves an existing UNTIL on the new series."""
@@ -111,15 +138,13 @@ def _split_rrule_text(text: str, cut: datetime) -> tuple[str, str]:
             if not f.startswith(("COUNT=", "UNTIL="))]
     day_before = (cut - timedelta(days=1)).strftime("%Y%m%d")
     truncated = ";".join(base + [f"UNTIL={day_before}"])
-    # A finite series must remain finite after a future split.  We preserve
-    # the original count here; occurrence-specific providers may refine the
-    # remaining count when they know the exact cut index, but dropping COUNT
-    # silently turns a finite series into an infinite one.
-    restarted = ";".join(base + ([f"COUNT={keep_count}"] if keep_count else []) + ([f"UNTIL={keep_until}"] if keep_until else []))
+    remaining = _remaining_count_rrule(text, cut, series_start)
+    restart_count = str(remaining) if remaining is not None else keep_count
+    restarted = ";".join(base + ([f"COUNT={restart_count}"] if restart_count else []) + ([f"UNTIL={keep_until}"] if keep_until else []))
     return f"RRULE:{truncated}", f"RRULE:{restarted}"
 
 
-def split_series(recurrence: dict, cut: datetime) -> tuple[dict | None, dict | None]:
+def split_series(recurrence: dict, cut: datetime, series_start: datetime | None = None) -> tuple[dict | None, dict | None]:
     """(truncated_shape, restarted_shape) for a 'this and future' split at
     `cut`. Returns (None, None) when the shape is unknown. Google/ICS text
     rules and Graph objects both supported."""
@@ -132,7 +157,7 @@ def split_series(recurrence: dict, cut: datetime) -> tuple[dict | None, dict | N
         main = next((str(r) for r in items if "RRULE" in str(r).upper() or "FREQ" in str(r).upper()), None)
         if main is None:
             return None, None
-        trunc, restart = _split_rrule_text(main, cut_utc)
+        trunc, restart = _split_rrule_text(main, cut_utc, series_start)
         return {"rule": [trunc]}, {"rule": [restart]}
     graph = recurrence.get("type")
     if isinstance(graph, dict):
@@ -142,9 +167,15 @@ def split_series(recurrence: dict, cut: datetime) -> tuple[dict | None, dict | N
         restart_range = graph.get("range", {})
         if not isinstance(restart_range, dict):
             restart_range = {"type": "noEnd"}
+        elif restart_range.get("type") == "numbered" and series_start is not None:
+            try:
+                start = series_start if series_start.tzinfo else series_start.replace(tzinfo=timezone.utc)
+                rule = _microsoft_rrule(graph.get("pattern") or {}, restart_range, start)
+                cut_count = len(rule.between(start - timedelta(microseconds=1), cut_utc, inc=False)) if rule else 0
+                restart_range = {**restart_range, "numberOfOccurrences": max(0, int(restart_range.get("numberOfOccurrences", 0)) - cut_count)}
+            except (TypeError, ValueError, OverflowError):
+                restart_range = dict(restart_range)
         elif restart_range.get("type") == "numbered":
-            # Keep a finite restarted series finite. The exact remaining
-            # count is provider-specific; dropping the bound is unsafe.
             restart_range = dict(restart_range)
         return {"type": trunc}, {"type": {"pattern": graph.get("pattern", {}), "range": restart_range}}
     return None, None

@@ -278,8 +278,8 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
               color: sameDay(d, today) ? "var(--danger)" : "var(--text-primary)",
             }}
           >
-            <div style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{WEEKDAY_SHORT[(d.getDay() + 6) % 7]}</div>
-            <div style={{ fontSize: 15, fontWeight: 700 }}>{d.getDate()}</div>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)" }}>{WEEKDAY_SHORT[(d.getDay() + 6) % 7]}</div>
+            <div style={{ fontSize: "var(--text-lg)", fontWeight: 700 }}>{d.getDate()}</div>
           </button>
         ))}
       </div>
@@ -306,7 +306,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
             onCreateRange(s, t, true);
           }}
         >
-          <div style={{ fontSize: 10, color: "var(--text-tertiary)", padding: "4px 0 0 8px" }}>all-day</div>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)", padding: "4px 0 0 8px" }}>all-day</div>
           {days.map((day, di) => (
             <div key={day.toISOString()} data-lane-day={di} style={{ padding: "0 2px", minHeight: 20 }}>
                 {weekAllDay
@@ -364,7 +364,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                   position: "absolute",
                   top: i * HOUR_H + HOUR_H / 2,
                   left: 8,
-                  fontSize: 10,
+                  fontSize: "var(--text-xs)",
                   lineHeight: 1.1,
                   transform: "translateY(-50%)",
                   color: "var(--text-tertiary)",
@@ -372,7 +372,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
               >
                 {formatHour(h)}
                 {secondaryLabels[i] ? (
-                  <span style={{ display: "block", fontSize: 8, opacity: 0.75 }}>{secondaryLabels[i]}</span>
+                  <span style={{ display: "block", fontSize: "var(--text-nano)", opacity: 0.75 }}>{secondaryLabels[i]}</span>
                 ) : null}
               </span>
             ))}
@@ -419,7 +419,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                     {dayIndex === 0 && (
                       <span
                         className="tabular-nums now-glow"
-                        style={{ position: "absolute", left: -52, top: -9, background: "var(--danger)", color: "#fff", fontSize: 10, fontWeight: 700, borderRadius: 5, padding: "2px 5px", whiteSpace: "nowrap" }}
+                        style={{ position: "absolute", left: -52, top: -9, background: "var(--danger)", color: "#fff", fontSize: "var(--text-xs)", fontWeight: 700, borderRadius: "var(--radius-sm)", padding: "2px 5px", whiteSpace: "nowrap" }}
                       >
                         {new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
                       </span>
@@ -437,7 +437,7 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                       right: 1,
                       background: "var(--accent)",
                       opacity: 0.35,
-                      borderRadius: 4,
+                      borderRadius: "var(--radius-sm)",
                       pointerEvents: "none",
                     }}
                   />
@@ -459,9 +459,9 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                           right: 1,
                           background: "var(--accent)",
                           opacity: 0.35,
-                          borderRadius: 4,
+                          borderRadius: "var(--radius-sm)",
                           padding: "2px 5px",
-                          fontSize: 10.5,
+                          fontSize: "var(--text-xs)",
                           fontWeight: 600,
                           overflow: "hidden",
                           whiteSpace: "nowrap",
@@ -532,11 +532,11 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                         background: isCancelledEvent(event) ? "repeating-linear-gradient(135deg, rgba(128,128,128,.18) 0 6px, rgba(128,128,128,.07) 6px 12px), var(--bg-raised)" : color,
                         border: "1px solid rgba(255, 255, 255, 0.15)",
                         boxShadow: "0 2px 8px rgba(0, 0, 0, 0.18)",
-                        borderRadius: 6,
+                        borderRadius: "var(--radius-sm)",
                         padding: "4px 7px",
                         overflow: "hidden",
                         cursor: canDrag ? "grab" : "pointer",
-                        fontSize: 11.5,
+                        fontSize: "var(--text-sm)",
                         fontWeight: 700,
                         color: isCancelledEvent(event) ? "var(--text-secondary)" : contrastText(color),
                         display: "flex",
@@ -559,10 +559,10 @@ export default function WeekView({ weekAnchor, events, calendarById, onSelectEve
                           lineHeight: 1.2,
                         }}
                       >
-                        {isCancelledEvent(event) && <span style={{ fontSize: 9, letterSpacing: .5, color: "var(--text-tertiary)" }}>CANCELLED </span>}{event.title}
+                        {isCancelledEvent(event) && <span style={{ fontSize: "var(--text-2xs)", letterSpacing: .5, color: "var(--text-tertiary)" }}>CANCELLED </span>}{event.title}
                       </span>
                       {height > 32 && (
-                        <div className="tabular-nums" style={{ fontSize: 10, fontWeight: 500, color: contrastText(color) === "#ffffff" ? "rgba(255, 255, 255, 0.88)" : "rgba(0, 0, 0, 0.7)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>
+                        <div className="tabular-nums" style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: contrastText(color) === "#ffffff" ? "rgba(255, 255, 255, 0.88)" : "rgba(0, 0, 0, 0.7)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>
                           {formatTimeRange(displayStart, displayEnd)}
                         </div>
                       )}

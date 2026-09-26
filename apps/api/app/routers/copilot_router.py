@@ -1152,16 +1152,18 @@ async def _execute_tool(
 
     elif name == "search_contacts":
         return {"contacts": await ai_tools.search_contacts(
-            session, ctx, query=args.get("query", ""), limit=int(args.get("limit", 10) or 10))}
+            session, ctx, query=args.get("query", ""), limit=int(args.get("limit", 10) or 10),
+            owner_user_id=ctx.user_id)}
 
     elif name == "resolve_contact":
-        return await ai_tools.resolve_contact(session, ctx, query=args.get("query", ""))
+        return await ai_tools.resolve_contact(session, ctx, query=args.get("query", ""), owner_user_id=ctx.user_id)
 
     elif name == "create_contact":
         try:
             contact = await ai_tools.create_contact(
                 session, ctx, email=args["email"], display_name=args.get("name"),
-                phone=args.get("phone"), company=args.get("company"), job_title=args.get("job_title"))
+                phone=args.get("phone"), company=args.get("company"), job_title=args.get("job_title"),
+                owner_user_id=ctx.user_id)
         except ValueError as exc:
             return {"error": str(exc)}
         return {"contact": contact}

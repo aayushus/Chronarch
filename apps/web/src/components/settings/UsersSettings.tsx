@@ -8,6 +8,7 @@ import {
 } from "../../api/admin";
 import { useAuth } from "../../api/auth";
 import { SectionHeader } from "../ui";
+import Icon from "../Icon";
 
 export default function UsersSettings() {
   const { user: currentUser } = useAuth();
@@ -67,7 +68,7 @@ export default function UsersSettings() {
 
   if (loading) {
     return (
-      <div style={{ padding: "32px 0", color: "var(--text-tertiary)", fontSize: 13 }}>
+      <div style={{ padding: "32px 0", color: "var(--text-tertiary)", fontSize: "var(--text-md)" }}>
         Loading user accounts…
       </div>
     );
@@ -93,12 +94,12 @@ export default function UsersSettings() {
             alignItems: "center",
             gap: 6,
             padding: "8px 16px",
-            fontSize: 13,
+            fontSize: "var(--text-md)",
             fontWeight: 600,
             borderRadius: "var(--radius-sm)",
           }}
         >
-          <span style={{ fontSize: 15, lineHeight: 1 }}>+</span>
+          <span style={{ fontSize: "var(--text-lg)", lineHeight: 1 }}>+</span>
           <span>Add User</span>
         </button>
       </div>
@@ -106,7 +107,7 @@ export default function UsersSettings() {
       {banner && (
         <div
           style={{
-            fontSize: 13,
+            fontSize: "var(--text-md)",
             borderRadius: "var(--radius-sm)",
             padding: "10px 14px",
             marginBottom: 20,
@@ -121,9 +122,9 @@ export default function UsersSettings() {
           <span>{banner.text}</span>
           <button
             onClick={() => setBanner(null)}
-            style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 16 }}
+            style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "var(--text-lg)" }}
           >
-            ×
+            <Icon name="x" size={13} />
           </button>
         </div>
       )}
@@ -131,7 +132,7 @@ export default function UsersSettings() {
       {error && (
         <div
           style={{
-            fontSize: 13,
+            fontSize: "var(--text-md)",
             borderRadius: "var(--radius-sm)",
             padding: "10px 14px",
             marginBottom: 20,
@@ -150,7 +151,7 @@ export default function UsersSettings() {
           style={{
             background: "var(--bg-raised)",
             border: "1px solid var(--border-subtle)",
-            borderRadius: 10,
+            borderRadius: "var(--radius-lg)",
             padding: "12px 16px",
             display: "flex",
             alignItems: "center",
@@ -161,22 +162,22 @@ export default function UsersSettings() {
             style={{
               width: 36,
               height: 36,
-              borderRadius: 8,
+              borderRadius: "var(--radius-md)",
               background: "rgba(10, 132, 255, 0.15)",
               color: "var(--primary)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 18,
+              fontSize: "var(--text-lg)",
             }}
           >
-            👤
+            <Icon name="user" size={19} />
           </div>
           <div>
-            <div style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", fontWeight: 600 }}>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", textTransform: "uppercase", fontWeight: 600 }}>
               Admins
             </div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
+            <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--text-primary)" }}>
               {stats.admins}
             </div>
           </div>
@@ -186,7 +187,7 @@ export default function UsersSettings() {
           style={{
             background: "var(--bg-raised)",
             border: "1px solid var(--border-subtle)",
-            borderRadius: 10,
+            borderRadius: "var(--radius-lg)",
             padding: "12px 16px",
             display: "flex",
             alignItems: "center",
@@ -197,22 +198,22 @@ export default function UsersSettings() {
             style={{
               width: 36,
               height: 36,
-              borderRadius: 8,
-              background: "rgba(175, 82, 222, 0.15)",
-              color: "#bf5af2",
+              borderRadius: "var(--radius-md)",
+              background: "var(--accent-alt-soft)",
+              color: "var(--accent-alt)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 18,
+              fontSize: "var(--text-lg)",
             }}
           >
-            🤝
+            <Icon name="users" size={19} />
           </div>
           <div>
-            <div style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", fontWeight: 600 }}>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", textTransform: "uppercase", fontWeight: 600 }}>
               Delegates
             </div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
+            <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--text-primary)" }}>
               {stats.delegates}
             </div>
           </div>
@@ -222,7 +223,7 @@ export default function UsersSettings() {
           style={{
             background: "var(--bg-raised)",
             border: "1px solid var(--border-subtle)",
-            borderRadius: 10,
+            borderRadius: "var(--radius-lg)",
             padding: "12px 16px",
             display: "flex",
             alignItems: "center",
@@ -233,22 +234,22 @@ export default function UsersSettings() {
             style={{
               width: 36,
               height: 36,
-              borderRadius: 8,
+              borderRadius: "var(--radius-md)",
               background: "rgba(255, 159, 10, 0.15)",
               color: "var(--warning)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 18,
+              fontSize: "var(--text-lg)",
             }}
           >
-            🛡️
+            <Icon name="shield" size={19} />
           </div>
           <div>
-            <div style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", fontWeight: 600 }}>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", textTransform: "uppercase", fontWeight: 600 }}>
               System Admins
             </div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
+            <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--text-primary)" }}>
               {stats.admins}
             </div>
           </div>
@@ -260,7 +261,7 @@ export default function UsersSettings() {
         style={{
           background: "var(--bg-raised)",
           border: "1px solid var(--border-subtle)",
-          borderRadius: 12,
+          borderRadius: "var(--radius-xl)",
           padding: "10px 14px",
           marginBottom: 16,
           display: "flex",
@@ -277,10 +278,10 @@ export default function UsersSettings() {
               width: "100%",
               background: "var(--bg-app)",
               border: "1px solid var(--border)",
-              borderRadius: 8,
+              borderRadius: "var(--radius-md)",
               color: "var(--text-primary)",
               padding: "7px 12px 7px 32px",
-              fontSize: 12.5,
+              fontSize: "var(--text-sm)",
               boxSizing: "border-box",
             }}
           />
@@ -290,12 +291,12 @@ export default function UsersSettings() {
               left: 10,
               top: "50%",
               transform: "translateY(-50%)",
-              fontSize: 13,
+              fontSize: "var(--text-md)",
               color: "var(--text-tertiary)",
               pointerEvents: "none",
             }}
           >
-            🔍
+            <Icon name="search" size={15} />
           </span>
           {search && (
             <button
@@ -309,28 +310,20 @@ export default function UsersSettings() {
                 border: "none",
                 color: "var(--text-tertiary)",
                 cursor: "pointer",
-                fontSize: 13,
+                fontSize: "var(--text-md)",
                 padding: 2,
               }}
             >
-              ✕
+              <Icon name="x" size={13} />
             </button>
           )}
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>Role:</span>
-          <select
+          <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>Role:</span>
+          <select className="input-standard select"
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            style={{
-              background: "var(--bg-app)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              color: "var(--text-primary)",
-              padding: "7px 10px",
-              fontSize: 12,
-            }}
           >
             <option value="all">All Roles</option>
             <option value="admin">Admins</option>
@@ -351,14 +344,14 @@ export default function UsersSettings() {
               style={{
                 background: "var(--bg-raised)",
                 border: "1px solid var(--border-subtle)",
-                borderRadius: 12,
+                borderRadius: "var(--radius-xl)",
                 padding: "16px 20px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 gap: 16,
                 opacity: u.is_active ? 1 : 0.6,
-                transition: "all 0.15s ease",
+                transition: "background var(--transition-fast), color var(--transition-fast)",
               }}
             >
               {/* Avatar + Info */}
@@ -368,12 +361,12 @@ export default function UsersSettings() {
                     width: 42,
                     height: 42,
                     borderRadius: "50%",
-                    background: isAdminRole ? "rgba(10, 132, 255, 0.15)" : "rgba(175, 82, 222, 0.15)",
-                    color: isAdminRole ? "var(--primary)" : "#bf5af2",
+                    background: isAdminRole ? "rgba(10, 132, 255, 0.15)" : "var(--accent-alt-soft)",
+                    color: isAdminRole ? "var(--primary)" : "var(--accent-alt)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 16,
+                    fontSize: "var(--text-lg)",
                     fontWeight: 700,
                     flexShrink: 0,
                     border: `1px solid ${isAdminRole ? "rgba(10, 132, 255, 0.25)" : "rgba(175, 82, 222, 0.25)"}`,
@@ -384,16 +377,16 @@ export default function UsersSettings() {
 
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>
+                    <span style={{ fontSize: "var(--text-md)", fontWeight: 700, color: "var(--text-primary)" }}>
                       {u.display_name || "Unnamed User"}
                     </span>
                     {isMe && (
                       <span
                         style={{
-                          fontSize: 9.5,
+                          fontSize: "var(--text-2xs)",
                           fontWeight: 700,
                           padding: "1px 5px",
-                          borderRadius: 4,
+                          borderRadius: "var(--radius-sm)",
                           background: "rgba(10, 132, 255, 0.15)",
                           color: "var(--primary)",
                         }}
@@ -404,10 +397,10 @@ export default function UsersSettings() {
                     {u.role === "admin" && (
                       <span
                         style={{
-                          fontSize: 9.5,
+                          fontSize: "var(--text-2xs)",
                           fontWeight: 700,
                           padding: "1px 5px",
-                          borderRadius: 4,
+                          borderRadius: "var(--radius-sm)",
                           background: "rgba(255, 159, 10, 0.15)",
                           color: "var(--warning)",
                           border: "1px solid rgba(255, 159, 10, 0.3)",
@@ -417,7 +410,7 @@ export default function UsersSettings() {
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2 }}>
+                  <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginTop: 2 }}>
                     {u.email}
                   </div>
                 </div>
@@ -427,19 +420,11 @@ export default function UsersSettings() {
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                 {/* Role Switcher */}
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>Role:</span>
-                  <select
+                  <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>Role:</span>
+                  <select className="input-standard select"
                     value={u.role}
                     onChange={(e) => handleUpdate(u, { role: e.target.value })}
-                    style={{
-                      background: "var(--bg-app)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 6,
-                      color: "var(--text-primary)",
-                      padding: "5px 10px",
-                      fontSize: 12,
-                      fontWeight: 600,
-                    }}
+                    style={{fontWeight: 600}}
                   >
                     <option value="admin">Admin</option>
                     <option value="delegate">Delegate</option>
@@ -452,10 +437,10 @@ export default function UsersSettings() {
                     <span
                       key={r}
                       style={{
-                        fontSize: 10,
+                        fontSize: "var(--text-xs)",
                         fontWeight: 700,
                         padding: "2px 7px",
-                        borderRadius: 4,
+                        borderRadius: "var(--radius-sm)",
                         background: r === "admin" ? "rgba(255, 159, 10, 0.15)" : "rgba(10, 132, 255, 0.12)",
                         color: r === "admin" ? "var(--warning)" : "var(--primary)",
                       }}
@@ -464,7 +449,7 @@ export default function UsersSettings() {
                     </span>
                   ))}
                   {(u.roles ?? []).length === 0 && (
-                    <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>no roles</span>
+                    <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>no roles</span>
                   )}
                 </div>
 
@@ -475,23 +460,22 @@ export default function UsersSettings() {
                     display: "flex",
                     alignItems: "center",
                     gap: 6,
-                    fontSize: 12,
+                    fontSize: "var(--text-sm)",
                     fontWeight: 500,
                     cursor: isMe ? "not-allowed" : "pointer",
                     padding: "5px 8px",
-                    borderRadius: 6,
+                    borderRadius: "var(--radius-sm)",
                     background: u.is_active ? "rgba(40, 200, 64, 0.1)" : "rgba(255, 69, 58, 0.1)",
                     color: u.is_active ? "var(--success)" : "var(--danger)",
                     opacity: isMe ? 0.7 : 1,
                   }}
                   title={isMe ? "You cannot deactivate your own account" : undefined}
                 >
-                  <input
+                  <input className="checkbox"
                     type="checkbox"
                     checked={u.is_active}
                     disabled={isMe}
                     onChange={(e) => handleUpdate(u, { is_active: e.target.checked })}
-                    style={{ accentColor: "var(--success)", width: 14, height: 14 }}
                   />
                   <span>Active</span>
                 </label>
@@ -568,7 +552,7 @@ function CreateUserModal({
         onClick={(e) => e.stopPropagation()}
         style={{
           background: "var(--bg-panel)",
-          borderRadius: 14,
+          borderRadius: "var(--radius-pill)",
           padding: 26,
           width: 440,
           maxWidth: "92vw",
@@ -577,29 +561,29 @@ function CreateUserModal({
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Add New User</h3>
+          <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, margin: 0 }}>Add New User</h3>
           <button
             onClick={onClose}
             style={{
               background: "none",
               border: "none",
               color: "var(--text-tertiary)",
-              fontSize: 20,
+              fontSize: "var(--text-xl)",
               cursor: "pointer",
               padding: "2px 6px",
             }}
           >
-            ✕
+            <Icon name="x" size={13} />
           </button>
         </div>
 
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 18px", lineHeight: 1.5 }}>
+        <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 18px", lineHeight: 1.5 }}>
           Create an organizational user account and assign calendar authority.
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+            <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
               Full Name
             </label>
             <input
@@ -613,7 +597,7 @@ function CreateUserModal({
           </div>
 
           <div>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+            <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
               Email Address
             </label>
             <input
@@ -627,7 +611,7 @@ function CreateUserModal({
           </div>
 
           <div>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+            <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
               Temporary Password
             </label>
             <input
@@ -641,10 +625,10 @@ function CreateUserModal({
           </div>
 
           <div>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+            <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
               Primary Role (admin sees everything; delegate sees calendar + copilot)
             </label>
-            <select
+            <select className="input-standard select"
               value={role}
               onChange={(e) => setRole(e.target.value)}
               style={modalInputStyle}
@@ -658,7 +642,7 @@ function CreateUserModal({
             <div
               style={{
                 color: "var(--danger)",
-                fontSize: 12,
+                fontSize: "var(--text-sm)",
                 background: "rgba(255, 69, 58, 0.1)",
                 padding: "8px 12px",
                 borderRadius: "var(--radius-sm)",
@@ -676,7 +660,7 @@ function CreateUserModal({
               type="submit"
               disabled={saving}
               className="btn-primary hoverable"
-              style={{ padding: "8px 18px", fontSize: 13, fontWeight: 600 }}
+              style={{ padding: "8px 18px", fontSize: "var(--text-md)", fontWeight: 600 }}
             >
               {saving ? "Creating…" : "Create User"}
             </button>
@@ -698,10 +682,10 @@ const modalInputStyle: React.CSSProperties = {
   width: "100%",
   background: "var(--bg-app)",
   border: "1px solid var(--border)",
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   color: "var(--text-primary)",
   padding: "8px 12px",
-  fontSize: 13,
+  fontSize: "var(--text-md)",
   boxSizing: "border-box",
   colorScheme: "dark",
 };

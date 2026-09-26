@@ -83,7 +83,7 @@ export default function SettingsPage() {
   const current = items.find((n) => n.key === section) ?? items[0];
   if (!current) {
     return (
-      <div style={{ padding: 48, color: "var(--text-secondary)", fontSize: 13 }}>
+      <div style={{ padding: 48, color: "var(--text-secondary)", fontSize: "var(--text-md)" }}>
         No settings sections available for your role.
       </div>
     );
@@ -112,12 +112,12 @@ export default function SettingsPage() {
           <span style={{ display: "inline-flex", color: "var(--text-tertiary)" }}>
             <Icon name="chevronLeft" size={14} />
           </span>
-          <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.01em", fontFamily: "Georgia, 'Times New Roman', serif", color: "var(--text-primary)", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: "var(--text-lg)", fontWeight: 700, letterSpacing: "-0.01em", color: "var(--text-primary)", whiteSpace: "nowrap" }}>
             Settings
           </span>
         </Link>
         <div style={{ flex: 1, display: "flex", justifyContent: "center", minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: "7px 12px", width: "100%", maxWidth: 420 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: "7px 12px", width: "100%", maxWidth: 420 }}>
             <Icon name="search" size={14} />
             <input
               value={filter}
@@ -128,7 +128,7 @@ export default function SettingsPage() {
               }}
               placeholder="Find a section…"
               aria-label="Find a settings section"
-              style={{ flex: 1, background: "none", border: "none", outline: "none", color: "var(--text-primary)", fontSize: 13, minWidth: 0 }}
+              style={{ flex: 1, background: "none", border: "none", outline: "none", color: "var(--text-primary)", fontSize: "var(--text-md)", minWidth: 0 }}
             />
             {filter && (
               <button onClick={() => setFilter("")} aria-label="Clear filter" style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", padding: 0, display: "inline-flex" }}>
@@ -157,7 +157,7 @@ export default function SettingsPage() {
           {groupSections(filtered).map((group, gi) => (
             <div key={group.header ?? "pinned"} style={{ marginTop: gi === 0 ? 0 : 14 }}>
               {group.header && (
-                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", padding: "0 10px 5px" }}>
+                <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)", padding: "0 10px 5px" }}>
                   {group.header}
                 </div>
               )}
@@ -177,9 +177,9 @@ export default function SettingsPage() {
                       textAlign: "left",
                       background: active ? "rgba(10, 132, 255, 0.14)" : "transparent",
                       border: "none",
-                      borderRadius: 6,
+                      borderRadius: "var(--radius-sm)",
                       color: active ? "var(--text-primary)" : "var(--text-secondary)",
-                      fontSize: 13,
+                      fontSize: "var(--text-md)",
                       fontWeight: active ? 600 : 500,
                       padding: "7px 10px",
                       cursor: "pointer",
@@ -198,11 +198,11 @@ export default function SettingsPage() {
         </nav>
 
         <div style={{ borderTop: "1px solid var(--border-subtle)", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{user?.email}</span>
+          <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>{user?.email}</span>
           <button
             onClick={logout}
             className="hoverable"
-            style={{ background: "none", border: "none", borderRadius: 4, color: "var(--text-tertiary)", fontSize: 11, cursor: "pointer", padding: "3px 6px" }}
+            style={{ background: "none", border: "none", borderRadius: "var(--radius-sm)", color: "var(--text-tertiary)", fontSize: "var(--text-sm)", cursor: "pointer", padding: "3px 6px" }}
           >
             Sign out
           </button>
@@ -212,7 +212,7 @@ export default function SettingsPage() {
       <main className="settings-main" style={{ flex: 1, overflowY: "auto", padding: "32px 48px", minWidth: 0 }}>
         <div key={section} className="view-enter" style={{ maxWidth: 880, margin: "0 auto" }}>
           {filtered.length === 0 ? (
-            <div style={{ fontSize: 13, color: "var(--text-tertiary)", padding: "32px 0", textAlign: "center" }}>
+            <div style={{ fontSize: "var(--text-md)", color: "var(--text-tertiary)", padding: "32px 0", textAlign: "center" }}>
               No sections match “{filter}”.
             </div>
           ) : section === "contacts" ? (

@@ -96,7 +96,7 @@ async def list_accounts() -> list[dict]:
     """Prompt: prompts/mcp/tools/list_accounts.md."""
     ctx, session = await _authed_context()
     async with session:
-        return await ai_tools.list_accounts(session, ctx)
+        return await ai_tools.list_accounts(session, ctx, owner_user_id=ctx.user_id)
 
 
 @mcp.tool(description=tool_description("mcp", "list_calendars"))
@@ -184,6 +184,7 @@ async def get_availability(window_start: str, window_end: str, calendar_ids: lis
             window_start=_as_aware(window_start, tz_name),
             window_end=_as_aware(window_end, tz_name),
             calendar_ids=calendar_ids,
+            owner_calendar_ids=await _owned_calendar_ids(session, ctx),
         )
         return [{"start": b["start"].isoformat(), "end": b["end"].isoformat()} for b in busy]
 
@@ -222,6 +223,7 @@ async def find_free_slots(
             buffer=timedelta(minutes=buffer_minutes),
             min_notice=timedelta(minutes=min_notice_minutes),
             now=datetime.now(timezone.utc),
+            owner_calendar_ids=await _owned_calendar_ids(session, ctx),
         )
         return [{"start": s["start"].isoformat(), "end": s["end"].isoformat()} for s in slots]
 
@@ -244,6 +246,7 @@ async def find_conflicts(
                 window_end=_as_aware(window_end, tz_name),
                 exclude_event_id=exclude_event_id,
                 calendar_ids=calendar_ids,
+                owner_calendar_ids=await _owned_calendar_ids(session, ctx),
             )
         except ValueError as exc:
             return [{"error": f"invalid window: {exc}"}]
@@ -434,7 +437,7 @@ async def search_contacts(query: str = "", limit: int = 10) -> dict:
     ctx, session = await _authed_context()
     async with session:
         try:
-            results = await ai_tools.search_contacts(session, ctx, query=query, limit=limit)
+            results = await ai_tools.search_contacts(session, ctx, query=query, limit=limit, owner_user_id=ctx.user_id)
         except Exception as exc:
             return {"error": str(exc)}
         return {"contacts": results}
@@ -446,7 +449,7 @@ async def resolve_contact(query: str) -> dict:
     ctx, session = await _authed_context()
     async with session:
         try:
-            return await ai_tools.resolve_contact(session, ctx, query=query)
+            return await ai_tools.resolve_contact(session, ctx, query=query, owner_user_id=ctx.user_id)
         except Exception as exc:
             return {"error": str(exc)}
 
@@ -465,7 +468,7 @@ async def create_contact(
         try:
             contact = await ai_tools.create_contact(
                 session, ctx, email=email, display_name=display_name,
-                phone=phone, company=company, job_title=job_title)
+                phone=phone, company=company, job_title=job_title, owner_user_id=ctx.user_id)
         except ValueError as exc:
             return {"error": str(exc)}
         except Exception as exc:

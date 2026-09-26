@@ -129,7 +129,7 @@ export default function BookingSettings() {
   }
 
   if (loading) {
-    return <div style={{ padding: "32px 0", color: "var(--text-tertiary)", fontSize: 13 }}>Loading booking links…</div>;
+    return <div style={{ padding: "32px 0", color: "var(--text-tertiary)", fontSize: "var(--text-md)" }}>Loading booking links…</div>;
   }
 
   return (
@@ -146,9 +146,9 @@ export default function BookingSettings() {
           <button
             onClick={() => setShowWizard(true)}
             className="btn-primary hoverable"
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius-sm)" }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: "var(--text-md)", fontWeight: 600, borderRadius: "var(--radius-sm)" }}
           >
-            <span style={{ fontSize: 15, lineHeight: 1 }}>+</span>
+            <span style={{ fontSize: "var(--text-lg)", lineHeight: 1 }}>+</span>
             <span>New Link</span>
           </button>
         )}
@@ -173,34 +173,34 @@ export default function BookingSettings() {
             return (
               <section key={link.id} style={{ background: "var(--bg-raised)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)", overflow: "hidden" }}>
                 <div style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ width: 34, height: 34, borderRadius: 8, background: link.active ? "rgba(10, 132, 255, 0.14)" : "var(--bg-app)", color: link.active ? "var(--accent)" : "var(--text-tertiary)", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <span style={{ width: 34, height: 34, borderRadius: "var(--radius-md)", background: link.active ? "rgba(10, 132, 255, 0.14)" : "var(--bg-app)", color: link.active ? "var(--accent)" : "var(--text-tertiary)", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <Icon name="link" size={17} />
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontSize: "var(--text-md)", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link.title}</span>
                       {!link.active && <Badge tone="neutral">Paused</Badge>}
                       {pending > 0 && <Badge tone="warning">{pending} to review</Badge>}
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+                    <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: 2 }}>
                       /book/{link.slug} · {link.duration_minutes} min{link.approval_required ? " · approves each booking" : ""}
                     </div>
                   </div>
-                  <button onClick={() => copyLink(link.slug)} className="hoverable" title="Copy public link" style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 6, color: "var(--text-primary)", padding: "6px 12px", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>
-                    {copied ? "✓ Copied!" : "Copy link"}
+                  <button onClick={() => copyLink(link.slug)} className="hoverable" title="Copy public link" style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", color: "var(--text-primary)", padding: "6px 12px", fontSize: "var(--text-sm)", cursor: "pointer", whiteSpace: "nowrap" }}>
+                    {copied ? "Copied" : "Copy link"}
                   </button>
                   {canManage && (
                     <>
-                      <button onClick={() => toggleActive(link)} className="hoverable" aria-label={link.active ? `Pause ${link.title}` : `Resume ${link.title}`} title={link.active ? "Pause link" : "Resume link"} style={{ background: link.active ? "rgba(48, 209, 88, 0.12)" : "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 6, color: link.active ? "var(--success)" : "var(--text-secondary)", padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                      <button onClick={() => toggleActive(link)} className="hoverable" aria-label={link.active ? `Pause ${link.title}` : `Resume ${link.title}`} title={link.active ? "Pause link" : "Resume link"} style={{ background: link.active ? "rgba(48, 209, 88, 0.12)" : "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", color: link.active ? "var(--success)" : "var(--text-secondary)", padding: "6px 12px", fontSize: "var(--text-sm)", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
                         {link.active ? "Live" : "Paused"}
                       </button>
-                      <button onClick={() => handleDelete(link)} className="hoverable" aria-label={`Delete ${link.title}`} title="Delete link" style={{ background: "none", border: "none", borderRadius: 6, color: "var(--text-tertiary)", cursor: "pointer", padding: 6, display: "inline-flex" }}>
+                      <button onClick={() => handleDelete(link)} className="hoverable" aria-label={`Delete ${link.title}`} title="Delete link" style={{ background: "none", border: "none", borderRadius: "var(--radius-sm)", color: "var(--text-tertiary)", cursor: "pointer", padding: 6, display: "inline-flex" }}>
                         <Icon name="trash" size={15} />
                       </button>
                     </>
                   )}
                   <button onClick={() => expand(link)} className="hoverable" aria-expanded={expanded} aria-label={expanded ? "Hide bookings" : "Show bookings"} style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", padding: 6, display: "inline-flex" }}>
-                    <span style={{ display: "inline-flex", transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s ease" }}>
+                    <span style={{ display: "inline-flex", transform: expanded ? "rotate(90deg)" : "none", transition: "transform var(--transition-fast)" }}>
                       <Icon name="chevronRight" size={15} />
                     </span>
                   </button>
@@ -209,11 +209,11 @@ export default function BookingSettings() {
                 {expanded && (
                   <div style={{ borderTop: "1px solid var(--border-subtle)", padding: "14px 18px" }}>
                     {rows.length === 0 ? (
-                      <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>No bookings on this link yet.</p>
+                      <p style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", margin: 0 }}>No bookings on this link yet.</p>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         {rows.map((b) => (
-                          <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 8, padding: "9px 12px", fontSize: 12.5 }}>
+                          <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: "9px 12px", fontSize: "var(--text-sm)" }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontWeight: 600 }}>{b.booker_name} <span style={{ fontWeight: 400, color: "var(--text-secondary)" }}>{b.booker_email}</span></div>
                               <div style={{ color: "var(--text-secondary)", marginTop: 1 }}>
@@ -224,8 +224,8 @@ export default function BookingSettings() {
                             <StatusPill status={b.status} />
                             {canManage && b.status === "pending" && (
                               <>
-                                <button onClick={() => bookingAction(link.id, b.id, "approve")} className="btn-primary hoverable" style={{ padding: "5px 12px", fontSize: 12 }}>Confirm</button>
-                                <button onClick={() => bookingAction(link.id, b.id, "decline")} className="btn-secondary hoverable" style={{ padding: "5px 12px", fontSize: 12 }}>Decline</button>
+                                <button onClick={() => bookingAction(link.id, b.id, "approve")} className="btn-primary hoverable" style={{ padding: "5px 12px", fontSize: "var(--text-sm)" }}>Confirm</button>
+                                <button onClick={() => bookingAction(link.id, b.id, "decline")} className="btn-secondary hoverable" style={{ padding: "5px 12px", fontSize: "var(--text-sm)" }}>Decline</button>
                               </>
                             )}
                             {canManage && (b.status === "pending" || b.status === "confirmed") && (
@@ -356,7 +356,7 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-card mount-rise" onClick={(e) => e.stopPropagation()} style={{ width: 520, maxWidth: "94vw", padding: 26 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>New booking link</h3>
+          <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, margin: 0 }}>New booking link</h3>
           <button onClick={onClose} className="hoverable" aria-label="Close" style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", padding: "2px 6px", display: "inline-flex" }}>
             <Icon name="x" size={16} />
           </button>
@@ -364,7 +364,7 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
 
         <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
           {STEP_LABELS.map((label, i) => (
-            <span key={label} style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: i === step ? 700 : 500, color: i === step ? "var(--accent)" : "var(--text-tertiary)", borderBottom: `2px solid ${i === step ? "var(--accent)" : i < step ? "var(--success)" : "var(--border-subtle)"}`, paddingBottom: 6 }}>
+            <span key={label} style={{ flex: 1, textAlign: "center", fontSize: "var(--text-sm)", fontWeight: i === step ? 700 : 500, color: i === step ? "var(--accent)" : "var(--text-tertiary)", borderBottom: `2px solid ${i === step ? "var(--accent)" : i < step ? "var(--success)" : "var(--border-subtle)"}`, paddingBottom: 6 }}>
               {i + 1}. {label}
             </span>
           ))}
@@ -373,37 +373,37 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
         {step === 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
-              <label htmlFor="link-title" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Title</label>
-              <input id="link-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Intro call" autoFocus className="input-standard" style={{ width: "100%", fontSize: 13 }} />
+              <label htmlFor="link-title" style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>Title</label>
+              <input id="link-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Intro call" autoFocus className="input-standard" style={{ width: "100%", fontSize: "var(--text-md)" }} />
             </div>
             <div>
-              <label htmlFor="link-desc" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Description <span style={{ fontWeight: 400, color: "var(--text-tertiary)" }}>(shown to bookers)</span></label>
-              <input id="link-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. 30 minutes to talk through your project" className="input-standard" style={{ width: "100%", fontSize: 13 }} />
+              <label htmlFor="link-desc" style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>Description <span style={{ fontWeight: 400, color: "var(--text-tertiary)" }}>(shown to bookers)</span></label>
+              <input id="link-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. 30 minutes to talk through your project" className="input-standard" style={{ width: "100%", fontSize: "var(--text-md)" }} />
             </div>
             <div>
-              <label htmlFor="link-slug" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Link address</label>
+              <label htmlFor="link-slug" style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>Link address</label>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 12, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>/book/</span>
-                <input id="link-slug" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="acme-intro" className="input-standard" style={{ flex: 1, fontSize: 13 }} />
+                <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>/book/</span>
+                <input id="link-slug" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="acme-intro" className="input-standard" style={{ flex: 1, fontSize: "var(--text-md)" }} />
               </div>
               {(() => {
                 const hint = slugHint(slug, slugState);
                 return (
-                  <div style={{ fontSize: 11.5, marginTop: 5, minHeight: 16, color: hint.tone === "ok" ? "var(--success)" : hint.tone === "error" ? "var(--danger)" : "var(--text-tertiary)" }}>
+                  <div style={{ fontSize: "var(--text-sm)", marginTop: 5, minHeight: 16, color: hint.tone === "ok" ? "var(--success)" : hint.tone === "error" ? "var(--danger)" : "var(--text-tertiary)" }}>
                     {hint.text}
                   </div>
                 );
               })()}
             </div>
             <div>
-              <span style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Duration</span>
+              <span style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>Duration</span>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {DURATIONS.map((d) => (
-                  <button key={d} onClick={() => { setDuration(d); setCustomDuration(""); }} className="hoverable" style={{ border: `1px solid ${duration === d && !customDuration ? "var(--accent)" : "var(--border-subtle)"}`, background: duration === d && !customDuration ? "rgba(10, 132, 255, 0.12)" : "transparent", color: "var(--text-primary)", borderRadius: 6, padding: "6px 12px", fontSize: 12.5, cursor: "pointer" }}>
+                  <button key={d} onClick={() => { setDuration(d); setCustomDuration(""); }} className="hoverable" style={{ border: `1px solid ${duration === d && !customDuration ? "var(--accent)" : "var(--border-subtle)"}`, background: duration === d && !customDuration ? "rgba(10, 132, 255, 0.12)" : "transparent", color: "var(--text-primary)", borderRadius: "var(--radius-sm)", padding: "6px 12px", fontSize: "var(--text-sm)", cursor: "pointer" }}>
                     {d} min
                   </button>
                 ))}
-                <input value={customDuration} onChange={(e) => { setCustomDuration(e.target.value); const n = parseInt(e.target.value, 10); if (Number.isFinite(n)) setDuration(n); }} placeholder="Custom" inputMode="numeric" aria-label="Custom duration in minutes" className="input-standard" style={{ width: 90, fontSize: 12.5 }} />
+                <input value={customDuration} onChange={(e) => { setCustomDuration(e.target.value); const n = parseInt(e.target.value, 10); if (Number.isFinite(n)) setDuration(n); }} placeholder="Custom" inputMode="numeric" aria-label="Custom duration in minutes" className="input-standard" style={{ width: 90, fontSize: "var(--text-sm)" }} />
               </div>
             </div>
           </div>
@@ -411,18 +411,18 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
 
         {step === 1 && (
           <div>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 12px", lineHeight: 1.5 }}>
+            <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 12px", lineHeight: 1.5 }}>
               Bookings land on this calendar with the booker invited.
             </p>
             {writable.length === 0 ? (
               <div>
-                <p style={{ fontSize: 12, color: "var(--warning)", margin: "0 0 6px" }}>
+                <p style={{ fontSize: "var(--text-sm)", color: "var(--warning)", margin: "0 0 6px" }}>
                   {accountsLoaded
                     ? "No calendars you own yet — connect your Google or Microsoft account in Settings → Accounts first. Booking links must land on your own calendar."
                     : "Loading your calendars…"}
                 </p>
                 {showUnownedNote && (
-                  <p style={{ fontSize: 11.5, color: "var(--text-tertiary)", margin: 0 }}>
+                  <p style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", margin: 0 }}>
                     Other calendars exist in this workspace, but booking links can only use calendars under your own connected account.
                   </p>
                 )}
@@ -430,10 +430,10 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {writable.map((c) => (
-                  <button key={c.id} onClick={() => setCalendarId(c.id)} className="hoverable" style={{ display: "flex", alignItems: "center", gap: 10, textAlign: "left", background: calendarId === c.id ? "rgba(10, 132, 255, 0.1)" : "var(--bg-raised)", border: `1px solid ${calendarId === c.id ? "var(--accent)" : "var(--border-subtle)"}`, borderRadius: 8, padding: "10px 14px", cursor: "pointer", color: "var(--text-primary)" }}>
+                  <button key={c.id} onClick={() => setCalendarId(c.id)} className="hoverable" style={{ display: "flex", alignItems: "center", gap: 10, textAlign: "left", background: calendarId === c.id ? "rgba(10, 132, 255, 0.1)" : "var(--bg-raised)", border: `1px solid ${calendarId === c.id ? "var(--accent)" : "var(--border-subtle)"}`, borderRadius: "var(--radius-md)", padding: "10px 14px", cursor: "pointer", color: "var(--text-primary)" }}>
                     <span style={{ width: 10, height: 10, borderRadius: "50%", background: c.color, flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{c.name}</span>
-                    <span style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>{c.account_label}</span>
+                    <span style={{ fontSize: "var(--text-md)", fontWeight: 600 }}>{c.name}</span>
+                    <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>{c.account_label}</span>
                   </button>
                 ))}
               </div>
@@ -450,15 +450,15 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
               <NumberField label="Buffer after (min)" value={bufferAfter} onChange={(v) => setBufferAfter(Math.max(0, v))} hint="Quiet time after" />
             </div>
             <div>
-              <span style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>When someone books</span>
+              <span style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 8 }}>When someone books</span>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <button onClick={() => setApproval(false)} className="hoverable" style={{ textAlign: "left", background: !approval ? "rgba(10, 132, 255, 0.1)" : "var(--bg-raised)", border: `1px solid ${!approval ? "var(--accent)" : "var(--border-subtle)"}`, borderRadius: 8, padding: "10px 14px", cursor: "pointer", color: "var(--text-primary)" }}>
-                  <span style={{ display: "block", fontSize: 13, fontWeight: 600 }}>Confirm instantly</span>
-                  <span style={{ display: "block", fontSize: 12, color: "var(--text-secondary)" }}>The event and invite go out right away</span>
+                <button onClick={() => setApproval(false)} className="hoverable" style={{ textAlign: "left", background: !approval ? "rgba(10, 132, 255, 0.1)" : "var(--bg-raised)", border: `1px solid ${!approval ? "var(--accent)" : "var(--border-subtle)"}`, borderRadius: "var(--radius-md)", padding: "10px 14px", cursor: "pointer", color: "var(--text-primary)" }}>
+                  <span style={{ display: "block", fontSize: "var(--text-md)", fontWeight: 600 }}>Confirm instantly</span>
+                  <span style={{ display: "block", fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>The event and invite go out right away</span>
                 </button>
-                <button onClick={() => setApproval(true)} className="hoverable" style={{ textAlign: "left", background: approval ? "rgba(10, 132, 255, 0.1)" : "var(--bg-raised)", border: `1px solid ${approval ? "var(--accent)" : "var(--border-subtle)"}`, borderRadius: 8, padding: "10px 14px", cursor: "pointer", color: "var(--text-primary)" }}>
-                  <span style={{ display: "block", fontSize: 13, fontWeight: 600 }}>Approve each booking</span>
-                  <span style={{ display: "block", fontSize: 12, color: "var(--text-secondary)" }}>Requests wait here until you confirm them</span>
+                <button onClick={() => setApproval(true)} className="hoverable" style={{ textAlign: "left", background: approval ? "rgba(10, 132, 255, 0.1)" : "var(--bg-raised)", border: `1px solid ${approval ? "var(--accent)" : "var(--border-subtle)"}`, borderRadius: "var(--radius-md)", padding: "10px 14px", cursor: "pointer", color: "var(--text-primary)" }}>
+                  <span style={{ display: "block", fontSize: "var(--text-md)", fontWeight: 600 }}>Approve each booking</span>
+                  <span style={{ display: "block", fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>Requests wait here until you confirm them</span>
                 </button>
               </div>
             </div>
@@ -470,23 +470,23 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
             <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(48, 209, 88, 0.14)", color: "var(--success)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
               <Icon name="check" size={20} />
             </div>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>“{created?.title}” is live</div>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}>
+            <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginBottom: 4 }}>“{created?.title}” is live</div>
+            <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 16px" }}>
               Share this link anywhere — no account needed to book.
             </p>
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-              <code style={{ fontSize: 13, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 6, padding: "8px 14px" }}>
+              <code style={{ fontSize: "var(--text-md)", background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", padding: "8px 14px" }}>
                 /book/{created?.slug}
               </code>
-              <button onClick={copyCreated} className="btn-primary hoverable" style={{ padding: "8px 16px", fontSize: 13 }}>
-                {copied ? "✓ Copied!" : "Copy link"}
+              <button onClick={copyCreated} className="btn-primary hoverable" style={{ padding: "8px 16px", fontSize: "var(--text-md)" }}>
+                {copied ? "Copied" : "Copy link"}
               </button>
             </div>
           </div>
         )}
 
         {error && (
-          <div style={{ color: "var(--danger)", fontSize: 12, background: "rgba(255, 69, 58, 0.1)", padding: "8px 12px", borderRadius: "var(--radius-sm)", marginTop: 14 }}>
+          <div style={{ color: "var(--danger)", fontSize: "var(--text-sm)", background: "rgba(255, 69, 58, 0.1)", padding: "8px 12px", borderRadius: "var(--radius-sm)", marginTop: 14 }}>
             {error}
           </div>
         )}
@@ -497,11 +497,11 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
               {step === 0 ? "Cancel" : "Back"}
             </button>
             {step < 2 ? (
-              <button onClick={() => setStep(step + 1)} disabled={!stepValid()} className="btn-primary hoverable" style={{ padding: "8px 20px", opacity: stepValid() ? 1 : 0.5 }}>
+              <button onClick={() => setStep(step + 1)} disabled={!stepValid()} className="btn-primary hoverable" style={{ padding: "8px 20px" }}>
                 Continue
               </button>
             ) : (
-              <button onClick={() => void handleCreate()} disabled={!stepValid() || saving} className="btn-primary hoverable" style={{ padding: "8px 20px", opacity: stepValid() && !saving ? 1 : 0.5 }}>
+              <button onClick={() => void handleCreate()} disabled={!stepValid() || saving} className="btn-primary hoverable" style={{ padding: "8px 20px" }}>
                 {saving ? "Creating…" : "Create link"}
               </button>
             )}
@@ -522,9 +522,9 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
 function NumberField({ label, value, onChange, hint }: { label: string; value: number; onChange: (v: number) => void; hint: string }) {
   return (
     <div>
-      <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{label}</label>
-      <input type="number" min={0} value={value} onChange={(e) => onChange(parseInt(e.target.value, 10) || 0)} className="input-standard" style={{ width: "100%", fontSize: 13 }} />
-      <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 3 }}>{hint}</div>
+      <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>{label}</label>
+      <input type="number" min={0} value={value} onChange={(e) => onChange(parseInt(e.target.value, 10) || 0)} className="input-standard" style={{ width: "100%", fontSize: "var(--text-md)" }} />
+      <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginTop: 3 }}>{hint}</div>
     </div>
   );
 }

@@ -64,6 +64,23 @@ async def test_create_event_rejects_server_side_overlap(session):
         )
 
 
+async def test_get_events_keeps_one_off_events_inside_window(session):
+    exec_user, _ea_user, calendar = await _seed(session)
+    ctx = AuthContext(user_id=exec_user.id, role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
+    start = datetime(2026, 9, 17, 10, 0, tzinfo=timezone.utc)
+    await ai_tools.create_event(
+        session, ctx, calendar_id=calendar.id, title="Outside",
+        start=start, end=start + timedelta(hours=1), is_owner=True,
+    )
+    listed = await ai_tools.get_events(
+        session, ctx,
+        window_start=start + timedelta(days=7),
+        window_end=start + timedelta(days=8),
+        owner_calendar_ids={calendar.id},
+    )
+    assert listed == []
+
+
 async def test_ea_without_grant_cannot_create_event(session):
     _exec_user, ea_user, calendar = await _seed(session)
     ctx = AuthContext(user_id=ea_user.id, role=UserRole.DELEGATE, actor_type=ActorType.DELEGATE_UI)

@@ -23,19 +23,19 @@ export default function CancelBookingPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-app)", display: "flex", justifyContent: "center", padding: "48px 20px" }}>
-      <div style={{ width: 480, maxWidth: "100%", background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 12, padding: 32, textAlign: "center", alignSelf: "flex-start" }}>
-        {state === "working" && <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>Cancelling…</div>}
+      <div style={{ width: 480, maxWidth: "100%", background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-xl)", padding: 32, textAlign: "center", alignSelf: "flex-start" }}>
+        {state === "working" && <div style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)" }}>Cancelling…</div>}
         {state === "done" && (
           <>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Cancelled</div>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}>{message}</p>
-            <Link to="/" style={{ fontSize: 13, color: "var(--accent)" }}>Back to Calendar</Link>
+            <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginBottom: 8 }}>Cancelled</div>
+            <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 16px" }}>{message}</p>
+            <Link to="/" style={{ fontSize: "var(--text-md)", color: "var(--accent)" }}>Back to Calendar</Link>
           </>
         )}
         {state === "error" && (
           <>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Couldn't cancel</div>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>{message}</p>
+            <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginBottom: 8 }}>Couldn't cancel</div>
+            <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: 0 }}>{message}</p>
           </>
         )}
       </div>

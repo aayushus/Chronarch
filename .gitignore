@@ -58,6 +58,7 @@ ENV/
 *.db
 *.dump
 bugs.md
+DESIGN_AUDIT.md
 *.sqlite3
 
 # Infra & Docker runtime data

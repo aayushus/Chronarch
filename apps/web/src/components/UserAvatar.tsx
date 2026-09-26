@@ -29,7 +29,7 @@ export default function UserAvatar({ email, name, size = 32, title }: UserAvatar
         height: size,
         borderRadius: "50%",
         background: "var(--accent)",
-        color: "#fff",
+        color: "var(--text-on-fill)",
         fontSize: Math.max(11, Math.round(size * 0.4)),
         fontWeight: 700,
         display: "inline-flex",

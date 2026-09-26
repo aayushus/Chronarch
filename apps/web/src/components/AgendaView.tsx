@@ -64,19 +64,19 @@ export default function AgendaView({ days, events, calendarById, onSelectEvent, 
               <span
                 className="tabular-nums"
                 style={{
-                  fontSize: 13,
+                  fontSize: "var(--text-md)",
                   fontWeight: 700,
                   color: isToday ? "var(--danger)" : "var(--text-primary)",
                   minWidth: 28,
                   textAlign: "center",
                   background: isToday ? "rgba(255, 69, 58, 0.12)" : "transparent",
-                  borderRadius: 6,
+                  borderRadius: "var(--radius-sm)",
                   padding: "1px 0",
                 }}
               >
                 {d.getDate()}
               </span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: isToday ? "var(--danger)" : "var(--text-secondary)" }}>
+              <span style={{ fontSize: "var(--text-md)", fontWeight: 600, color: isToday ? "var(--danger)" : "var(--text-secondary)" }}>
                 {d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
                 {isToday ? " · Today" : ""}
               </span>
@@ -84,7 +84,7 @@ export default function AgendaView({ days, events, calendarById, onSelectEvent, 
 
             <div style={{ marginLeft: 42, borderLeft: "1px solid var(--border-subtle)", paddingLeft: 12 }}>
               {empty && (
-                <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "2px 0 8px" }}>
+                <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", padding: "2px 0 8px" }}>
                   No events
                 </div>
               )}

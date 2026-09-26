@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 
 import { ContactEntry, searchContacts } from "../api/calendar";
 import { friendlyError } from "../api/client";
+import Icon from "./Icon";
 
 export interface PickerAttendee {
   name: string;
@@ -75,7 +76,7 @@ export default function AttendeePicker({ value, onChange, label }: Props) {
   return (
     <div ref={boxRef} style={{ position: "relative" }}>
       {label && (
-        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{label}</div>
+        <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>{label}</div>
       )}
       {value.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
@@ -85,7 +86,7 @@ export default function AttendeePicker({ value, onChange, label }: Props) {
               style={{
                 display: "inline-flex", alignItems: "center", gap: 6,
                 background: "rgba(10, 132, 255, 0.12)", border: "1px solid rgba(10, 132, 255, 0.3)",
-                borderRadius: 14, padding: "3px 6px 3px 10px", fontSize: 12, fontWeight: 500,
+                borderRadius: "var(--radius-pill)", padding: "3px 6px 3px 10px", fontSize: "var(--text-sm)", fontWeight: 500,
                 maxWidth: "100%",
               }}
             >
@@ -96,9 +97,9 @@ export default function AttendeePicker({ value, onChange, label }: Props) {
                 onClick={() => onChange(value.filter((x) => x.email !== a.email))}
                 aria-label={`Remove ${a.email}`}
                 className="hoverable"
-                style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: "0 2px", fontSize: 12 }}
+                style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: "0 2px", fontSize: "var(--text-sm)" }}
               >
-                ✕
+                <Icon name="x" size={13} />
               </button>
             </span>
           ))}
@@ -119,13 +120,13 @@ export default function AttendeePicker({ value, onChange, label }: Props) {
         placeholder="Type a name or email…"
         aria-label="Add attendee"
         className="input-standard"
-        style={{ width: "100%", fontSize: 13 }}
+        style={{ width: "100%", fontSize: "var(--text-md)" }}
       />
       {open && suggestions.length > 0 && (
         <div
           style={{
             position: "absolute", zIndex: 30, left: 0, right: 0, top: "100%", marginTop: 4,
-            background: "var(--bg-raised)", border: "1px solid var(--border)", borderRadius: 8,
+            background: "var(--bg-raised)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)",
             boxShadow: "var(--shadow-pop)", overflow: "hidden", maxHeight: 220, overflowY: "auto",
           }}
         >
@@ -137,25 +138,25 @@ export default function AttendeePicker({ value, onChange, label }: Props) {
               style={{
                 display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
                 background: "none", border: "none", padding: "8px 12px", cursor: "pointer",
-                color: "var(--text-primary)", fontSize: 13,
+                color: "var(--text-primary)", fontSize: "var(--text-md)",
               }}
             >
               <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {c.display_name ?? c.email}
               </span>
               {c.display_name && (
-                <span style={{ color: "var(--text-secondary)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {c.email}
                 </span>
               )}
-              <span style={{ marginLeft: "auto", color: "var(--text-tertiary)", fontSize: 11, flexShrink: 0 }}>
+              <span style={{ marginLeft: "auto", color: "var(--text-tertiary)", fontSize: "var(--text-sm)", flexShrink: 0 }}>
                 {c.event_count} meeting{c.event_count === 1 ? "" : "s"}
               </span>
             </button>
           ))}
         </div>
       )}
-      {error && <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 4 }}>{error}</div>}
+      {error && <div style={{ fontSize: "var(--text-sm)", color: "var(--danger)", marginTop: 4 }}>{error}</div>}
     </div>
   );
 }

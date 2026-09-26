@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { CalendarSummary, EventSummary, updateEvent } from "../api/calendar";
 import { friendlyError } from "../api/client";
 import AttendeePicker, { PickerAttendee } from "./AttendeePicker";
-import Icon from "./Icon";
+import Icon, { IconName } from "./Icon";
 import { formatTimeRange } from "../lib/dates";
 import { contrastText } from "../lib/color";
 
@@ -34,25 +34,25 @@ function ScopeDialog({
         onClick={(e) => e.stopPropagation()}
         style={{ width: 340, maxWidth: "90vw", padding: 22 }}
       >
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{title}</div>
-        <p style={{ fontSize: 12.5, color: "var(--text-secondary)", margin: "0 0 14px", lineHeight: 1.5 }}>
+        <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginBottom: 4 }}>{title}</div>
+        <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", margin: "0 0 14px", lineHeight: 1.5 }}>
           This is a repeating event{nextLabel ? ` (next: ${nextLabel})` : ""}. Which occurrences change?
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <button onClick={() => onPick("this")} className="btn-secondary hoverable" style={{ textAlign: "left", padding: "9px 12px" }}>
-            <span style={{ display: "block", fontWeight: 600, fontSize: 13 }}>Only this event</span>
-            <span style={{ display: "block", fontSize: 11.5, color: "var(--text-secondary)" }}>The series continues unchanged</span>
+            <span style={{ display: "block", fontWeight: 600, fontSize: "var(--text-md)" }}>Only this event</span>
+            <span style={{ display: "block", fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>The series continues unchanged</span>
           </button>
           <button onClick={() => onPick("future")} className="btn-secondary hoverable" style={{ textAlign: "left", padding: "9px 12px" }}>
-            <span style={{ display: "block", fontWeight: 600, fontSize: 13 }}>This and future events</span>
-            <span style={{ display: "block", fontSize: 11.5, color: "var(--text-secondary)" }}>Earlier occurrences stay as they are</span>
+            <span style={{ display: "block", fontWeight: 600, fontSize: "var(--text-md)" }}>This and future events</span>
+            <span style={{ display: "block", fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>Earlier occurrences stay as they are</span>
           </button>
           <button onClick={() => onPick("series")} className="btn-secondary hoverable" style={{ textAlign: "left", padding: "9px 12px" }}>
-            <span style={{ display: "block", fontWeight: 600, fontSize: 13 }}>Entire series</span>
-            <span style={{ display: "block", fontSize: 11.5, color: "var(--text-secondary)" }}>Every occurrence, past and future</span>
+            <span style={{ display: "block", fontWeight: 600, fontSize: "var(--text-md)" }}>Entire series</span>
+            <span style={{ display: "block", fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>Every occurrence, past and future</span>
           </button>
         </div>
-        <button onClick={onClose} className="hoverable" style={{ background: "none", border: "none", color: "var(--text-tertiary)", fontSize: 12.5, cursor: "pointer", padding: "10px 0 0", width: "100%" }}>
+        <button onClick={onClose} className="hoverable" style={{ background: "none", border: "none", color: "var(--text-tertiary)", fontSize: "var(--text-sm)", cursor: "pointer", padding: "10px 0 0", width: "100%" }}>
           Cancel
         </button>
       </div>
@@ -60,13 +60,22 @@ function ScopeDialog({
   );
 }
 
-const RSVP_ICON: Record<string, string> = {
-  accepted: "✓",
-  declined: "✕",
-  tentative: "?",
-  needs_action: "○",
-  organizer: "★",
+const RSVP_ICON: Record<string, IconName> = {
+  accepted: "check",
+  declined: "x",
+  tentative: "minus",
+  needs_action: "clock",
+  organizer: "star",
 };
+
+/** RSVP choices. The success colour keys off `id`, not a glyph, so the labels
+ *  stay plain text. (UX-10 removes this section; it is dead until wired.) */
+const RSVP_OPTIONS = [
+  { id: "accepted", label: "Accepted" },
+  { id: "maybe", label: "Maybe" },
+  { id: "declined", label: "Decline" },
+  { id: "propose", label: "Propose new time" },
+] as const;
 
 type ConferenceProvider = "teams" | "google" | "webex" | "zoom" | "other";
 
@@ -156,7 +165,7 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
     <aside className="mount-rise" role="dialog" aria-modal="true" aria-labelledby="event-detail-title" style={panelStyle} onClick={(e) => e.stopPropagation()}>
       <div style={{ background: eventColor, color: headerText, padding: "16px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div id="event-detail-title" style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, lineHeight: 1.3 }}>{event.title}</div>
+          <div id="event-detail-title" style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginBottom: 4, lineHeight: 1.3 }}>{event.title}</div>
           <button
             onClick={onClose}
             className="icon-btn hoverable"
@@ -165,22 +174,22 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
               color: headerText === "#ffffff" ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.75)",
             }}
           >
-            ✕
+            <Icon name="x" size={14} />
           </button>
         </div>
-        <div style={{ fontSize: 12.5, fontWeight: 500, color: headerText === "#ffffff" ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.8)", marginTop: 2 }}>
+        <div style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: headerText === "#ffffff" ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.8)", marginTop: 2 }}>
           {start.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
         </div>
-        <div className="tabular-nums" style={{ fontSize: 12, fontWeight: 500, color: headerText === "#ffffff" ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.75)", marginTop: 2 }}>
+        <div className="tabular-nums" style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: headerText === "#ffffff" ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.75)", marginTop: 2 }}>
           {event.all_day ? "All day" : formatTimeRange(start, end)}
         </div>
         {isRecurring && (
-          <div style={{ fontSize: 11.5, color: headerText === "#ffffff" ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.7)", marginTop: 4 }}>
+          <div style={{ fontSize: "var(--text-sm)", color: headerText === "#ffffff" ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.7)", marginTop: 4 }}>
             Repeats{nextLabel ? ` · next ${nextLabel}` : ""}
           </div>
         )}
         {event.location && (
-          <div style={{ fontSize: 12, color: headerText === "#ffffff" ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.8)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
+          <div style={{ fontSize: "var(--text-sm)", color: headerText === "#ffffff" ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.8)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
             <Icon name="mapPin" size={12} /> {event.location}
           </div>
         )}
@@ -188,7 +197,7 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
 
       <div style={{ padding: "18px 24px 0" }}>
         {canJoin && (
-          <button className="btn-primary hoverable" style={{ width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, background: conference.provider === "teams" ? "#6264a7" : undefined }} onClick={() => window.open(conference.url!, "_blank", "noopener,noreferrer")}>
+          <button className="btn-primary hoverable" style={{ width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, background: conference.provider === "teams" ? "var(--conference-teams)" : undefined }} onClick={() => window.open(conference.url!, "_blank", "noopener,noreferrer")}>
             <ProviderBadge provider={conference.provider} /> Join {conference.label}
           </button>
         )}
@@ -199,17 +208,17 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
         <DetailRow label="When" value={`${start.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · ${event.all_day ? "All day" : formatTimeRange(start, end)}`} />
         {event.location && <DetailRow label="Where" value={event.location ?? ""} />}
         {event.organizer && <DetailRow label="Organizer" value={event.organizer.name || event.organizer.email || "Unknown host"} />}
-        {canJoin && <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, padding: "9px 10px", background: "var(--bg-raised-hover)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)" }}><ProviderBadge provider={conference.provider} /><a href={conference.url ?? undefined} target="_blank" rel="noreferrer" style={{ flex: 1, minWidth: 0, overflow: "hidden", color: "var(--accent)", fontSize: 12, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conference.url}</a><button className="btn-secondary hoverable" style={{ padding: "5px 9px", fontSize: 11 }} onClick={copyInvite}>Copy invite</button></div>}
+        {canJoin && <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, padding: "9px 10px", background: "var(--bg-raised-hover)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)" }}><ProviderBadge provider={conference.provider} /><a href={conference.url ?? undefined} target="_blank" rel="noreferrer" style={{ flex: 1, minWidth: 0, overflow: "hidden", color: "var(--accent)", fontSize: "var(--text-sm)", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conference.url}</a><button className="btn-secondary hoverable" style={{ padding: "5px 9px", fontSize: "var(--text-sm)" }} onClick={copyInvite}>Copy invite</button></div>}
       </section>
 
       {event.description && <section style={{ padding: "18px 24px", borderBottom: "1px solid var(--border-subtle)" }}><SectionLabel>Description</SectionLabel><div className="event-description">{event.description}</div></section>}
 
-      <section style={{ padding: "18px 24px", borderBottom: "1px solid var(--border-subtle)" }}><SectionLabel>Your response</SectionLabel><div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{["✓ Accepted", "Maybe", "Decline", "Propose new time"].map((label) => <button key={label} className="btn-secondary hoverable" style={{ padding: "7px 10px", fontSize: 12, color: label.startsWith("✓") ? "var(--success)" : undefined }}>{label}</button>)}</div></section>
+      <section style={{ padding: "18px 24px", borderBottom: "1px solid var(--border-subtle)" }}><SectionLabel>Your response</SectionLabel><div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{RSVP_OPTIONS.map((opt) => (<button key={opt.id} className="btn-secondary hoverable" style={{ padding: "7px 10px", fontSize: "var(--text-sm)", color: opt.id === "accepted" ? "var(--success)" : undefined }}>{opt.label}</button>))}</div></section>
 
       {(editingAttendees || (event.attendees && event.attendees.length > 0)) && (
         <div style={{ padding: "8px 20px", borderTop: "1px solid var(--border-subtle)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: editingAttendees ? 8 : 0 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <span style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: 0.5 }}>
               Attendees
             </span>
             {!editingAttendees && canEdit && (
@@ -226,9 +235,9 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
           {editingAttendees ? (
             <div>
               <AttendeePicker value={draft} onChange={setDraft} />
-              {error && <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 6 }}>{error}</div>}
+              {error && <div style={{ fontSize: "var(--text-sm)", color: "var(--danger)", marginTop: 6 }}>{error}</div>}
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <button onClick={() => setEditingAttendees(false)} className="btn-secondary hoverable" style={{ flex: 1, fontSize: 12 }}>
+                <button onClick={() => setEditingAttendees(false)} className="btn-secondary hoverable" style={{ flex: 1, fontSize: "var(--text-sm)" }}>
                   Cancel
                 </button>
                 <button
@@ -238,7 +247,7 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
                   }}
                   disabled={saving}
                   className="btn-primary hoverable"
-                  style={{ flex: 1, fontSize: 12 }}
+                  style={{ flex: 1, fontSize: "var(--text-sm)" }}
                 >
                   {saving ? "Saving…" : "Save"}
                 </button>
@@ -246,7 +255,7 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
             </div>
           ) : (
             (event.attendees ?? []).map((a, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", fontSize: 13 }}>
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", fontSize: "var(--text-md)" }}>
                 <span
                   style={{
                     width: 16,
@@ -255,7 +264,7 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 10,
+                    fontSize: "var(--text-xs)",
                     background:
                       a.response_status === "accepted" || a.response_status === "organizer"
                         ? "var(--success)"
@@ -266,7 +275,8 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
                     flexShrink: 0,
                   }}
                 >
-                  {RSVP_ICON[a.response_status ?? "needs_action"]}
+                  <Icon name={RSVP_ICON[a.response_status ?? "needs_action"]} size={10}
+                        strokeWidth={2.5} />
                 </span>
                 <span>{a.name || a.email}</span>
               </div>
@@ -279,7 +289,7 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
           <button
             onClick={beginEdit}
             className="hoverable"
-            style={{ background: "none", border: "none", color: "var(--text-tertiary)", fontSize: 12.5, cursor: "pointer", padding: "5px 0", display: "inline-flex", alignItems: "center", gap: 6 }}
+            style={{ background: "none", border: "none", color: "var(--text-tertiary)", fontSize: "var(--text-sm)", cursor: "pointer", padding: "5px 0", display: "inline-flex", alignItems: "center", gap: 6 }}
           >
             <Icon name="plus" size={13} /> Add attendees
           </button>
@@ -288,9 +298,9 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
 
       <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ width: 10, height: 10, borderRadius: "50%", background: calendar?.color ?? "var(--accent)" }} />
-        <span style={{ fontSize: 13 }}>{calendar?.name ?? "Calendar"}</span>
+        <span style={{ fontSize: "var(--text-md)" }}>{calendar?.name ?? "Calendar"}</span>
         {!(calendar?.can_reschedule ?? calendar?.writable) && (
-          <span style={{ fontSize: 11, color: "var(--text-tertiary)", marginLeft: "auto" }}>Read-only</span>
+          <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginLeft: "auto" }}>Read-only</span>
         )}
       </div>
 
@@ -332,11 +342,11 @@ export default function EventDetailPanel({ event, calendar, onClose, onDelete, c
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <div style={{ marginBottom: 10, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)" }}>{children}</div>;
+  return <div style={{ marginBottom: 10, fontSize: "var(--text-sm)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-tertiary)" }}>{children}</div>;
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
-  return <div style={{ margin: "10px 0" }}><div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{label}</div><div style={{ marginTop: 2, fontSize: 13, lineHeight: 1.45 }}>{value}</div></div>;
+  return <div style={{ margin: "10px 0" }}><div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>{label}</div><div style={{ marginTop: 2, fontSize: "var(--text-md)", lineHeight: 1.45 }}>{value}</div></div>;
 }
 
 const panelStyle: React.CSSProperties = {
@@ -358,9 +368,9 @@ const panelStyle: React.CSSProperties = {
 const closeBtnStyle: React.CSSProperties = {
   background: "none",
   border: "none",
-  borderRadius: 4,
+  borderRadius: "var(--radius-sm)",
   color: "var(--text-tertiary)",
-  fontSize: 13,
+  fontSize: "var(--text-md)",
   cursor: "pointer",
   padding: "3px 6px",
 };

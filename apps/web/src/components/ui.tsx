@@ -1,5 +1,7 @@
 import React from "react";
 
+import Icon from "./Icon";
+
 /** Shared settings primitives (2027 UI round): one header, one error
  * banner, one pill — instead of the same inline styles pasted per section.
  */
@@ -15,14 +17,14 @@ export function SectionHeader({ title, count, badge, description }: {
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>{title}</h2>
+        <h2 style={{ fontSize: "var(--text-xl)", fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>{title}</h2>
         {count && (
           <Badge tone="info">{count.value} {count.value === 1 ? count.singular : (count.plural ?? `${count.singular}s`)}</Badge>
         )}
         {badge}
       </div>
       {description && (
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5, maxWidth: 640 }}>
+        <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", marginTop: 6, marginBottom: 0, lineHeight: 1.5, maxWidth: 640 }}>
           {description}
         </p>
       )}
@@ -30,10 +32,48 @@ export function SectionHeader({ title, count, badge, description }: {
   );
 }
 
-export function ErrorBanner({ children }: { children: React.ReactNode }) {
+/** The app's one error surface. Dismissible when a handler is given, so a
+ *  failure never sits on screen with no way to clear it; `role="alert"` so a
+ *  screen reader announces it. `margin` is opt-in because the calendar places
+ *  the banner above its canvas rather than stacking it (see CalendarPage). */
+export function ErrorBanner({
+  children,
+  onDismiss,
+  margin,
+}: {
+  children: React.ReactNode;
+  onDismiss?: () => void;
+  margin?: string;
+}) {
   return (
-    <div style={{ fontSize: 13, borderRadius: "var(--radius-sm)", padding: "10px 14px", marginBottom: 20, background: "rgba(255, 69, 58, 0.15)", border: "1px solid var(--danger)", color: "var(--danger)" }}>
-      {children}
+    <div
+      role="alert"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        fontSize: "var(--text-sm)",
+        lineHeight: 1.45,
+        borderRadius: "var(--radius-sm)",
+        padding: "9px 10px 9px 12px",
+        marginBottom: margin ?? 20,
+        background: "rgba(255, 69, 58, 0.15)",
+        border: "1px solid var(--danger)",
+        color: "var(--danger)",
+      }}
+    >
+      <Icon name="alert-triangle" size={15} style={{ flexShrink: 0 }} />
+      <span style={{ flex: 1, minWidth: 0 }}>{children}</span>
+      {onDismiss && (
+        <button
+          onClick={onDismiss}
+          aria-label="Dismiss"
+          className="icon-btn hoverable"
+          style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", padding: 3, opacity: 0.85, flexShrink: 0 }}
+        >
+          <Icon name="x" size={14} />
+        </button>
+      )}
     </div>
   );
 }
@@ -59,7 +99,7 @@ export function badgeStyle(tone: BadgeTone): { background: string; color: string
 export function Badge({ tone, children, label }: { tone: BadgeTone; children: React.ReactNode; label?: string }) {
   const s = badgeStyle(tone);
   return (
-    <span aria-label={label} style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12, whiteSpace: "nowrap", background: s.background, color: s.color, border: s.border ?? "1px solid transparent" }}>
+    <span aria-label={label} style={{ fontSize: "var(--text-sm)", fontWeight: 600, padding: "2px 8px", borderRadius: "var(--radius-xl)", whiteSpace: "nowrap", background: s.background, color: s.color, border: s.border ?? "1px solid transparent" }}>
       {children}
     </span>
   );

@@ -327,8 +327,8 @@ export default function StartPage() {
     return (
       <div style={{ minHeight: "100vh", background: "var(--bg-app)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <div style={{ textAlign: "center", maxWidth: 420 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>Nothing to set up</div>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}>
+          <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginBottom: 8 }}>Nothing to set up</div>
+          <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 16px" }}>
             Your calendars are shared with you — head straight in.
           </p>
           <Link to="/" className="btn-primary hoverable" style={{ textDecoration: "none" }}>Open calendar</Link>
@@ -345,10 +345,10 @@ export default function StartPage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <div style={{ display: "flex", gap: 6 }}>
             {STEPS.map((s, i) => (
-              <span key={s} style={{ width: 32, height: 4, borderRadius: 2, background: i <= idx ? "var(--accent)" : "var(--border)" }} />
+              <span key={s} style={{ width: 32, height: 4, borderRadius: "var(--radius-pill)", background: i <= idx ? "var(--accent)" : "var(--border)" }} />
             ))}
           </div>
-          <button onClick={finish} style={{ background: "none", border: "none", color: "var(--text-tertiary)", fontSize: 12, cursor: "pointer" }}>
+          <button onClick={finish} style={{ background: "none", border: "none", color: "var(--text-tertiary)", fontSize: "var(--text-sm)", cursor: "pointer" }}>
             Skip setup
           </button>
         </div>
@@ -356,14 +356,14 @@ export default function StartPage() {
         <div style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: 32 }}>
           {step === "welcome" && (
             <>
-              <div style={{ fontSize: 13, color: "var(--text-tertiary)", marginBottom: 6 }}>Welcome to Chronarch</div>
-              <h1 style={{ fontSize: 26, fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em" }}>
+              <div style={{ fontSize: "var(--text-md)", color: "var(--text-tertiary)", marginBottom: 6 }}>Welcome to Chronarch</div>
+              <h1 style={{ fontSize: "var(--text-2xl)", fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em" }}>
                 Unified Calendar & AI Copilot Platform
               </h1>
-              <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, margin: "0 0 24px" }}>
+              <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", lineHeight: 1.6, margin: "0 0 24px" }}>
                 Set up your connected calendars, provider OAuth keys, work schedule, AI copilot preferences, and assistant access in a few easy steps.
               </p>
-              <button onClick={() => setStep("connect")} className="btn-primary hoverable" style={{ padding: "10px 24px", fontSize: 14, fontWeight: 600 }}>
+              <button onClick={() => setStep("connect")} className="btn-primary hoverable" style={{ padding: "10px 24px", fontSize: "var(--text-md)", fontWeight: 600 }}>
                 Get Started →
               </button>
             </>
@@ -371,22 +371,22 @@ export default function StartPage() {
 
           {step === "connect" && (
             <>
-              <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Connect your calendars</h1>
-              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px", lineHeight: 1.5 }}>
+              <h1 style={{ fontSize: "var(--text-xl)", fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Connect your calendars</h1>
+              <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 20px", lineHeight: 1.5 }}>
                 Provide your provider OAuth credentials or import ICS feeds directly below.
               </p>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
                 {/* Google Provider Card */}
-                <div style={{ background: "var(--wash-deep, rgba(0,0,0,0.03))", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 16 }}>
+                <div style={{ background: "var(--wash-deep, rgba(0,0,0,0.03))", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: 16 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(10, 132, 255, 0.12)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ width: 32, height: 32, borderRadius: "var(--radius-md)", background: "rgba(10, 132, 255, 0.12)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                         <Icon name="google" size={18} />
                       </span>
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 700 }}>Google Workspace / Gmail</div>
-                        <div style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>
+                        <div style={{ fontSize: "var(--text-md)", fontWeight: 700 }}>Google Workspace / Gmail</div>
+                        <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>
                           {providerStatus(oauthConfigs, "google") === "saved" ? "OAuth Credentials Saved" : "Provide Console Client ID & Secret below"}
                         </div>
                       </div>
@@ -396,7 +396,7 @@ export default function StartPage() {
                         onClick={() => void connectOAuth("google")}
                         disabled={connecting !== null}
                         className="btn-primary hoverable"
-                        style={{ padding: "6px 14px", fontSize: 12.5 }}
+                        style={{ padding: "6px 14px", fontSize: "var(--text-sm)" }}
                       >
                         {connecting === "google" ? "Connecting…" : "Connect Google Account"}
                       </button>
@@ -411,7 +411,7 @@ export default function StartPage() {
                       onChange={(e) => setGoogleClientId(e.target.value)}
                       placeholder="Google Client ID (...apps.googleusercontent.com)"
                       className="input-standard"
-                      style={{ width: "100%", fontSize: 12.5 }}
+                      style={{ width: "100%", fontSize: "var(--text-sm)" }}
                     />
                     <input
                       type="password"
@@ -419,17 +419,17 @@ export default function StartPage() {
                       onChange={(e) => setGoogleClientSecret(e.target.value)}
                       placeholder="Google Client Secret"
                       className="input-standard"
-                      style={{ width: "100%", fontSize: 12.5 }}
+                      style={{ width: "100%", fontSize: "var(--text-sm)" }}
                     />
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                      <a href="https://console.cloud.google.com" target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: "var(--accent)" }}>
+                      <a href="https://console.cloud.google.com" target="_blank" rel="noreferrer" style={{ fontSize: "var(--text-sm)", color: "var(--accent)" }}>
                         Open Google Cloud Console ↗
                       </a>
                       <button
                         type="submit"
                         disabled={savingGoogle || connecting !== null}
                         className="btn-primary hoverable"
-                        style={{ padding: "6px 14px", fontSize: 12.5 }}
+                        style={{ padding: "6px 14px", fontSize: "var(--text-sm)" }}
                       >
                         {savingGoogle ? "Saving Keys…" : "Save Keys & Connect"}
                       </button>
@@ -438,15 +438,15 @@ export default function StartPage() {
                 </div>
 
                 {/* Microsoft Provider Card */}
-                <div style={{ background: "var(--wash-deep, rgba(0,0,0,0.03))", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 16 }}>
+                <div style={{ background: "var(--wash-deep, rgba(0,0,0,0.03))", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: 16 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(48, 209, 88, 0.12)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ width: 32, height: 32, borderRadius: "var(--radius-md)", background: "rgba(48, 209, 88, 0.12)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                         <Icon name="microsoft" size={18} />
                       </span>
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 700 }}>Microsoft 365 / Outlook</div>
-                        <div style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>
+                        <div style={{ fontSize: "var(--text-md)", fontWeight: 700 }}>Microsoft 365 / Outlook</div>
+                        <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>
                           {providerStatus(oauthConfigs, "microsoft") === "saved" ? "OAuth Credentials Saved" : "Provide Entra ID Client ID & Secret below"}
                         </div>
                       </div>
@@ -456,7 +456,7 @@ export default function StartPage() {
                         onClick={() => void connectOAuth("microsoft")}
                         disabled={connecting !== null}
                         className="btn-primary hoverable"
-                        style={{ padding: "6px 14px", fontSize: 12.5 }}
+                        style={{ padding: "6px 14px", fontSize: "var(--text-sm)" }}
                       >
                         {connecting === "microsoft" ? "Connecting…" : "Connect Microsoft Account"}
                       </button>
@@ -471,7 +471,7 @@ export default function StartPage() {
                       onChange={(e) => setMsClientId(e.target.value)}
                       placeholder="Microsoft Application (client) ID"
                       className="input-standard"
-                      style={{ width: "100%", fontSize: 12.5 }}
+                      style={{ width: "100%", fontSize: "var(--text-sm)" }}
                     />
                     <input
                       type="password"
@@ -479,24 +479,24 @@ export default function StartPage() {
                       onChange={(e) => setMsClientSecret(e.target.value)}
                       placeholder="Microsoft Client Secret Value"
                       className="input-standard"
-                      style={{ width: "100%", fontSize: 12.5 }}
+                      style={{ width: "100%", fontSize: "var(--text-sm)" }}
                     />
                     <input
                       value={msTenantId}
                       onChange={(e) => setMsTenantId(e.target.value)}
                       placeholder="Directory (tenant) ID (default: common)"
                       className="input-standard"
-                      style={{ width: "100%", fontSize: 12.5 }}
+                      style={{ width: "100%", fontSize: "var(--text-sm)" }}
                     />
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                      <a href="https://entra.microsoft.com" target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: "var(--accent)" }}>
+                      <a href="https://entra.microsoft.com" target="_blank" rel="noreferrer" style={{ fontSize: "var(--text-sm)", color: "var(--accent)" }}>
                         Open Microsoft Entra ID Portal ↗
                       </a>
                       <button
                         type="submit"
                         disabled={savingMs || connecting !== null}
                         className="btn-primary hoverable"
-                        style={{ padding: "6px 14px", fontSize: 12.5 }}
+                        style={{ padding: "6px 14px", fontSize: "var(--text-sm)" }}
                       >
                         {savingMs ? "Saving Keys…" : "Save Keys & Connect"}
                       </button>
@@ -506,65 +506,65 @@ export default function StartPage() {
               </div>
 
               {/* ICS Feed Subscription & Local File Upload */}
-              <div style={{ background: "var(--wash-deep, rgba(0,0,0,0.03))", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 16, marginBottom: 20 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ background: "var(--wash-deep, rgba(0,0,0,0.03))", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: 16, marginBottom: 20 }}>
+                <div style={{ fontSize: "var(--text-md)", fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
                   <Icon name="calendar" size={16} />
                   <span>ICS Feed Subscription & Local File Import</span>
                 </div>
 
                 <form onSubmit={handleAddIcsFeed} style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>Subscribe to ICS Feed URL</div>
+                  <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)" }}>Subscribe to ICS Feed URL</div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <input
                       value={icsFeedName}
                       onChange={(e) => setIcsFeedName(e.target.value)}
                       placeholder="Feed Name"
                       className="input-standard"
-                      style={{ flex: "1 1 140px", fontSize: 12.5 }}
+                      style={{ flex: "1 1 140px", fontSize: "var(--text-sm)" }}
                     />
                     <input
                       value={icsFeedUrl}
                       onChange={(e) => setIcsFeedUrl(e.target.value)}
                       placeholder="https://example.com/calendar.ics"
                       className="input-standard"
-                      style={{ flex: "2 1 200px", fontSize: 12.5 }}
+                      style={{ flex: "2 1 200px", fontSize: "var(--text-sm)" }}
                     />
                     <button
                       type="submit"
                       disabled={addingFeed || !icsFeedUrl.trim()}
                       className="btn-secondary hoverable"
-                      style={{ padding: "6px 14px", fontSize: 12.5, opacity: addingFeed || !icsFeedUrl.trim() ? 0.5 : 1 }}
+                      style={{ padding: "6px 14px", fontSize: "var(--text-sm)" }}
                     >
                       {addingFeed ? "Subscribing…" : "Subscribe"}
                     </button>
                   </div>
-                  {feedSuccess && <div style={{ fontSize: 12, color: "var(--success)" }}>✓ {feedSuccess}</div>}
+                  {feedSuccess && <div style={{ fontSize: "var(--text-sm)", color: "var(--success)" }}><Icon name="check" size={13} style={{ flexShrink: 0 }} /> {feedSuccess}</div>}
                 </form>
 
                 <div style={{ borderTop: "1px dashed var(--border-subtle)", paddingTop: 12 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+                  <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
                     Upload local .ics file
                   </div>
-                  <label className="btn-secondary hoverable" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 12.5, cursor: "pointer" }}>
+                  <label className="btn-secondary hoverable" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: "var(--text-sm)", cursor: "pointer" }}>
                     <Icon name="upload" size={14} />
                     <span>{uploadingIcs ? "Importing .ics…" : "Choose .ics File"}</span>
                     <input type="file" accept=".ics" onChange={handleIcsFileUpload} style={{ display: "none" }} disabled={uploadingIcs} />
                   </label>
-                  {icsUploadSuccess && <div style={{ fontSize: 12, color: "var(--success)", marginTop: 6 }}>✓ {icsUploadSuccess}</div>}
+                  {icsUploadSuccess && <div style={{ fontSize: "var(--text-sm)", color: "var(--success)", marginTop: 6 }}><Icon name="check" size={13} style={{ flexShrink: 0 }} /> {icsUploadSuccess}</div>}
                 </div>
               </div>
 
-              <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>
+              <div style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", marginBottom: 12 }}>
                 {checking ? (
                   "Checking connected accounts…"
                 ) : accountCount > 0 ? (
-                  <span style={{ color: "var(--success)", fontWeight: 700 }}>✓ {accountCount} account(s) connected</span>
+                  <span style={{ color: "var(--success)", fontWeight: 700 }}><Icon name="check" size={13} style={{ flexShrink: 0 }} /> {accountCount} account(s) connected</span>
                 ) : (
                   "No accounts connected yet — you can continue and manage accounts anytime in Settings."
                 )}
               </div>
 
-              {error && <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 12 }}>{error}</div>}
+              {error && <div style={{ fontSize: "var(--text-sm)", color: "var(--danger)", marginBottom: 12 }}>{error}</div>}
 
               <WizardFooter back={() => setStep("welcome")} next={() => setStep("preferences")} nextLabel="Continue" canNext />
             </>
@@ -572,32 +572,31 @@ export default function StartPage() {
 
           {step === "preferences" && (
             <>
-              <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Personalization & AI Copilot</h1>
-              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px", lineHeight: 1.5 }}>
+              <h1 style={{ fontSize: "var(--text-xl)", fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Personalization & AI Copilot</h1>
+              <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 20px", lineHeight: 1.5 }}>
                 Configure your timezone, work schedule, buffer rules, and copilot settings.
               </p>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}>
                 <div>
-                  <label htmlFor="ob-name" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Display Name</label>
+                  <label htmlFor="ob-name" style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>Display Name</label>
                   <input
                     id="ob-name"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="Your name"
                     className="input-standard"
-                    style={{ width: "100%", fontSize: 13 }}
+                    style={{ width: "100%", fontSize: "var(--text-md)" }}
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="ob-tz" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Home Timezone</label>
-                  <select
+                  <label htmlFor="ob-tz" style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>Home Timezone</label>
+                  <select className="input-standard select"
                     id="ob-tz"
                     value={TIMEZONES.includes(timezone) ? timezone : "UTC"}
                     onChange={(e) => setTimezone(e.target.value)}
-                    className="input-standard"
-                    style={{ width: "100%", fontSize: 13 }}
+                    style={{ width: "100%" }}
                   >
                     {TIMEZONES.map((z) => (
                       <option key={z} value={z}>{z}{z === browserZone() ? " (browser auto-detected)" : ""}</option>
@@ -607,23 +606,22 @@ export default function StartPage() {
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <div>
-                    <label htmlFor="ob-wh1" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Work Starts</label>
-                    <input id="ob-wh1" type="time" value={whStart} onChange={(e) => setWhStart(e.target.value)} className="input-standard" style={{ width: "100%", fontSize: 13 }} />
+                    <label htmlFor="ob-wh1" style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>Work Starts</label>
+                    <input className="input-standard input-native" id="ob-wh1" type="time" value={whStart} onChange={(e) => setWhStart(e.target.value)}  style={{ width: "100%", fontSize: "var(--text-md)" }} />
                   </div>
                   <div>
-                    <label htmlFor="ob-wh2" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Work Ends</label>
-                    <input id="ob-wh2" type="time" value={whEnd} onChange={(e) => setWhEnd(e.target.value)} className="input-standard" style={{ width: "100%", fontSize: 13 }} />
+                    <label htmlFor="ob-wh2" style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>Work Ends</label>
+                    <input className="input-standard input-native" id="ob-wh2" type="time" value={whEnd} onChange={(e) => setWhEnd(e.target.value)}  style={{ width: "100%", fontSize: "var(--text-md)" }} />
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="ob-wd" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Working Days</label>
-                  <select
+                  <label htmlFor="ob-wd" style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>Working Days</label>
+                  <select className="input-standard select"
                     id="ob-wd"
                     value={workingDays}
                     onChange={(e) => setWorkingDays(e.target.value)}
-                    className="input-standard"
-                    style={{ width: "100%", fontSize: 13 }}
+                    style={{ width: "100%" }}
                   >
                     <option value="1,2,3,4,5">Monday – Friday (Standard Work Week)</option>
                     <option value="0,1,2,3,4,5,6">Everyday (Sun – Sat)</option>
@@ -632,13 +630,12 @@ export default function StartPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="ob-buffer" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Meeting Buffer Time</label>
-                  <select
+                  <label htmlFor="ob-buffer" style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>Meeting Buffer Time</label>
+                  <select className="input-standard select"
                     id="ob-buffer"
                     value={meetingBuffer}
                     onChange={(e) => setMeetingBuffer(Number(e.target.value))}
-                    className="input-standard"
-                    style={{ width: "100%", fontSize: 13 }}
+                    style={{ width: "100%" }}
                   >
                     <option value={0}>No buffer (0 min)</option>
                     <option value={5}>5 minutes buffer</option>
@@ -647,17 +644,16 @@ export default function StartPage() {
                   </select>
                 </div>
 
-                <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 14 }}>
+                <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: 14 }}>
                   <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
-                    <input
+                    <input className="checkbox"
                       type="checkbox"
                       checked={copilotAutoOpen}
                       onChange={(e) => setCopilotAutoOpen(e.target.checked)}
-                      style={{ accentColor: "var(--accent)", width: 16, height: 16 }}
                     />
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>Auto-open AI Copilot Drawer</div>
-                      <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+                      <div style={{ fontSize: "var(--text-md)", fontWeight: 700 }}>Auto-open AI Copilot Drawer</div>
+                      <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: 2 }}>
                         Keep the contextual AI assistant ready alongside your calendar view.
                       </div>
                     </div>
@@ -665,7 +661,7 @@ export default function StartPage() {
                 </div>
               </div>
 
-              {error && <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 12 }}>{error}</div>}
+              {error && <div style={{ fontSize: "var(--text-sm)", color: "var(--danger)", marginBottom: 12 }}>{error}</div>}
 
               <WizardFooter
                 back={() => setStep("connect")}
@@ -678,28 +674,30 @@ export default function StartPage() {
 
           {step === "share" && (
             <>
-              <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Executive Delegation</h1>
-              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px", lineHeight: 1.5 }}>
+              <h1 style={{ fontSize: "var(--text-xl)", fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Executive Delegation</h1>
+              <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 20px", lineHeight: 1.5 }}>
                 Invite an Executive Assistant (EA) or delegate manager to handle scheduling on your behalf.
               </p>
 
-              <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 16, marginBottom: 24 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>🧑‍💼 Invite Assistant / Delegate</div>
-                <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 14 }}>
+              <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: 16, marginBottom: 24 }}>
+                <div style={{ fontSize: "var(--text-md)", fontWeight: 700, marginBottom: 4, display: "flex", alignItems: "center", gap: 7 }}>
+                  <Icon name="users" size={15} /> Invite Assistant / Delegate
+                </div>
+                <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginBottom: 14 }}>
                   Creates a delegate account and generates a shareable invitation link.
                 </div>
 
                 {inviteToken ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    <div style={{ fontSize: 12.5, color: "var(--success)", fontWeight: 700 }}>
-                      ✓ Invitation Link Generated!
+                    <div style={{ fontSize: "var(--text-sm)", color: "var(--success)", fontWeight: 700 }}>
+                      <Icon name="check" size={13} style={{ flexShrink: 0 }} /> Invitation Link Generated!
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <input
                         readOnly
                         value={inviteToken}
                         className="input-standard"
-                        style={{ flex: 1, fontSize: 12, background: "var(--bg-raised)" }}
+                        style={{ flex: 1, fontSize: "var(--text-sm)", background: "var(--bg-raised)" }}
                       />
                       <button
                         onClick={() => {
@@ -708,7 +706,7 @@ export default function StartPage() {
                           setTimeout(() => setCopiedLink(false), 2000);
                         }}
                         className="btn-primary hoverable"
-                        style={{ padding: "8px 14px", fontSize: 12.5 }}
+                        style={{ padding: "8px 14px", fontSize: "var(--text-sm)" }}
                       >
                         {copiedLink ? "Copied!" : "Copy Invite Link"}
                       </button>
@@ -721,26 +719,26 @@ export default function StartPage() {
                       onChange={(e) => setEaName(e.target.value)}
                       placeholder="Assistant Name"
                       className="input-standard"
-                      style={{ flex: "1 1 140px", fontSize: 13 }}
+                      style={{ flex: "1 1 140px", fontSize: "var(--text-md)" }}
                     />
                     <input
                       value={eaEmail}
                       onChange={(e) => setEaEmail(e.target.value)}
                       placeholder="assistant@company.com"
                       className="input-standard"
-                      style={{ flex: "2 1 180px", fontSize: 13 }}
+                      style={{ flex: "2 1 180px", fontSize: "var(--text-md)" }}
                     />
                     <button
                       onClick={() => void inviteEA()}
                       disabled={inviting || !eaEmail.includes("@")}
                       className="btn-primary hoverable"
-                      style={{ padding: "8px 16px", fontSize: 13, opacity: inviting || !eaEmail.includes("@") ? 0.5 : 1 }}
+                      style={{ padding: "8px 16px", fontSize: "var(--text-md)" }}
                     >
                       {inviting ? "Creating Link…" : "Generate Invite"}
                     </button>
                   </div>
                 )}
-                {error && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 10 }}>{error}</div>}
+                {error && <div style={{ fontSize: "var(--text-sm)", color: "var(--danger)", marginTop: 10 }}>{error}</div>}
               </div>
 
               <WizardFooter back={() => setStep("preferences")} next={() => setStep("done")} nextLabel="Continue" canNext />
@@ -752,13 +750,13 @@ export default function StartPage() {
               <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(48, 209, 88, 0.14)", color: "var(--success)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
                 <Icon name="check" size={22} />
               </div>
-              <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>
+              <div style={{ fontSize: "var(--text-xl)", fontWeight: 800, marginBottom: 8 }}>
                 You're all set{displayName.trim() ? `, ${displayName.trim().split(" ")[0]}` : ""}!
               </div>
-              <div style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 auto 24px", maxWidth: 420, lineHeight: 1.6 }}>
-                Your preferences and calendar settings are active. Press <kbd style={{ background: "var(--bg-app)", padding: "2px 6px", borderRadius: 4, border: "1px solid var(--border-subtle)" }}>⌘K</kbd> anywhere to access quick commands or open the AI copilot drawer.
+              <div style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 auto 24px", maxWidth: 420, lineHeight: 1.6 }}>
+                Your preferences and calendar settings are active. Press <kbd style={{ background: "var(--bg-app)", padding: "2px 6px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-subtle)" }}>⌘K</kbd> anywhere to access quick commands or open the AI copilot drawer.
               </div>
-              <button onClick={finish} className="btn-primary hoverable" style={{ padding: "11px 32px", fontSize: 14, fontWeight: 600 }}>
+              <button onClick={finish} className="btn-primary hoverable" style={{ padding: "11px 32px", fontSize: "var(--text-md)", fontWeight: 600 }}>
                 Open Calendar
               </button>
             </div>
@@ -782,10 +780,10 @@ function WizardFooter({
 }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--border-subtle)" }}>
-      <button onClick={back} className="btn-secondary hoverable" style={{ padding: "8px 18px", fontSize: 13 }}>
+      <button onClick={back} className="btn-secondary hoverable" style={{ padding: "8px 18px", fontSize: "var(--text-md)" }}>
         Back
       </button>
-      <button onClick={next} disabled={!canNext} className="btn-primary hoverable" style={{ padding: "8px 24px", fontSize: 13, opacity: canNext ? 1 : 0.5 }}>
+      <button onClick={next} disabled={!canNext} className="btn-primary hoverable" style={{ padding: "8px 24px", fontSize: "var(--text-md)" }}>
         {nextLabel}
       </button>
     </div>
@@ -820,20 +818,21 @@ function OAuthGuideHelper({ provider }: { provider: "google" | "microsoft" }) {
           background: "none",
           border: "none",
           color: "var(--accent)",
-          fontSize: 12,
+          fontSize: "var(--text-sm)",
           fontWeight: 600,
           cursor: "pointer",
           padding: "4px 0",
           display: "flex",
           alignItems: "center",
-          gap: 4,
+          gap: 4
         }}
       >
-        <span>{open ? "▼ Hide Console Setup Instructions" : "▶ How to set up OAuth keys & Redirect URIs"}</span>
+        <Icon name="chevronRight" size={12} style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform var(--transition-fast)", flexShrink: 0 }} />
+        <span>{open ? "Hide Console Setup Instructions" : "How to set up OAuth keys & Redirect URIs"}</span>
       </button>
 
       {open && (
-        <div style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 8, padding: 12, marginTop: 6, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.55 }}>
+        <div style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: 12, marginTop: 6, fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.55 }}>
           {provider === "google" ? (
             <ol style={{ margin: 0, paddingLeft: 18 }}>
               <li style={{ marginBottom: 6 }}>
@@ -845,20 +844,22 @@ function OAuthGuideHelper({ provider }: { provider: "google" | "microsoft" }) {
               <li style={{ marginBottom: 6 }}>
                 <strong>Authorized JavaScript origins</strong>:
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
-                  <code style={{ background: "var(--bg-app)", padding: "2px 6px", borderRadius: 4, fontSize: 11 }}>{origin}</code>
-                  <button type="button" onClick={() => copyText(origin, "origin")} className="hoverable" style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
+                  <code style={{ background: "var(--bg-app)", padding: "2px 6px", borderRadius: "var(--radius-sm)", fontSize: "var(--text-sm)" }}>{origin}</code>
+                  <button type="button" onClick={() => copyText(origin, "origin")} className="hoverable" style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 700, fontSize: "var(--text-sm)", cursor: "pointer" }}>
                     {copiedOrigin ? "Copied!" : "Copy Origin"}
                   </button>
                 </div>
-                <div style={{ fontSize: 11, color: "var(--warning)", marginTop: 2 }}>
-                  ⚠️ Do NOT add a trailing slash <code>/</code> here — Google Cloud Console rejects origins containing paths or trailing slashes!
+                <div style={{ fontSize: "var(--text-sm)", color: "var(--warning)", marginTop: 2 }}>
+                  <span style={{ display: "inline-flex", verticalAlign: "-2px", marginRight: 4 }}>
+                    <Icon name="alert-triangle" size={13} />
+                  </span>Do NOT add a trailing slash <code>/</code> here — Google Cloud Console rejects origins containing paths or trailing slashes!
                 </div>
               </li>
               <li style={{ marginBottom: 6 }}>
                 <strong>Authorized redirect URIs</strong>:
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
-                  <code style={{ background: "var(--bg-app)", padding: "2px 6px", borderRadius: 4, fontSize: 11 }}>{redirectUri}</code>
-                  <button type="button" onClick={() => copyText(redirectUri, "redirect")} className="hoverable" style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
+                  <code style={{ background: "var(--bg-app)", padding: "2px 6px", borderRadius: "var(--radius-sm)", fontSize: "var(--text-sm)" }}>{redirectUri}</code>
+                  <button type="button" onClick={() => copyText(redirectUri, "redirect")} className="hoverable" style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 700, fontSize: "var(--text-sm)", cursor: "pointer" }}>
                     {copiedRedirect ? "Copied!" : "Copy Redirect URI"}
                   </button>
                 </div>
@@ -873,8 +874,8 @@ function OAuthGuideHelper({ provider }: { provider: "google" | "microsoft" }) {
               <li style={{ marginBottom: 6 }}>
                 Under Redirect URI select platform <strong>Web</strong> and add:
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
-                  <code style={{ background: "var(--bg-app)", padding: "2px 6px", borderRadius: 4, fontSize: 11 }}>{redirectUri}</code>
-                  <button type="button" onClick={() => copyText(redirectUri, "redirect")} className="hoverable" style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
+                  <code style={{ background: "var(--bg-app)", padding: "2px 6px", borderRadius: "var(--radius-sm)", fontSize: "var(--text-sm)" }}>{redirectUri}</code>
+                  <button type="button" onClick={() => copyText(redirectUri, "redirect")} className="hoverable" style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 700, fontSize: "var(--text-sm)", cursor: "pointer" }}>
                     {copiedRedirect ? "Copied!" : "Copy Redirect URI"}
                   </button>
                 </div>

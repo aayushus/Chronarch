@@ -1,4 +1,7 @@
 :root {
+  /* Hover shade for accent-filled controls. */
+  --accent-hover: #1a8eff;
+
   --bg-app: #1c1c1e;  --bg-sidebar: rgba(23, 23, 26, 0.78);
   --bg-panel: rgba(35, 35, 38, 0.82);
   --bg-card: var(--bg-raised);
@@ -21,14 +24,58 @@
 
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* --- Type scale -------------------------------------------------------
+     Seven steps, no exceptions. Every fontSize in the app surface resolves
+     to one of these; the values are close enough to read as one system and
+     far enough apart to carry hierarchy.
+       --text-2xs  10px  badge floor, avatar initials, inline status labels
+       --text-xs   11px  uppercase eyebrows, field hints, small meta
+       --text-sm   12px  secondary text, table rows, nav rows, toolbars
+       --text-md   14px  body copy, inputs, buttons, list rows
+       --text-lg   16px  card titles, modal titles, segmented-control labels
+       --text-xl   20px  page titles, dialog titles
+       --text-2xl  28px  one hero moment per surface (onboarding welcome)
+     --text-nano (8px) is the single sub-floor step, reserved for type inside
+     fixed geometry where 10px would overflow: the week-view time gutter's
+     secondary zone label and the year-view month-cell overflow count. */
+  --text-nano: 8px;
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 28px;
   /* Restrained geometry: controls stay crisp, surfaces get only a little lift. */
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 10px;
   --radius-xl: 12px;
+  /* Fully-rounded ends: chips, badges, 4px-tall progress/step segments. */
+  --radius-pill: 999px;
   --control-radius: var(--radius-sm);
   --card-radius: var(--radius-md);
   --modal-radius: var(--radius-lg);
+  /* --- Ink + surface roles that had no token and were hardcoded 40+ times:
+     white ink on saturated fills, the always-dark toast, and the hover
+     wash (white lift on dark, neutral ink on paper-white cards). */
+  --text-on-fill: #ffffff;
+  /* Dark ink for saturated *light* fills — the amber confirm button. A warmer
+     near-black than contrastText()'s neutral #1c1c1e, tuned to sit on amber. */
+  --text-on-warning: #1a1200;
+  --surface-inverse: #1c1c1e;
+  --text-inverse: #f5f5f7;
+  --wash-hover: rgba(255, 255, 255, 0.06);
+  /* The product's second accent: delegate / executive-assistant surfaces. */
+  --accent-alt: #bf5af2;
+  --accent-alt-soft: rgba(175, 82, 222, 0.15);
+  /* Conference brand chips. These are vendor brand colors, not theme colors —
+     named so they are visibly out-of-band rather than looking like drift. */
+  --conference-teams: #6264a7;
+  --conference-google: #1a73e8;
+  --conference-webex: #00a8d6;
+  --conference-zoom: #2d8cff;
   --transition-fast: 0.12s ease;
   --shadow-pop: 0 20px 48px rgba(0, 0, 0, 0.5);
   --shadow-lift: 0 4px 14px rgba(0, 0, 0, 0.35);
@@ -90,6 +137,8 @@
   --wash-deep: rgba(0, 0, 0, 0.045);
   --wash-lift: rgba(10, 132, 255, 0.07);
   --wash-faint: rgba(0, 0, 0, 0.055);
+  /* Paper-white cards need a neutral ink wash: a white lift is invisible. */
+  --wash-hover: rgba(28, 28, 30, 0.06);
   /* Mondays light cards: paper-white floats on the light canvas. */
   --card-bg: #ffffff;
   --card-ink: #2b2b2e;
@@ -98,12 +147,8 @@
   --shadow-card: 0 2px 10px rgba(20, 20, 30, 0.08);
 }
 
-/* The generic hover lift is intentionally white in dark mode. On paper-white
-   cards that becomes invisible, so use a neutral ink wash instead. */
-[data-theme="light"] .hoverable:hover {
-  background: rgba(28, 28, 30, 0.06);
-}
-
+/* The hover lift is a token: white on dark, neutral ink on paper-white cards
+   (a white lift would be invisible there). See --wash-hover. */
 [data-theme="light"] .modal-backdrop {
   background: rgba(0, 0, 0, 0.32);
 }
@@ -151,7 +196,7 @@ textarea::selection {
 }
 ::-webkit-scrollbar-thumb {
   background: var(--bg-raised-hover);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -174,14 +219,18 @@ textarea::selection {
 
 /* --- Hover/press micro-states --- */
 .hoverable {
-  transition: background var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+  transition: background var(--transition-fast), opacity var(--transition-fast);
 }
 .hoverable:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--wash-hover);
 }
 .hoverable:active {
-  transform: scale(0.98);
   opacity: 0.85;
+}
+.btn-primary:active,
+.btn-secondary:active,
+.btn-danger:active {
+  transform: scale(0.98);
 }
 
 .event-block {
@@ -204,6 +253,16 @@ textarea::selection {
 }
 .icon-btn:active {
   transform: scale(0.94);
+}
+
+/* Icon-only buttons: centre the glyph whatever the button's own display is.
+   Without this, an inline <svg> sits on the text baseline and reads as
+   misaligned at 12-14px. Matches only buttons whose sole child is an icon,
+   so labelled buttons are untouched. */
+button:has(> svg:only-child) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .resize-handle {
@@ -263,18 +322,25 @@ textarea::selection {
 
 /* --- View + mount motion (Chronarch design philosophy) --- */
 @keyframes viewIn {
-  from { opacity: 0; transform: translateX(10px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: none; }
 }
 .view-enter {
-  animation: viewIn 0.18s ease;
+  animation: viewIn 0.16s cubic-bezier(0.32, 0.72, 0, 1);
 }
 @keyframes riseIn {
   from { opacity: 0; transform: translateY(10px) scale(0.98); }
   to { opacity: 1; transform: none; }
 }
 .mount-rise {
-  animation: riseIn 0.2s ease;
+  animation: riseIn 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes drawerIn {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+.drawer-enter {
+  animation: drawerIn 0.2s cubic-bezier(0.32, 0.72, 0, 1);
 }
 @keyframes toastIn {
   from { opacity: 0; transform: translateY(12px) scale(0.97); }
@@ -305,30 +371,29 @@ textarea::selection {
   align-items: center;
 }
 .toast {
-  background: #262628;
-  color: #f5f5f7;
+  /* Deliberately dark in both themes — a light toast on a light page reads as
+     a rendering bug. --surface-inverse keeps that a decision, not a literal. */
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 10px 12px 10px 16px;
-  font-size: 13px;
+  font-size: var(--text-md);
   display: flex;
   align-items: center;
   gap: 14px;
   box-shadow: var(--shadow-pop);
-  animation: toastIn 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
-}
-[data-theme="light"] .toast {
-  background: #1c1c1e;
+  animation: toastIn 0.2s cubic-bezier(0.32, 0.72, 0, 1);
 }
 .toast button {
   background: none;
   border: none;
   color: var(--accent);
   font-weight: 700;
-  font-size: 13px;
+  font-size: var(--text-md);
   cursor: pointer;
   padding: 4px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 .toast button:hover {
   background: rgba(10, 132, 255, 0.15);
@@ -355,7 +420,7 @@ textarea::selection {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-pop);
   overflow: hidden;
-  animation: toastIn 0.16s ease;
+  animation: toastIn 0.16s cubic-bezier(0.32, 0.72, 0, 1);
 }
 .palette-input {
   width: 100%;
@@ -363,7 +428,7 @@ textarea::selection {
   border: none;
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: var(--text-lg);
   padding: 14px 18px;
 }
 .palette-input:focus {
@@ -380,7 +445,7 @@ textarea::selection {
   gap: 10px;
   padding: 9px 12px;
   border-radius: var(--radius-sm);
-  font-size: 13px;
+  font-size: var(--text-md);
   cursor: pointer;
   color: var(--text-primary);
 }
@@ -393,7 +458,7 @@ textarea::selection {
 .palette-row small {
   margin-left: auto;
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .palette-row.selected {
   background: rgba(10, 132, 255, 0.16);
@@ -405,9 +470,9 @@ kbd {
   background: var(--bg-raised-hover);
   border: 1px solid var(--border);
   border-bottom-width: 2px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 1px 6px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-family: inherit;
 }
 
@@ -483,21 +548,21 @@ kbd {
   justify-content: center;
   border-radius: var(--radius-sm);
   color: #fff;
-  font-size: 9px;
+  font-size: var(--text-2xs);
   font-weight: 850;
   line-height: 1;
   letter-spacing: -0.04em;
 }
-.conference-teams { background: #6264a7; }
-.conference-google { background: #1a73e8; }
-.conference-webex { background: #00a8d6; }
-.conference-zoom { background: #2d8cff; }
+.conference-teams { background: var(--conference-teams); }
+.conference-google { background: var(--conference-google); }
+.conference-webex { background: var(--conference-webex); }
+.conference-zoom { background: var(--conference-zoom); }
 .conference-other { background: var(--text-tertiary); }
 .event-description {
   max-height: 180px;
   overflow: auto;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--text-md);
   line-height: 1.55;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -535,7 +600,7 @@ kbd {
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: var(--text-md);
   outline: none;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
@@ -548,6 +613,44 @@ kbd {
 .input-standard:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+/* --- Native form controls -----------------------------------------------
+   .checkbox  the accent-coloured native checkbox (no border-radius: on an
+               accent-color checkbox the box is painted by the engine, so a
+               radius on the element does nothing — declaring it would be
+               decorative CSS that reads as intent but does not render).
+   .select    appearance is stripped and a chevron is drawn as a mask so
+               every dropdown in the app looks identical instead of showing
+               the OS arrow (macOS, Windows and GTK each differ).
+   .input-native  date/time pickers: the OS widget follows the page's
+               color-scheme via .input-standard, so this only needs the
+               tabular figures that stop the time value jittering. */
+.checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237c7c83' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  background-size: 13px;
+}
+[data-theme="dark"] .select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23636366' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+.select:hover {
+  border-color: var(--text-tertiary);
+}
+.input-native {
+  font-variant-numeric: tabular-nums;
 }
 /* Prevent browser autofill from painting inputs dark grey with unreadable text */
 .input-standard:-webkit-autofill,
@@ -565,7 +668,7 @@ kbd {
   border: none;
   border-radius: var(--radius-sm);
   padding: 8px 16px;
-  font-size: 13px;
+  font-size: var(--text-md);
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
@@ -575,14 +678,26 @@ kbd {
   transition: background var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 .btn-primary:hover {
-  background: #1a8eff;
+  background: var(--accent-hover);
 }
 .btn-primary:active {
   transform: scale(0.98);
 }
-.btn-primary:disabled {
-  opacity: 0.5;
+
+/* One disabled treatment for every button in the app. Previously only
+   .btn-primary had a :disabled rule at all, so a disabled secondary button
+   kept full opacity and a live cursor — the most expensive class of UI bug,
+   because it converts a user's trust into a support ticket. `saturate(0.4)`
+   matters more than it looks: a disabled accent-blue button at 40% opacity
+   still reads as the most important thing on screen without desaturating. */
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled,
+.icon-btn:disabled {
+  opacity: 0.4;
+  filter: saturate(0.4);
   cursor: not-allowed;
+  pointer-events: none;
 }
 
 .btn-secondary {
@@ -591,7 +706,7 @@ kbd {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   padding: 8px 16px;
-  font-size: 13px;
+  font-size: var(--text-md);
   font-weight: 500;
   cursor: pointer;
   display: inline-flex;
@@ -613,7 +728,7 @@ kbd {
   border: 1px solid rgba(255, 69, 58, 0.35);
   border-radius: var(--radius-sm);
   padding: 8px 16px;
-  font-size: 13px;
+  font-size: var(--text-md);
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;

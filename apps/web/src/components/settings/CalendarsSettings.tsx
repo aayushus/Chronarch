@@ -76,7 +76,7 @@ export default function CalendarsSettings() {
     groups.get(cal.account_id)!.calendars.push(cal);
   }
 
-  if (loading) return <div style={{ color: "var(--text-tertiary)", fontSize: 13 }}>Loading calendars…</div>;
+  if (loading) return <div style={{ color: "var(--text-tertiary)", fontSize: "var(--text-md)" }}>Loading calendars…</div>;
 
   return (
     <div>
@@ -91,13 +91,13 @@ export default function CalendarsSettings() {
       {banner && (
         <div
           style={{
-            fontSize: 13,
+            fontSize: "var(--text-md)",
             borderRadius: "var(--radius-sm)",
             padding: "10px 14px",
             marginBottom: 20,
             background: banner.kind === "success" ? "rgba(48, 209, 88, 0.15)" : "rgba(255, 69, 58, 0.15)",
             border: `1px solid ${banner.kind === "success" ? "var(--success)" : "var(--danger)"}`,
-            color: banner.kind === "success" ? "#30d158" : "#ff453a",
+            color: banner.kind === "success" ? "var(--success)" : "var(--danger)",
             fontWeight: 500,
           }}
         >
@@ -105,7 +105,7 @@ export default function CalendarsSettings() {
         </div>
       )}
 
-      {error && <div style={{ color: "var(--danger)", fontSize: 13, marginBottom: 16 }}>{error}</div>}
+      {error && <div style={{ color: "var(--danger)", fontSize: "var(--text-md)", marginBottom: 16 }}>{error}</div>}
 
       {calendars.length === 0 ? (
         <EmptyState
@@ -125,22 +125,22 @@ export default function CalendarsSettings() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                   <span style={{ display: "inline-flex", color: "var(--text-secondary)", alignItems: "center" }}>
                     {isGoogle || isMicrosoft ? (
-                      <span style={{ fontWeight: 800, fontSize: 15, color: "var(--accent)" }}>
+                      <span style={{ fontWeight: 800, fontSize: "var(--text-lg)", color: "var(--accent)" }}>
                         {isGoogle ? "G" : "M"}
                       </span>
                     ) : (
                       <Icon name="calendar" size={15} />
                     )}
                   </span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
+                  <span style={{ fontSize: "var(--text-md)", fontWeight: 700, color: "var(--text-primary)" }}>
                     {group.label}
                   </span>
                   <span
                     style={{
-                      fontSize: 10.5,
+                      fontSize: "var(--text-xs)",
                       textTransform: "uppercase",
                       padding: "1px 6px",
-                      borderRadius: 4,
+                      borderRadius: "var(--radius-sm)",
                       background: isGoogle
                         ? "rgba(10, 132, 255, 0.15)"
                         : isMicrosoft
@@ -156,7 +156,7 @@ export default function CalendarsSettings() {
                   >
                     {group.provider}
                   </span>
-                  <span style={{ fontSize: 11, color: "var(--text-tertiary)", marginLeft: "auto" }}>
+                  <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginLeft: "auto" }}>
                     {group.calendars.length} calendar{group.calendars.length === 1 ? "" : "s"}
                   </span>
                 </div>
@@ -222,24 +222,24 @@ export default function CalendarsSettings() {
                             </label>
 
                             <div>
-                              <div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ fontSize: "var(--text-md)", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
                                 <span>{cal.name}</span>
                                 {cal.is_default && (
                                   <span
                                     style={{
-                                      fontSize: 10,
+                                      fontSize: "var(--text-xs)",
                                       fontWeight: 700,
                                       color: "var(--accent)",
                                       background: "rgba(10, 132, 255, 0.12)",
                                       padding: "1px 6px",
-                                      borderRadius: 4,
+                                      borderRadius: "var(--radius-sm)",
                                     }}
                                   >
                                     DEFAULT
                                   </span>
                                 )}
                               </div>
-                              <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2, display: "flex", gap: 10 }}>
+                              <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginTop: 2, display: "flex", gap: 10 }}>
                                 <span>{cal.writable ? "Writable" : "Read-only"}</span>
                                 <span>·</span>
                                 <span style={{ color: cal.visible ? "var(--text-secondary)" : "var(--text-tertiary)" }}>
@@ -261,7 +261,7 @@ export default function CalendarsSettings() {
                                 display: "flex",
                                 alignItems: "center",
                                 gap: 6,
-                                fontSize: 12,
+                                fontSize: "var(--text-sm)",
                                 fontWeight: 500,
                                 cursor: "pointer",
                                 padding: "4px 8px",
@@ -270,11 +270,10 @@ export default function CalendarsSettings() {
                                 color: cal.visible ? "var(--accent)" : "var(--text-secondary)",
                               }}
                             >
-                              <input
+                              <input className="checkbox"
                                 type="checkbox"
                                 checked={cal.visible}
                                 onChange={() => handleToggle(cal, "visible")}
-                                style={{ accentColor: "var(--accent)", width: 14, height: 14 }}
                               />
                               <span>Show in Grid</span>
                             </label>
@@ -288,11 +287,12 @@ export default function CalendarsSettings() {
                                 color: "var(--text-tertiary)",
                                 cursor: "pointer",
                                 padding: "6px 8px",
-                                fontSize: 12,
-                                borderRadius: 4,
+                                fontSize: "var(--text-sm)",
+                                borderRadius: "var(--radius-sm)",
                               }}
                             >
-                              {expanded ? "▲ Hide Settings" : "▼ Settings"}
+                              <Icon name="chevronRight" size={12} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform var(--transition-fast)", flexShrink: 0 }} />
+                              <span>{expanded ? "Hide Settings" : "Settings"}</span>
                             </button>
                           </div>
                         </div>
@@ -313,7 +313,7 @@ export default function CalendarsSettings() {
                             <div>
                               <div
                                 style={{
-                                  fontSize: 11,
+                                  fontSize: "var(--text-sm)",
                                   fontWeight: 700,
                                   color: "var(--text-tertiary)",
                                   textTransform: "uppercase",
@@ -338,17 +338,17 @@ export default function CalendarsSettings() {
                                       cursor: "pointer",
                                     }}
                                   >
-                                    <input
+                                    <input className="checkbox"
                                       type="checkbox"
                                       checked={Boolean(cal[key])}
                                       onChange={() => handleToggle(cal, key)}
-                                      style={{ marginTop: 2, accentColor: "var(--accent)", width: 14, height: 14 }}
+                                      style={{ marginTop: 2}}
                                     />
                                     <div>
-                                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
+                                      <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)" }}>
                                         {label}
                                       </div>
-                                      <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 1 }}>
+                                      <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginTop: 1 }}>
                                         {desc}
                                       </div>
                                     </div>
@@ -361,7 +361,7 @@ export default function CalendarsSettings() {
                             <div>
                               <div
                                 style={{
-                                  fontSize: 11,
+                                  fontSize: "var(--text-sm)",
                                   fontWeight: 700,
                                   color: "var(--text-tertiary)",
                                   textTransform: "uppercase",
@@ -386,17 +386,17 @@ export default function CalendarsSettings() {
                                       cursor: "pointer",
                                     }}
                                   >
-                                    <input
+                                    <input className="checkbox"
                                       type="checkbox"
                                       checked={Boolean(cal[key])}
                                       onChange={() => handleToggle(cal, key)}
-                                      style={{ marginTop: 2, accentColor: "var(--accent)", width: 14, height: 14 }}
+                                      style={{ marginTop: 2}}
                                     />
                                     <div>
-                                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
+                                      <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)" }}>
                                         {label}
                                       </div>
-                                      <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 1 }}>
+                                      <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginTop: 1 }}>
                                         {desc}
                                       </div>
                                     </div>

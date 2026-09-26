@@ -311,15 +311,18 @@ def test_split_series_text_and_graph():
     assert trunc == {"rule": ["RRULE:FREQ=WEEKLY;BYDAY=MO;UNTIL=20260920"]}
     assert restart == {"rule": ["RRULE:FREQ=WEEKLY;BYDAY=MO"]}
     trunc, restart = _r.split_series(
-        {"rule": ["RRULE:FREQ=DAILY;COUNT=10"]}, cut)
+        {"rule": ["RRULE:FREQ=DAILY;COUNT=10"]}, cut,
+        datetime(2026, 9, 18, 14, 0, tzinfo=timezone.utc))
     assert trunc == {"rule": ["RRULE:FREQ=DAILY;UNTIL=20260920"]}
-    assert restart == {"rule": ["RRULE:FREQ=DAILY;COUNT=10"]}
+    assert restart == {"rule": ["RRULE:FREQ=DAILY;COUNT=7"]}
     graph = {"pattern": {"type": "weekly", "interval": 1},
              "range": {"type": "numbered", "numberOfOccurrences": 10}}
-    trunc, restart = _r.split_series({"type": graph}, cut)
+    trunc, restart = _r.split_series(
+        {"type": graph}, cut,
+        datetime(2026, 9, 7, 14, 0, tzinfo=timezone.utc))
     assert trunc == {"type": {"pattern": graph["pattern"],
                               "range": {"type": "endDate", "endDate": "2026-09-20"}}}
-    assert restart == {"type": {"pattern": graph["pattern"], "range": {"type": "numbered", "numberOfOccurrences": 10}}}
+    assert restart == {"type": {"pattern": graph["pattern"], "range": {"type": "numbered", "numberOfOccurrences": 8}}}
     assert _r.split_series({"rule": ["GARBAGE"]}, cut) == (None, None)
     assert _r.split_series(None, cut) == (None, None)
 

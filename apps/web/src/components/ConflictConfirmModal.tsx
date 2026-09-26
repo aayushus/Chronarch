@@ -41,9 +41,9 @@ export default function ConflictConfirmModal({
           <span style={{ color: "var(--warning)", display: "inline-flex" }}>
             <Icon name="alert" size={16} />
           </span>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>{title}</div>
+          <div style={{ fontSize: "var(--text-lg)", fontWeight: 700 }}>{title}</div>
         </div>
-        <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 14, lineHeight: 1.4 }}>{summary}</div>
+        <div style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", marginBottom: 14, lineHeight: 1.4 }}>{summary}</div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 18, maxHeight: 180, overflowY: "auto" }}>
           {conflicts.map((c) => (
@@ -53,7 +53,7 @@ export default function ConflictConfirmModal({
                 background: "var(--bg-raised)",
                 borderRadius: "var(--radius-sm)",
                 padding: "8px 12px",
-                fontSize: 12,
+                fontSize: "var(--text-sm)",
                 border: "1px solid var(--border-subtle)",
               }}
             >
@@ -63,7 +63,7 @@ export default function ConflictConfirmModal({
                   <span style={{ fontWeight: 400, color: "var(--text-tertiary)" }}> · {c.calendar_name}</span>
                 )}
               </div>
-              <div className="tabular-nums" style={{ color: "var(--text-secondary)", fontSize: 11, marginTop: 2 }}>
+              <div className="tabular-nums" style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", marginTop: 2 }}>
                 {formatTimeRange(new Date(c.start), new Date(c.end))}
                 {!c.redacted && ` · ${c.calendar_name}`}
               </div>
@@ -82,7 +82,7 @@ export default function ConflictConfirmModal({
             type="button"
             onClick={onConfirm}
             className="btn-primary"
-            style={{ flex: 1.2, minWidth: 0, whiteSpace: "nowrap", background: "var(--warning)", color: "#1a1200" }}
+            style={{ flex: 1.2, minWidth: 0, whiteSpace: "nowrap", background: "var(--warning)", color: "var(--text-on-warning)" }}
           >
             {confirmLabel}
           </button>

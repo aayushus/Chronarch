@@ -261,13 +261,10 @@ async def get_events(
     if not cal_by_id:
         return []
 
-    stmt = select(UnifiedEvent).where(
-        UnifiedEvent.calendar_id.in_(cal_by_id.keys()),
-        or_(
-            and_(UnifiedEvent.start < window_end, UnifiedEvent.end > window_start),
-            UnifiedEvent.recurrence.is_not(None),
-        ),
-    )
+    # Do not use JSON `IS NOT NULL` here: SQLite/PostgreSQL adapters may
+    # materialize a JSON null as the literal JSON value `null`, which would
+    # bypass the time-window predicate and leak unrelated one-off events.
+    stmt = select(UnifiedEvent).where(UnifiedEvent.calendar_id.in_(cal_by_id.keys()))
     events = list((await session.execute(stmt)).scalars())
 
     # Recurring masters are stored at their first occurrence. Expand them
@@ -277,7 +274,11 @@ async def get_events(
     from ..recurrence import occurrences
     listed_events = []
     for event in events:
-        if not event.recurrence:
+        if not event.recurrence or event.recurrence == "null":
+            event_start = _align_tz(event.start, window_start)
+            event_end = _align_tz(event.end, window_start)
+            if event_start >= window_end or event_end <= window_start:
+                continue
             listed_events.append(event)
             continue
         for occurrence_start, occurrence_end in occurrences(event, window_start, window_end):
@@ -563,6 +564,16 @@ async def create_event(
         owner_calendar_ids={calendar_id} if is_owner else None,
         grants_by_calendar={calendar_id: delegation_grant} if delegation_grant else None,
     )
+    # An exact duplicate interval is allowed: sync/import callers can replay
+    # an already-materialized slot, while genuinely partial overlaps remain a
+    # server-side conflict.
+    def _utc(dt: datetime) -> datetime:
+        from datetime import timezone as dt_timezone
+        return dt.replace(tzinfo=dt_timezone.utc) if dt.tzinfo is None else dt.astimezone(dt_timezone.utc)
+
+    conflicts = [c for c in conflicts if not (
+        _utc(c["start"]) == _utc(start) and _utc(c["end"]) == _utc(end)
+    )]
     if conflicts:
         raise ValueError("The requested time conflicts with an existing event.")
     canonical = _normalize_recurrence(recurrence) if recurrence is not None else None
@@ -950,7 +961,7 @@ async def _update_scoped(
         return event
 
     # scope == "future": truncate the original, start a replacement series.
-    trunc, restart = _split(event.recurrence, cut)
+    trunc, restart = _split(event.recurrence, cut, event.start)
     if trunc is None or restart is None:
         raise ValueError("Could not split this series' recurrence rule.")
     await connector.update_event(
@@ -1195,7 +1206,7 @@ async def delete_event(
             )
             return {"deleted": "instance", "scope": "this", "instance": cut_key}
         # scope == "future": truncate the series at the cut.
-        trunc, _ = _split(event.recurrence, cut)
+        trunc, _ = _split(event.recurrence, cut, event.start)
         if trunc is None:
             raise ValueError("Could not split this series' recurrence rule.")
         await connector.update_event(
@@ -1434,16 +1445,17 @@ async def search_contacts(
     ctx: AuthContext,
     query: str = "",
     limit: int = 10,
+    owner_user_id: str | None = None,
 ) -> list[dict]:
     from ..contacts import search_contacts as _search
 
-    return [_contact_out(c) for c in await _search(session, query, limit)]
+    return [_contact_out(c) for c in await _search(session, query, limit, owner_user_id=owner_user_id)]
 
 
-async def resolve_contact(session: AsyncSession, ctx: AuthContext, query: str) -> dict:
+async def resolve_contact(session: AsyncSession, ctx: AuthContext, query: str, owner_user_id: str | None = None) -> dict:
     from ..contacts import resolve_contact as _resolve
 
-    out = await _resolve(session, query)
+    out = await _resolve(session, query, owner_user_id=owner_user_id)
     if out["status"] == "found":
         return {"status": "found", "contact": _contact_out(out["contact"])}
     if out["status"] == "ambiguous":
@@ -1460,12 +1472,13 @@ async def create_contact(
     phone: str | None = None,
     company: str | None = None,
     job_title: str | None = None,
+    owner_user_id: str | None = None,
 ) -> dict:
     from ..contacts import create_contact as _create
 
     try:
         contact = await _create(
-            session, email=email, display_name=display_name,
+            session, email=email, display_name=display_name, owner_user_id=owner_user_id,
             phone=phone, company=company, job_title=job_title)
     except ValueError as exc:
         raise ValueError(str(exc))

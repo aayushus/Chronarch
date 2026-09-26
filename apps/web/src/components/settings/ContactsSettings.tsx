@@ -105,7 +105,7 @@ export default function ContactsSettings({ onOpenAccounts }: { onOpenAccounts?: 
   }
 
   if (loading) {
-    return <div style={{ padding: "32px 0", color: "var(--text-tertiary)", fontSize: 13 }}>Loading contacts…</div>;
+    return <div style={{ padding: "32px 0", color: "var(--text-tertiary)", fontSize: "var(--text-md)" }}>Loading contacts…</div>;
   }
 
   return (
@@ -121,9 +121,9 @@ export default function ContactsSettings({ onOpenAccounts }: { onOpenAccounts?: 
         <button
           onClick={() => setEditing("new")}
           className="btn-primary hoverable"
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius-sm)" }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: "var(--text-md)", fontWeight: 600, borderRadius: "var(--radius-sm)" }}
         >
-          <span style={{ fontSize: 15, lineHeight: 1 }}>+</span>
+          <span style={{ fontSize: "var(--text-lg)", lineHeight: 1 }}>+</span>
           <span>Add Contact</span>
         </button>
       </div>
@@ -181,7 +181,7 @@ export default function ContactsSettings({ onOpenAccounts }: { onOpenAccounts?: 
               display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1.6fr) minmax(0, 1fr) auto auto",
               gap: 12, padding: "10px 16px", alignItems: "center",
               borderBottom: "1px solid var(--border-subtle)",
-              fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)",
+              fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-tertiary)",
               textTransform: "uppercase", letterSpacing: 0.5,
             }}
           >
@@ -209,22 +209,22 @@ export default function ContactsSettings({ onOpenAccounts }: { onOpenAccounts?: 
                     width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
                     background: "rgba(10, 132, 255, 0.14)", color: "var(--accent)",
                     display: "inline-flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+                    fontSize: "var(--text-sm)", fontWeight: 700, letterSpacing: 0.5,
                   }}
                 >
                   {initials(c.email, c.display_name)}
                 </span>
-                <span style={{ fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ fontSize: "var(--text-md)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {c.display_name ?? <span style={{ color: "var(--warning)" }}>Unnamed</span>}
                 </span>
               </span>
-              <span style={{ fontSize: 12.5, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {c.email}
               </span>
-              <span style={{ fontSize: 12.5, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {c.job_title && c.company ? `${c.job_title}, ${c.company}` : c.company ?? c.job_title ?? "—"}
               </span>
-              <span style={{ fontSize: 12, color: "var(--text-secondary)", textAlign: "right", whiteSpace: "nowrap" }} title={c.last_seen_at ? `Last seen ${formatSeen(c.last_seen_at)}` : undefined}>
+              <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", textAlign: "right", whiteSpace: "nowrap" }} title={c.last_seen_at ? `Last seen ${formatSeen(c.last_seen_at)}` : undefined}>
                 {c.event_count}
               </span>
               <button
@@ -244,7 +244,7 @@ export default function ContactsSettings({ onOpenAccounts }: { onOpenAccounts?: 
       )}
 
       {searching && (
-        <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 10 }}>Searching…</div>
+        <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginTop: 10 }}>Searching…</div>
       )}
 
       {editing && (
@@ -271,8 +271,8 @@ function TabButton({ active, label, onClick }: { active: boolean; label: string;
       aria-selected={active}
       className="hoverable"
       style={{
-        border: "1px solid var(--border-subtle)", borderRadius: 16, padding: "5px 14px",
-        fontSize: 12.5, fontWeight: active ? 600 : 500, cursor: "pointer",
+        border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-pill)", padding: "5px 14px",
+        fontSize: "var(--text-sm)", fontWeight: active ? 600 : 500, cursor: "pointer",
         background: active ? "rgba(10, 132, 255, 0.14)" : "transparent",
         color: active ? "var(--text-primary)" : "var(--text-secondary)",
       }}
@@ -331,19 +331,19 @@ function ContactEditor({
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-card mount-rise" onClick={(e) => e.stopPropagation()} style={{ width: 440, maxWidth: "92vw", padding: 26 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-          <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>{isNew ? "New contact" : "Edit contact"}</h3>
+          <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, margin: 0 }}>{isNew ? "New contact" : "Edit contact"}</h3>
           <button onClick={onClose} className="hoverable" aria-label="Close" style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", padding: "2px 6px", display: "inline-flex" }}>
             <Icon name="x" size={16} />
           </button>
         </div>
         {!isNew && initial.event_count > 0 && (
-          <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 14px" }}>
+          <p style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", margin: "0 0 14px" }}>
             Met {initial.event_count} time{initial.event_count === 1 ? "" : "s"}
             {initial.last_seen_at ? ` · last seen ${formatSeen(initial.last_seen_at)}` : ""} · names you set here stick
           </p>
         )}
         {isNew && (
-          <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 14px" }}>
+          <p style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", margin: "0 0 14px" }}>
             Someone invites haven't seen yet — e.g. a new hire before the first meeting.
           </p>
         )}
@@ -362,7 +362,7 @@ function ContactEditor({
           </div>
 
           {error && (
-            <div style={{ color: "var(--danger)", fontSize: 12, background: "rgba(255, 69, 58, 0.1)", padding: "8px 12px", borderRadius: "var(--radius-sm)" }}>
+            <div style={{ color: "var(--danger)", fontSize: "var(--text-sm)", background: "rgba(255, 69, 58, 0.1)", padding: "8px 12px", borderRadius: "var(--radius-sm)" }}>
               {error}
             </div>
           )}
@@ -373,7 +373,7 @@ function ContactEditor({
                 type="button"
                 onClick={() => onDeleted(initial)}
                 className="hoverable"
-                style={{ background: "none", border: "none", color: "var(--danger)", fontSize: 13, fontWeight: 500, cursor: "pointer", padding: "8px 4px", display: "inline-flex", alignItems: "center", gap: 6 }}
+                style={{ background: "none", border: "none", color: "var(--danger)", fontSize: "var(--text-md)", fontWeight: 500, cursor: "pointer", padding: "8px 4px", display: "inline-flex", alignItems: "center", gap: 6 }}
               >
                 <Icon name="trash" size={14} />
                 Remove
@@ -399,10 +399,10 @@ function Field({ label, value, onChange, placeholder, type, autoFocus }: {
   const id = `contact-${label.toLowerCase().replace(/[^a-z]+/g, "-")}`;
   return (
     <div>
-      <label htmlFor={id} style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{label}</label>
+      <label htmlFor={id} style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>{label}</label>
       <input
         id={id} type={type ?? "text"} value={value} onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder} autoFocus={autoFocus} className="input-standard" style={{ width: "100%", fontSize: 13 }}
+        placeholder={placeholder} autoFocus={autoFocus} className="input-standard" style={{ width: "100%", fontSize: "var(--text-md)" }}
       />
     </div>
   );

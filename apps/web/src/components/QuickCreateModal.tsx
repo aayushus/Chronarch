@@ -106,7 +106,7 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
           gap: 12,
         }}
       >
-        <div id="quick-create-title" style={{ fontSize: 16, fontWeight: 700 }}>New Event</div>
+        <div id="quick-create-title" style={{ fontSize: "var(--text-lg)", fontWeight: 700 }}>New Event</div>
         <input
           ref={titleRef}
           placeholder="Event Title"
@@ -115,11 +115,11 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
           required
           className="input-standard"
         />
-        {error && <div role="alert" style={{ color: "var(--danger)", fontSize: 12 }}>{error}</div>}
+        {error && <div role="alert" style={{ color: "var(--danger)", fontSize: "var(--text-sm)" }}>{error}</div>}
         {writable.length === 0 ? (
-          <div style={{ fontSize: 12, color: "var(--warning)" }}>No writable calendars available.</div>
+          <div style={{ fontSize: "var(--text-sm)", color: "var(--warning)" }}>No writable calendars available.</div>
         ) : (
-          <select value={calendarId} onChange={(e) => setCalendarId(e.target.value)} className="input-standard">
+          <select className="input-standard select" value={calendarId} onChange={(e) => setCalendarId(e.target.value)} >
             {writable.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -127,20 +127,20 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
             ))}
           </select>
         )}
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-standard" />
+        <input className="input-standard input-native" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         {!allDay && (
           <div style={{ display: "flex", gap: 8 }}>
-            <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="input-standard" style={{ flex: 1 }} />
-            <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="input-standard" style={{ flex: 1 }} />
+            <input className="input-standard input-native" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}  style={{ flex: 1 }} />
+            <input className="input-standard input-native" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)}  style={{ flex: 1 }} />
           </div>
         )}
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-secondary)", cursor: "pointer" }}>
-          <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-md)", color: "var(--text-secondary)", cursor: "pointer" }}>
+          <input className="checkbox" type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
           All-day event
         </label>
-        <label style={{ display: "block", fontSize: 12, fontWeight: 600 }}>
+        <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600 }}>
           Repeat
-          <select value={repeat} onChange={(e) => setRepeat(e.target.value)} className="input-standard" style={{ width: "100%", fontSize: 13, marginTop: 6 }}>
+          <select className="input-standard select" value={repeat} onChange={(e) => setRepeat(e.target.value)}  style={{ width: "100%", marginTop: 6}}>
             <option value="">Does not repeat</option>
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>

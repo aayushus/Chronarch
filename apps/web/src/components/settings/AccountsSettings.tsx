@@ -3,6 +3,7 @@ import { friendlyError } from "../../api/client";
 import { adminSyncAccount, importIcsEvent, listCalendars, previewIcs, updateCalendar } from "../../api/calendar";
 import EmptyState from "../EmptyState";
 import { SectionHeader } from "../ui";
+import Icon from "../Icon";
 
 import {
   AdminAccount,
@@ -184,7 +185,7 @@ export default function AccountsSettings() {
     }
   }
 
-  if (loading) return <div style={{ color: "var(--text-tertiary)", fontSize: 13 }}>Loading accounts…</div>;
+  if (loading) return <div style={{ color: "var(--text-tertiary)", fontSize: "var(--text-md)" }}>Loading accounts…</div>;
 
   return (
     <div>
@@ -204,12 +205,12 @@ export default function AccountsSettings() {
             alignItems: "center",
             gap: 6,
             padding: "8px 16px",
-            fontSize: 13,
+            fontSize: "var(--text-md)",
             fontWeight: 600,
             borderRadius: "var(--radius-sm)",
           }}
         >
-          <span style={{ fontSize: 15, lineHeight: 1 }}>+</span>
+          <span style={{ fontSize: "var(--text-lg)", lineHeight: 1 }}>+</span>
           <span>Add Account</span>
         </button>
       </div>
@@ -217,7 +218,7 @@ export default function AccountsSettings() {
       {banner && (
         <div
           style={{
-            fontSize: 13,
+            fontSize: "var(--text-md)",
             borderRadius: "var(--radius-sm)",
             padding: "10px 14px",
             marginBottom: 20,
@@ -240,20 +241,20 @@ export default function AccountsSettings() {
       )}
 
       {error && (
-        <div style={{ color: "var(--danger)", fontSize: 13, marginBottom: 16 }}>{error}</div>
+        <div style={{ color: "var(--danger)", fontSize: "var(--text-md)", marginBottom: 16 }}>{error}</div>
       )}
 
       {/* Connected Accounts List */}
       <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ fontSize: "var(--text-md)", fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
           <span>Connected Accounts</span>
           <span
             style={{
-              fontSize: 11,
+              fontSize: "var(--text-sm)",
               fontWeight: 600,
               background: "var(--bg-raised)",
               padding: "1px 7px",
-              borderRadius: 10,
+              borderRadius: "var(--radius-lg)",
               color: "var(--text-secondary)",
             }}
           >
@@ -293,18 +294,18 @@ export default function AccountsSettings() {
                   <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     <ProviderLogo provider={a.provider} />
                     <div>
-                      <div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontSize: "var(--text-md)", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
                         <span>{a.provider_account_email}</span>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, color: a.sync_status === "error" ? "var(--danger)" : "var(--success)", fontWeight: 700 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-xs)", color: a.sync_status === "error" ? "var(--danger)" : "var(--success)", fontWeight: 700 }}>
                           <span style={{ width: 7, height: 7, borderRadius: "50%", background: a.sync_status === "error" ? "var(--danger)" : "var(--success)" }} />
                           {a.sync_status === "error" ? "Needs attention" : "Connected"}
                         </span>
                         <span
                           style={{
-                            fontSize: 10.5,
+                            fontSize: "var(--text-xs)",
                             textTransform: "uppercase",
                             padding: "2px 6px",
-                            borderRadius: 4,
+                            borderRadius: "var(--radius-sm)",
                             background: isGoogle
                               ? "rgba(10, 132, 255, 0.18)"
                               : isMicrosoft
@@ -321,7 +322,7 @@ export default function AccountsSettings() {
                           {a.provider}
                         </span>
                       </div>
-                      <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 3 }}>
+                      <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: 3 }}>
                         Owner: {a.owner_email} · {a.calendar_count} calendar{a.calendar_count === 1 ? "" : "s"} · sync:{" "}
                         <span
                           style={{
@@ -365,7 +366,7 @@ export default function AccountsSettings() {
 
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     {a.provider === "ics" && (
-                      <select
+                      <select className="input-standard select"
                         defaultValue="60"
                         onChange={async (e) => {
                           const mins = parseInt(e.target.value, 10);
@@ -380,14 +381,7 @@ export default function AccountsSettings() {
                             setError(friendlyError(err));
                           }
                         }}
-                        style={{
-                          background: "var(--bg-app)",
-                          border: "1px solid var(--border-subtle)",
-                          borderRadius: 6,
-                          color: "var(--text-primary)",
-                          padding: "5px 8px",
-                          fontSize: 12,
-                        }}
+
                         title="Auto-refresh frequency for this subscription feed"
                       >
                         <option value="15">Sync every 15m</option>
@@ -409,10 +403,10 @@ export default function AccountsSettings() {
                           gap: 6,
                           background: "var(--bg-app)",
                           border: "1px solid var(--border-subtle)",
-                          borderRadius: 6,
+                          borderRadius: "var(--radius-sm)",
                           color: "var(--text-primary)",
                           padding: "6px 12px",
-                          fontSize: 12,
+                          fontSize: "var(--text-sm)",
                           cursor: pushingAccountId === a.id ? "wait" : "pointer",
                         }}
                       >
@@ -430,10 +424,10 @@ export default function AccountsSettings() {
                         gap: 6,
                         background: "var(--bg-app)",
                         border: "1px solid var(--border-subtle)",
-                        borderRadius: 6,
+                        borderRadius: "var(--radius-sm)",
                         color: "var(--text-primary)",
                         padding: "6px 12px",
-                        fontSize: 12,
+                        fontSize: "var(--text-sm)",
                         cursor: syncingAccountId === a.id ? "wait" : "pointer",
                       }}
                     >
@@ -442,7 +436,7 @@ export default function AccountsSettings() {
                           display: "inline-block",
                           transform: syncingAccountId === a.id ? "rotate(360deg)" : "none",
                           transition: syncingAccountId === a.id ? "transform 1s linear infinite" : "none",
-                          fontSize: 12,
+                          fontSize: "var(--text-sm)",
                         }}
                       >
                         ↻
@@ -452,7 +446,7 @@ export default function AccountsSettings() {
                     <button
                       onClick={() => handleDisconnect(a)}
                       className="btn-danger hoverable"
-                      style={{ padding: "6px 12px", fontSize: 12 }}
+                      style={{ padding: "6px 12px", fontSize: "var(--text-sm)" }}
                     >
                       Disconnect
                     </button>
@@ -697,17 +691,17 @@ function ConnectAccountWizardModal({
                 style={{
                   background: "var(--bg-raised)",
                   border: "none",
-                  borderRadius: 6,
+                  borderRadius: "var(--radius-sm)",
                   color: "var(--text-secondary)",
                   padding: "4px 8px",
-                  fontSize: 12,
+                  fontSize: "var(--text-sm)",
                   cursor: "pointer",
                 }}
               >
                 ← Back
               </button>
             )}
-            <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>
+            <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, margin: 0 }}>
               {selectedProvider === "google"
                 ? "Connect Google Calendar"
                 : selectedProvider === "microsoft"
@@ -730,16 +724,16 @@ function ConnectAccountWizardModal({
                 style={{
                   background: setupHelpOpen ? "var(--accent-soft)" : "var(--bg-raised)",
                   border: "1px solid var(--border-subtle)",
-                  borderRadius: 7,
+                  borderRadius: "var(--radius-sm)",
                   color: setupHelpOpen ? "var(--accent)" : "var(--text-secondary)",
-                  fontSize: 16,
+                  fontSize: "var(--text-lg)",
                   lineHeight: 1,
                   cursor: "pointer",
                   width: 30,
                   height: 30,
                 }}
               >
-                💡
+                <Icon name="sparkles" size={15} />
               </button>
             )}
             <button
@@ -750,12 +744,12 @@ function ConnectAccountWizardModal({
                 background: "none",
                 border: "none",
                 color: "var(--text-tertiary)",
-                fontSize: 20,
+                fontSize: "var(--text-xl)",
                 cursor: "pointer",
                 padding: "2px 6px",
               }}
             >
-              ✕
+              <Icon name="x" size={13} />
             </button>
           </div>
         </div>
@@ -767,7 +761,7 @@ function ConnectAccountWizardModal({
         {/* STEP 1: Select Provider */}
         {!selectedProvider && (
           <div>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}>
+            <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 16px" }}>
               Choose the type of calendar account you want to connect to Chronarch.
             </p>
 
@@ -794,12 +788,12 @@ function ConnectAccountWizardModal({
                     style={{
                       width: 36,
                       height: 36,
-                      borderRadius: 8,
+                      borderRadius: "var(--radius-md)",
                       background: "rgba(10, 132, 255, 0.15)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 18,
+                      fontSize: "var(--text-lg)",
                       fontWeight: 700,
                       color: "var(--accent)",
                     }}
@@ -807,8 +801,8 @@ function ConnectAccountWizardModal({
                     <ProviderLogo provider="google" />
                   </div>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>Google Calendar</div>
-                    <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                    <div style={{ fontSize: "var(--text-md)", fontWeight: 600 }}>Google Calendar</div>
+                    <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
                       Personal Gmail or Google Workspace accounts
                     </div>
                   </div>
@@ -816,18 +810,18 @@ function ConnectAccountWizardModal({
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span
                     style={{
-                      fontSize: 10,
+                      fontSize: "var(--text-xs)",
                       fontWeight: 700,
                       letterSpacing: 0.5,
                       padding: "2px 6px",
-                      borderRadius: 4,
+                      borderRadius: "var(--radius-sm)",
                       background: isGoogleConfigured ? "rgba(48, 209, 88, 0.15)" : "rgba(255, 159, 10, 0.15)",
                       color: isGoogleConfigured ? "var(--success)" : "var(--warning)",
                     }}
                   >
                     {isGoogleConfigured ? "READY TO CONNECT" : "SETUP NEEDED"}
                   </span>
-                  <span style={{ color: "var(--text-tertiary)", fontSize: 14 }}>→</span>
+                  <span style={{ color: "var(--text-tertiary)", fontSize: "var(--text-md)" }}>→</span>
                 </div>
               </button>
 
@@ -853,19 +847,19 @@ function ConnectAccountWizardModal({
                     style={{
                       width: 36,
                       height: 36,
-                      borderRadius: 8,
+                      borderRadius: "var(--radius-md)",
                       background: "rgba(48, 209, 88, 0.15)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 18,
+                      fontSize: "var(--text-lg)",
                     }}
                   >
                     <ProviderLogo provider="microsoft" />
                   </div>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>Microsoft 365 / Outlook</div>
-                    <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                    <div style={{ fontSize: "var(--text-md)", fontWeight: 600 }}>Microsoft 365 / Outlook</div>
+                    <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
                       Office 365, Exchange, or live.com accounts
                     </div>
                   </div>
@@ -873,18 +867,18 @@ function ConnectAccountWizardModal({
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span
                     style={{
-                      fontSize: 10,
+                      fontSize: "var(--text-xs)",
                       fontWeight: 700,
                       letterSpacing: 0.5,
                       padding: "2px 6px",
-                      borderRadius: 4,
+                      borderRadius: "var(--radius-sm)",
                       background: isMicrosoftConfigured ? "rgba(48, 209, 88, 0.15)" : "rgba(255, 159, 10, 0.15)",
                       color: isMicrosoftConfigured ? "var(--success)" : "var(--warning)",
                     }}
                   >
                     {isMicrosoftConfigured ? "READY TO CONNECT" : "SETUP NEEDED"}
                   </span>
-                  <span style={{ color: "var(--text-tertiary)", fontSize: 14 }}>→</span>
+                  <span style={{ color: "var(--text-tertiary)", fontSize: "var(--text-md)" }}>→</span>
                 </div>
               </button>
 
@@ -910,24 +904,24 @@ function ConnectAccountWizardModal({
                     style={{
                       width: 36,
                       height: 36,
-                      borderRadius: 8,
+                      borderRadius: "var(--radius-md)",
                       background: "rgba(94, 92, 230, 0.15)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 18,
+                      fontSize: "var(--text-lg)",
                     }}
                   >
-                    📅
+                    <Icon name="calendar" size={19} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>CalDAV Account</div>
-                    <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                    <div style={{ fontSize: "var(--text-md)", fontWeight: 600 }}>CalDAV Account</div>
+                    <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
                       iCloud, Fastmail, Nextcloud, or any standard CalDAV server
                     </div>
                   </div>
                 </div>
-                <span style={{ color: "var(--text-tertiary)", fontSize: 14 }}>→</span>
+                <span style={{ color: "var(--text-tertiary)", fontSize: "var(--text-md)" }}>→</span>
               </button>
 
               {/* ICS Feed option */}
@@ -952,24 +946,24 @@ function ConnectAccountWizardModal({
                     style={{
                       width: 36,
                       height: 36,
-                      borderRadius: 8,
+                      borderRadius: "var(--radius-md)",
                       background: "rgba(255, 159, 10, 0.15)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 18,
+                      fontSize: "var(--text-lg)",
                     }}
                   >
-                    📁
+                    <Icon name="folder" size={19} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>iCalendar / ICS Subscription</div>
-                    <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                    <div style={{ fontSize: "var(--text-md)", fontWeight: 600 }}>iCalendar / ICS Subscription</div>
+                    <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
                       Public or private HTTP / HTTPS / webcal feeds (read-only)
                     </div>
                   </div>
                 </div>
-                <span style={{ color: "var(--text-tertiary)", fontSize: 14 }}>→</span>
+                <span style={{ color: "var(--text-tertiary)", fontSize: "var(--text-md)" }}>→</span>
               </button>
             </div>
           </div>
@@ -981,7 +975,7 @@ function ConnectAccountWizardModal({
             {configError && (
               <div
                 style={{
-                  fontSize: 12,
+                  fontSize: "var(--text-sm)",
                   color: "var(--danger)",
                   background: "rgba(255, 69, 58, 0.1)",
                   padding: "10px 12px",
@@ -996,13 +990,13 @@ function ConnectAccountWizardModal({
             {googleReview && isGoogleConfigured ? (
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(10, 132, 255, 0.12)", display: "grid", placeItems: "center", fontSize: 18, fontWeight: 800, color: "var(--accent)" }}>G</div>
-                  <div><div style={{ fontSize: 16, fontWeight: 700 }}>Ready to connect Google</div><div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Review what Chronarch will access before you continue.</div></div>
+                  <div style={{ width: 36, height: 36, borderRadius: "var(--radius-md)", background: "rgba(10, 132, 255, 0.12)", display: "grid", placeItems: "center", fontSize: "var(--text-lg)", fontWeight: 800, color: "var(--accent)" }}>G</div>
+                  <div><div style={{ fontSize: "var(--text-lg)", fontWeight: 700 }}>Ready to connect Google</div><div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>Review what Chronarch will access before you continue.</div></div>
                 </div>
-                <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 14 }}>Google will ask you to choose an account and approve access. You’ll return to Chronarch when setup is complete.</div>
+                <div style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 14 }}>Google will ask you to choose an account and approve access. You’ll return to Chronarch when setup is complete.</div>
                 <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)" }}><span style={{ color: "var(--success)", fontWeight: 800 }}>✓</span><div><div style={{ fontSize: 12, fontWeight: 700 }}>Read your calendar availability</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Find conflicts and suggest open meeting times.</div></div></div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)" }}><span style={{ color: "var(--success)", fontWeight: 800 }}>✓</span><div><div style={{ fontSize: 12, fontWeight: 700 }}>Sync calendar events</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Show your calendars and event details in Chronarch.</div></div></div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)" }}><Icon name="check" size={13} strokeWidth={2.5} style={{ color: "var(--success)", flexShrink: 0 }} /><div><div style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>Read your calendar availability</div><div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>Find conflicts and suggest open meeting times.</div></div></div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)" }}><Icon name="check" size={13} strokeWidth={2.5} style={{ color: "var(--success)", flexShrink: 0 }} /><div><div style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>Sync calendar events</div><div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>Show your calendars and event details in Chronarch.</div></div></div>
                 </div>
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button onClick={() => setGoogleReview(false)} className="btn-secondary hoverable">Back</button><button onClick={handleGoogleDirectConnect} disabled={connecting} className="btn-primary hoverable">{connecting ? "Redirecting to Google…" : "Continue to Google →"}</button></div>
               </div>
@@ -1019,21 +1013,21 @@ function ConnectAccountWizardModal({
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>OAuth Credentials Active</span>
+                    <span style={{ fontSize: "var(--text-md)", fontWeight: 600 }}>OAuth Credentials Active</span>
                     <span
                       style={{
-                        fontSize: 10,
+                        fontSize: "var(--text-xs)",
                         fontWeight: 700,
                         background: "rgba(48, 209, 88, 0.15)",
                         color: "var(--success)",
                         padding: "2px 6px",
-                        borderRadius: 4,
+                        borderRadius: "var(--radius-sm)",
                       }}
                     >
                       CONFIGURED
                     </span>
                   </div>
-                  <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: 0, lineHeight: 1.5 }}>
+                  <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", margin: 0, lineHeight: 1.5 }}>
                     Your Google OAuth application credentials are ready. Clicking continue will securely redirect you to Google to select your account and grant calendar permissions.
                   </p>
                 </div>
@@ -1055,7 +1049,7 @@ function ConnectAccountWizardModal({
             ) : (
               /* Needs setup -> Guided 3-step wizard */
               <div>
-                <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}>
+                <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 16px" }}>
                   To connect Google Calendar to your self-hosted Chronarch instance, set up an OAuth Client in the Google Cloud Console.
                 </p>
 
@@ -1069,10 +1063,10 @@ function ConnectAccountWizardModal({
                     marginBottom: 14,
                   }}
                 >
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
+                  <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
                     Step 1: Copy your Authorized Redirect URI
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 8 }}>
+                  <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginBottom: 8 }}>
                     In Google Cloud Console under Credentials → Web application → Authorized redirect URIs:
                   </div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -1081,14 +1075,14 @@ function ConnectAccountWizardModal({
                       readOnly
                       value={googleRedirectUri}
                       className="input-standard"
-                      style={{ flex: 1, fontSize: 11, background: "var(--bg-app)", color: "var(--accent)" }}
+                      style={{ flex: 1, fontSize: "var(--text-sm)", background: "var(--bg-app)", color: "var(--accent)" }}
                     />
                     <button
                       onClick={() => handleCopyUri(googleRedirectUri)}
                       className="btn-secondary hoverable"
-                      style={{ fontSize: 11, padding: "6px 10px", whiteSpace: "nowrap" }}
+                      style={{ fontSize: "var(--text-sm)", padding: "6px 10px", whiteSpace: "nowrap" }}
                     >
-                      {copiedUri ? "✓ Copied!" : "Copy URI"}
+                      {copiedUri ? "Copied" : "Copy URI"}
                     </button>
                   </div>
                 </div>
@@ -1103,10 +1097,10 @@ function ConnectAccountWizardModal({
                     marginBottom: 14,
                   }}
                 >
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
+                  <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
                     Step 2: Create Credentials in Google Cloud
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                  <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.5 }}>
                     1. Ensure <strong>Google Calendar API</strong> is enabled.<br />
                     2. Go to <strong>Credentials</strong> → <strong>Create Credentials</strong> → <strong>OAuth client ID</strong>.<br />
                     3. Application Type: <strong>Web application</strong>. Paste the Redirect URI from Step 1 above.
@@ -1116,7 +1110,7 @@ function ConnectAccountWizardModal({
                       href="https://console.cloud.google.com/apis/credentials"
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
+                      style={{ fontSize: "var(--text-sm)", color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
                     >
                       Open Google Cloud Console Credentials ↗
                     </a>
@@ -1133,12 +1127,12 @@ function ConnectAccountWizardModal({
                     marginBottom: 20,
                   }}
                 >
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", marginBottom: 10 }}>
+                  <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-primary)", marginBottom: 10 }}>
                     Step 3: Enter your Client ID & Secret
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <div>
-                      <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
                         Client ID <FieldHelp text="Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client IDs. Copy the Client ID from your Web application credential." />
                       </label>
                       <input
@@ -1147,11 +1141,11 @@ function ConnectAccountWizardModal({
                         value={clientId}
                         onChange={(e) => setClientId(e.target.value)}
                         className="input-standard"
-                        style={{ width: "100%", fontSize: 12 }}
+                        style={{ width: "100%", fontSize: "var(--text-sm)" }}
                       />
                     </div>
                     <div>
-                      <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
                         Client Secret <FieldHelp text="Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client IDs. Open your Web application credential and copy the Client secret." />
                       </label>
                       <input
@@ -1160,7 +1154,7 @@ function ConnectAccountWizardModal({
                         value={clientSecret}
                         onChange={(e) => setClientSecret(e.target.value)}
                         className="input-standard"
-                        style={{ width: "100%", fontSize: 12 }}
+                        style={{ width: "100%", fontSize: "var(--text-sm)" }}
                       />
                     </div>
                   </div>
@@ -1190,7 +1184,7 @@ function ConnectAccountWizardModal({
             {configError && (
               <div
                 style={{
-                  fontSize: 12,
+                  fontSize: "var(--text-sm)",
                   color: "var(--danger)",
                   background: "rgba(255, 69, 58, 0.1)",
                   padding: "10px 12px",
@@ -1214,21 +1208,21 @@ function ConnectAccountWizardModal({
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>Microsoft OAuth Configured</span>
+                    <span style={{ fontSize: "var(--text-md)", fontWeight: 600 }}>Microsoft OAuth Configured</span>
                     <span
                       style={{
-                        fontSize: 10,
+                        fontSize: "var(--text-xs)",
                         fontWeight: 700,
                         background: "rgba(48, 209, 88, 0.15)",
                         color: "var(--success)",
                         padding: "2px 6px",
-                        borderRadius: 4,
+                        borderRadius: "var(--radius-sm)",
                       }}
                     >
                       CONFIGURED
                     </span>
                   </div>
-                  <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: 0, lineHeight: 1.5 }}>
+                  <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", margin: 0, lineHeight: 1.5 }}>
                     Your Microsoft Azure client credentials are ready. Clicking continue will securely redirect you to Microsoft Graph to authorize calendar access.
                   </p>
                 </div>
@@ -1261,7 +1255,7 @@ function ConnectAccountWizardModal({
               </div>
             ) : (
               <div>
-                <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}>
+                <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 16px" }}>
                   Set up an App Registration in Azure Portal to connect Microsoft 365 or Outlook accounts.
                 </p>
 
@@ -1275,10 +1269,10 @@ function ConnectAccountWizardModal({
                     marginBottom: 14,
                   }}
                 >
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
+                  <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
                     Step 1: Copy your Redirect URI
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 8 }}>
+                  <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginBottom: 8 }}>
                     In Azure Portal under App registrations → Authentication → Add a platform (Web):
                   </div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -1287,14 +1281,14 @@ function ConnectAccountWizardModal({
                       readOnly
                       value={microsoftRedirectUri}
                       className="input-standard"
-                      style={{ flex: 1, fontSize: 11, background: "var(--bg-app)", color: "var(--accent)" }}
+                      style={{ flex: 1, fontSize: "var(--text-sm)", background: "var(--bg-app)", color: "var(--accent)" }}
                     />
                     <button
                       onClick={() => handleCopyUri(microsoftRedirectUri)}
                       className="btn-secondary hoverable"
-                      style={{ fontSize: 11, padding: "6px 10px", whiteSpace: "nowrap" }}
+                      style={{ fontSize: "var(--text-sm)", padding: "6px 10px", whiteSpace: "nowrap" }}
                     >
-                      {copiedUri ? "✓ Copied!" : "Copy URI"}
+                      {copiedUri ? "Copied" : "Copy URI"}
                     </button>
                   </div>
                 </div>
@@ -1309,12 +1303,12 @@ function ConnectAccountWizardModal({
                     marginBottom: 20,
                   }}
                 >
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", marginBottom: 10 }}>
+                  <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-primary)", marginBottom: 10 }}>
                     {editMicrosoftConfig ? "Update Microsoft credentials" : "Step 2: Enter Application (Client) ID & Secret"}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <div>
-                      <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
                         Application (Client) ID <FieldHelp text="Azure Portal → Microsoft Entra ID → App registrations → your app → Overview. Copy the Application (client) ID." />
                       </label>
                       <input
@@ -1323,11 +1317,11 @@ function ConnectAccountWizardModal({
                         value={clientId}
                         onChange={(e) => setClientId(e.target.value)}
                         className="input-standard"
-                        style={{ width: "100%", fontSize: 12 }}
+                        style={{ width: "100%", fontSize: "var(--text-sm)" }}
                       />
                     </div>
                     <div>
-                      <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
                         Client Secret Value <FieldHelp text="Azure Portal → App registrations → your app → Certificates & secrets → Client secrets. Copy the Secret Value immediately after creating it; the Secret ID will not work." />
                       </label>
                       <input
@@ -1336,11 +1330,11 @@ function ConnectAccountWizardModal({
                         value={clientSecret}
                         onChange={(e) => setClientSecret(e.target.value)}
                         className="input-standard"
-                        style={{ width: "100%", fontSize: 12 }}
+                        style={{ width: "100%", fontSize: "var(--text-sm)" }}
                       />
                     </div>
                     <div>
-                      <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
                         Tenant ID (optional, defaults to common) <FieldHelp text="Azure Portal → Microsoft Entra ID → Overview. Use the Directory (tenant) ID for a single organization, or leave this as common for multi-tenant sign-in." />
                       </label>
                       <input
@@ -1349,7 +1343,7 @@ function ConnectAccountWizardModal({
                         value={tenantId}
                         onChange={(e) => setTenantId(e.target.value)}
                         className="input-standard"
-                        style={{ width: "100%", fontSize: 12 }}
+                        style={{ width: "100%", fontSize: "var(--text-sm)" }}
                       />
                     </div>
                   </div>
@@ -1376,7 +1370,7 @@ function ConnectAccountWizardModal({
         {/* STEP 2: CalDAV Flow */}
         {selectedProvider === "caldav" && (
           <div>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}>
+            <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 16px" }}>
               Connect a standard CalDAV account with its server URL, username, and password (BR-CAL-003).
               Calendars are discovered automatically and synced like Google/Microsoft accounts.
             </p>
@@ -1384,7 +1378,7 @@ function ConnectAccountWizardModal({
             {caldavError && (
               <div
                 style={{
-                  fontSize: 12,
+                  fontSize: "var(--text-sm)",
                   color: "var(--danger)",
                   background: "rgba(255, 69, 58, 0.1)",
                   padding: "10px 12px",
@@ -1398,7 +1392,7 @@ function ConnectAccountWizardModal({
             {caldavTestOk && (
               <div
                 style={{
-                  fontSize: 12,
+                  fontSize: "var(--text-sm)",
                   color: "var(--success)",
                   background: "rgba(48, 209, 88, 0.1)",
                   padding: "10px 12px",
@@ -1412,7 +1406,7 @@ function ConnectAccountWizardModal({
 
             <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>
                   CalDAV Server URL
                 </label>
                 <input
@@ -1425,7 +1419,7 @@ function ConnectAccountWizardModal({
                 />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>
                   Username
                 </label>
                 <input
@@ -1438,7 +1432,7 @@ function ConnectAccountWizardModal({
                 />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>
                   Password (stored encrypted)
                 </label>
                 <input
@@ -1451,7 +1445,7 @@ function ConnectAccountWizardModal({
                 />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>
                   Display Label (optional)
                 </label>
                 <input
@@ -1492,14 +1486,14 @@ function ConnectAccountWizardModal({
         {/* STEP 2: ICS Subscription & Local Upload Flow */}
         {selectedProvider === "ics" && (
           <div>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}>
+            <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 16px" }}>
               Subscribe to an external iCalendar feed via URL or upload a local .ics meeting file.
             </p>
 
             {icsError && (
               <div
                 style={{
-                  fontSize: 12,
+                  fontSize: "var(--text-sm)",
                   color: "var(--danger)",
                   background: "rgba(255, 69, 58, 0.1)",
                   padding: "10px 12px",
@@ -1514,7 +1508,7 @@ function ConnectAccountWizardModal({
             <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}>
               {/* ICS Feed URL Subscription */}
               <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: 14 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Option A: Subscribe to Feed URL</div>
+                <div style={{ fontSize: "var(--text-md)", fontWeight: 700, marginBottom: 10 }}>Option A: Subscribe to Feed URL</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <input
                     type="text"
@@ -1522,7 +1516,7 @@ function ConnectAccountWizardModal({
                     value={icsName}
                     onChange={(e) => setIcsName(e.target.value)}
                     className="input-standard"
-                    style={{ width: "100%", fontSize: 12.5 }}
+                    style={{ width: "100%", fontSize: "var(--text-sm)" }}
                   />
                   <input
                     type="url"
@@ -1530,14 +1524,14 @@ function ConnectAccountWizardModal({
                     value={icsUrl}
                     onChange={(e) => setIcsUrl(e.target.value)}
                     className="input-standard"
-                    style={{ width: "100%", fontSize: 12.5 }}
+                    style={{ width: "100%", fontSize: "var(--text-sm)" }}
                   />
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <button
                       onClick={handleSaveIcsSubscription}
                       disabled={icsSaving || !icsUrl.trim()}
                       className="btn-primary hoverable"
-                      style={{ padding: "6px 14px", fontSize: 12.5 }}
+                      style={{ padding: "6px 14px", fontSize: "var(--text-sm)" }}
                     >
                       {icsSaving ? "Subscribing…" : "Subscribe to Feed"}
                     </button>
@@ -1547,11 +1541,11 @@ function ConnectAccountWizardModal({
 
               {/* Local .ics File Upload */}
               <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: 14 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Option B: Upload Local .ics File</div>
-                <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 10 }}>
+                <div style={{ fontSize: "var(--text-md)", fontWeight: 700, marginBottom: 4 }}>Option B: Upload Local .ics File</div>
+                <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginBottom: 10 }}>
                   Select an iCalendar (.ics) file from your computer to import events.
                 </div>
-                <label className="btn-secondary hoverable" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 12.5, cursor: "pointer" }}>
+                <label className="btn-secondary hoverable" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: "var(--text-sm)", cursor: "pointer" }}>
                   <span>Choose .ics File</span>
                   <input
                     type="file"
@@ -1645,14 +1639,14 @@ function ProviderCredentialCard({
   return (
     <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 14, marginTop: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-        <span style={{ fontSize: 13, fontWeight: 700 }}>{title}</span>
+        <span style={{ fontSize: "var(--text-md)", fontWeight: 700 }}>{title}</span>
         <span
           style={{
-            fontSize: 10,
+            fontSize: "var(--text-xs)",
             fontWeight: 700,
             letterSpacing: 0.5,
             padding: "2px 6px",
-            borderRadius: 4,
+            borderRadius: "var(--radius-sm)",
             background: configured ? "rgba(48, 209, 88, 0.15)" : "var(--wash-faint)",
             color: configured ? "var(--success)" : "var(--text-tertiary)",
           }}
@@ -1660,7 +1654,7 @@ function ProviderCredentialCard({
           {configured ? "CONFIGURED" : "NOT CONFIGURED"}
         </span>
       </div>
-      <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "0 0 10px" }}>{hint}</p>
+      <p style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", margin: "0 0 10px" }}>{hint}</p>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         <input
           type="text"
@@ -1702,7 +1696,7 @@ function ProviderCredentialCard({
           }}
           disabled={saving}
           className="btn-primary hoverable"
-          style={{ padding: "6px 14px", fontSize: 12 }}
+          style={{ padding: "6px 14px", fontSize: "var(--text-sm)" }}
         >
           {saving ? "Saving…" : `Save ${title} credentials`}
         </button>
@@ -1711,9 +1705,9 @@ function ProviderCredentialCard({
             onClick={onClear}
             disabled={saving}
             className="btn-danger hoverable"
-            style={{ padding: "6px 14px", fontSize: 12 }}
+            style={{ padding: "6px 14px", fontSize: "var(--text-sm)" }}
           >
-            Clear
+            {saving ? "Clearing…" : "Clear"}
           </button>
         )}
       </div>
@@ -1724,7 +1718,7 @@ function ProviderCredentialCard({
 function ProviderLogo({ provider }: { provider: string }) {
   if (provider === "google") {
     return (
-      <div aria-label="Google" title="Google" style={{ width: 36, height: 36, borderRadius: 8, background: "#fff", border: "1px solid var(--border-subtle)", display: "grid", placeItems: "center" }}>
+      <div aria-label="Google" title="Google" style={{ width: 36, height: 36, borderRadius: "var(--radius-md)", background: "var(--text-on-fill)", border: "1px solid var(--border-subtle)", display: "grid", placeItems: "center" }}>
         <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
           <path fill="#4285F4" d="M21.35 12.27c0-.72-.06-1.42-.18-2.09H12v3.96h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.7 2.91-4.2 2.91-7.26Z" />
           <path fill="#34A853" d="M12 21.6c2.63 0 4.84-.87 6.45-2.36l-3.14-2.45c-.87.58-1.98.92-3.31.92-2.54 0-4.7-1.72-5.47-4.03H3.28v2.53A9.75 9.75 0 0 0 12 21.6Z" />
@@ -1736,7 +1730,7 @@ function ProviderLogo({ provider }: { provider: string }) {
   }
   if (provider === "microsoft") {
     return (
-      <div aria-label="Microsoft" title="Microsoft" style={{ width: 36, height: 36, borderRadius: 8, background: "#fff", border: "1px solid var(--border-subtle)", display: "grid", placeItems: "center" }}>
+      <div aria-label="Microsoft" title="Microsoft" style={{ width: 36, height: 36, borderRadius: "var(--radius-md)", background: "var(--text-on-fill)", border: "1px solid var(--border-subtle)", display: "grid", placeItems: "center" }}>
         <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
           <path fill="#f35325" d="M2 2h9.5v9.5H2z" /><path fill="#81bc06" d="M12.5 2H22v9.5h-9.5z" />
           <path fill="#05a6f0" d="M2 12.5h9.5V22H2z" /><path fill="#ffba08" d="M12.5 12.5H22V22h-9.5z" />
@@ -1744,7 +1738,7 @@ function ProviderLogo({ provider }: { provider: string }) {
       </div>
     );
   }
-  return <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(94, 92, 230, 0.15)", display: "grid", placeItems: "center", fontSize: 18 }}>{provider === "caldav" ? "📅" : "📁"}</div>;
+  return <div style={{ width: 36, height: 36, borderRadius: "var(--radius-md)", background: "rgba(94, 92, 230, 0.15)", display: "grid", placeItems: "center", }}><Icon name={provider === "caldav" ? "calendar" : "folder"} size={19} /></div>;
 }
 
 function SetupHelpPanel({ provider }: { provider: "google" | "microsoft" }) {
@@ -1762,12 +1756,12 @@ function SetupHelpPanel({ provider }: { provider: "google" | "microsoft" }) {
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 10 }}>
-        <div style={{ fontSize: 13, fontWeight: 750 }}>How to get your {google ? "Google" : "Microsoft"} credentials</div>
+        <div style={{ fontSize: "var(--text-md)", fontWeight: 750 }}>How to get your {google ? "Google" : "Microsoft"} credentials</div>
         <a
           href={google ? "https://console.cloud.google.com/apis/credentials" : "https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade"}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: "var(--accent)", fontSize: 11, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}
+          style={{ color: "var(--accent)", fontSize: "var(--text-sm)", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}
         >
           Open {google ? "Google Cloud" : "Microsoft Entra"} ↗
         </a>
@@ -1787,15 +1781,15 @@ function SetupHelpPanel({ provider }: { provider: "google" | "microsoft" }) {
               ["4", "Create and copy a secret", "Open Certificates & secrets → New client secret. Copy the Secret Value immediately; it is shown only once. Do not use Secret ID."],
             ]).map(([number, title, description]) => (
           <div key={number} style={{ display: "grid", gridTemplateColumns: "22px 1fr", gap: 8, alignItems: "start" }}>
-            <span style={{ display: "grid", placeItems: "center", width: 20, height: 20, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 800 }}>{number}</span>
+            <span style={{ display: "grid", placeItems: "center", width: 20, height: 20, borderRadius: "50%", background: "var(--accent)", color: "var(--text-on-fill)", fontSize: "var(--text-xs)", fontWeight: 800 }}>{number}</span>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700 }}>{title}</div>
-              <div style={{ color: "var(--text-secondary)", fontSize: 11, lineHeight: 1.4 }}>{description}</div>
+              <div style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>{title}</div>
+              <div style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", lineHeight: 1.4 }}>{description}</div>
             </div>
           </div>
         ))}
       </div>
-      <div style={{ color: "var(--text-secondary)", fontSize: 10, lineHeight: 1.4, marginTop: 10, paddingTop: 9, borderTop: "1px solid color-mix(in srgb, var(--accent) 18%, transparent)" }}>
+      <div style={{ color: "var(--text-secondary)", fontSize: "var(--text-xs)", lineHeight: 1.4, marginTop: 10, paddingTop: 9, borderTop: "1px solid color-mix(in srgb, var(--accent) 18%, transparent)" }}>
         Keep this window open while you follow the steps. Nothing is saved until you select Save &amp; Connect.
       </div>
     </div>
@@ -1815,7 +1809,7 @@ function FieldHelp({ text }: { text: string }) {
         border: "1px solid var(--text-tertiary)",
         borderRadius: "50%",
         color: "var(--text-tertiary)",
-        fontSize: 10,
+        fontSize: "var(--text-xs)",
         fontWeight: 800,
         cursor: "help",
         userSelect: "none",
@@ -1829,20 +1823,20 @@ function FieldHelp({ text }: { text: string }) {
 const inputStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   border: "1px solid var(--border)",
-  borderRadius: 6,
+  borderRadius: "var(--radius-sm)",
   color: "var(--text-primary)",
   padding: "7px 10px",
-  fontSize: 12,
+  fontSize: "var(--text-sm)",
   colorScheme: "dark",
 };
 
 const btnStyle: React.CSSProperties = {
   border: "none",
-  borderRadius: 6,
-  color: "#fff",
+  borderRadius: "var(--radius-sm)",
+  color: "var(--text-on-fill)",
   background: "var(--accent)",
   padding: "7px 12px",
-  fontSize: 12,
+  fontSize: "var(--text-sm)",
   fontWeight: 600,
   cursor: "pointer",
 };

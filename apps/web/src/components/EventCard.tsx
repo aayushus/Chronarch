@@ -3,6 +3,7 @@ import React from "react";
 import { useAppearance } from "../appearance";
 import type { Attendee, EventSummary } from "../api/calendar";
 import { contrastText, tint } from "../lib/color";
+import Icon from "./Icon";
 
 /** Mondays card language: white floating card, colored top bar, ink title,
  * muted meta, avatar stack + overflow menu. One language for Month/Agenda
@@ -49,8 +50,8 @@ export function avatarColor(seed: string): string {
 export function ProgressBar({ color }: { color: string }) {
   return (
     <div style={{ display: "flex", gap: 3, marginBottom: 7 }}>
-      <span style={{ width: 26, height: 4, borderRadius: 2, background: color }} />
-      <span style={{ width: 14, height: 4, borderRadius: 2, background: "var(--card-line)" }} />
+      <span style={{ width: 26, height: 4, borderRadius: "var(--radius-pill)", background: color }} />
+      <span style={{ width: 14, height: 4, borderRadius: "var(--radius-pill)", background: "var(--card-line)" }} />
     </div>
   );
 }
@@ -64,7 +65,7 @@ function AvatarDots({ avatars, extra }: { avatars: Avatar[]; extra: number }) {
           key={i}
           style={{
             width: 20, height: 20, borderRadius: "50%", background: a.bg, color: "#fff",
-            fontSize: 8.5, fontWeight: 700, display: "inline-flex", alignItems: "center",
+            fontSize: "var(--text-2xs)", fontWeight: 700, display: "inline-flex", alignItems: "center",
             justifyContent: "center", border: "2px solid var(--card-bg)",
             marginLeft: i === 0 ? 0 : -7,
           }}
@@ -73,7 +74,7 @@ function AvatarDots({ avatars, extra }: { avatars: Avatar[]; extra: number }) {
         </span>
       ))}
       {extra > 0 && (
-        <span style={{ fontSize: 10, color: "var(--card-muted)", marginLeft: 4 }}>+{extra}</span>
+        <span style={{ fontSize: "var(--text-xs)", color: "var(--card-muted)", marginLeft: 4 }}>+{extra}</span>
       )}
     </span>
   );
@@ -117,7 +118,7 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
       style={{
         background: cancelled ? "repeating-linear-gradient(135deg, rgba(128,128,128,.18) 0 6px, rgba(128,128,128,.07) 6px 12px), var(--bg-raised)" : color,
         border: cancelled ? "1px solid var(--border-subtle)" : "1px solid rgba(255, 255, 255, 0.15)",
-        borderRadius: 6,
+        borderRadius: "var(--radius-sm)",
         boxShadow: "0 1px 5px rgba(0, 0, 0, 0.14)",
         padding: compact ? "4px 6px" : "6px 8px",
         cursor: "pointer",
@@ -134,10 +135,10 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
         {providerBadge && (
           <span
             style={{
-              fontSize: 9,
+              fontSize: "var(--text-2xs)",
               fontWeight: 700,
               padding: "1px 5px",
-              borderRadius: 4,
+              borderRadius: "var(--radius-sm)",
               background: "rgba(255, 255, 255, 0.2)",
               color: contrastText(color),
               lineHeight: 1,
@@ -162,7 +163,7 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
           textOverflow: "ellipsis",
         }}
       >
-        {cancelled && <span style={{ fontSize: 9, letterSpacing: .5, color: "var(--text-tertiary)", marginRight: 5 }}>CANCELLED</span>}{title}
+        {cancelled && <span style={{ fontSize: "var(--text-2xs)", letterSpacing: .5, color: "var(--text-tertiary)", marginRight: 5 }}>CANCELLED</span>}{title}
       </div>
       {meta && (
           <div style={{ fontSize: compact ? 10.5 : 11.5, fontWeight: 500, color: cancelled ? "var(--text-tertiary)" : (contrastText(color) === "#ffffff" ? "rgba(255, 255, 255, 0.88)" : "rgba(0, 0, 0, 0.7)"), marginTop: compact ? 2 : 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -179,9 +180,9 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
                 onMenu(e);
               }}
               aria-label="Event actions"
-              style={{ border: "none", background: "none", color: contrastText(color) === "#ffffff" ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.6)", fontSize: 13, fontWeight: 700, letterSpacing: 1, cursor: "pointer", padding: "0 2px", lineHeight: 1 }}
+              style={{ border: "none", background: "none", color: contrastText(color) === "#ffffff" ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.6)", cursor: "pointer", padding: "0 2px", lineHeight: 1 }}
             >
-              ···
+              <Icon name="more" size={14} />
             </button>
           )}
         </div>
@@ -214,9 +215,9 @@ export function AllDayChip({ color, title, selected, cancelled, onOpen, onMenu }
       className="event-block"
       style={{
         background: cancelled ? "repeating-linear-gradient(135deg, rgba(128,128,128,.18) 0 6px, rgba(128,128,128,.07) 6px 12px), var(--bg-raised)" : tint(color.startsWith("#") ? color : "#0a84ff", theme === "dark" ? 0.45 : 0.32),
-        borderRadius: 8,
+        borderRadius: "var(--radius-md)",
         padding: "6px 10px",
-        fontSize: 12,
+        fontSize: "var(--text-sm)",
         fontWeight: 600,
         color: cancelled ? "var(--text-secondary)" : allDayInk(theme),
         cursor: "pointer",
@@ -229,7 +230,7 @@ export function AllDayChip({ color, title, selected, cancelled, onOpen, onMenu }
         outline: selected ? `2px solid ${color}` : "none",
       }}
     >
-      {cancelled && <span style={{ fontSize: 9, letterSpacing: .5, color: "var(--text-tertiary)", marginRight: 5 }}>CANCELLED</span>}{title}
+      {cancelled && <span style={{ fontSize: "var(--text-2xs)", letterSpacing: .5, color: "var(--text-tertiary)", marginRight: 5 }}>CANCELLED</span>}{title}
     </div>
   );
 }

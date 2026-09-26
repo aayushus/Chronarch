@@ -14,6 +14,7 @@ import {
   adminUpdateRole,
 } from "../../api/admin";
 import { SectionHeader } from "../ui";
+import Icon from "../Icon";
 
 export default function RolesSettings() {
   const [roles, setRoles] = useState<RoleInfo[]>([]);
@@ -126,7 +127,7 @@ export default function RolesSettings() {
     }
   }
 
-  if (loading) return <div style={{ color: "var(--text-tertiary)", fontSize: 13 }}>Loading roles…</div>;
+  if (loading) return <div style={{ color: "var(--text-tertiary)", fontSize: "var(--text-md)" }}>Loading roles…</div>;
 
   return (
     <div>
@@ -138,11 +139,11 @@ export default function RolesSettings() {
       </div>
 
       {banner && (
-        <div style={{ fontSize: 13, borderRadius: 8, padding: "10px 14px", marginBottom: 16, background: "rgba(48, 209, 88, 0.12)", border: "1px solid rgba(48, 209, 88, 0.3)" }}>
+        <div style={{ fontSize: "var(--text-md)", borderRadius: "var(--radius-md)", padding: "10px 14px", marginBottom: 16, background: "rgba(48, 209, 88, 0.12)", border: "1px solid rgba(48, 209, 88, 0.3)" }}>
           {banner}
         </div>
       )}
-      {error && <div style={{ color: "var(--danger)", fontSize: 13, marginBottom: 16 }}>{error}</div>}
+      {error && <div style={{ color: "var(--danger)", fontSize: "var(--text-md)", marginBottom: 16 }}>{error}</div>}
 
       <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
         {/* Role list */}
@@ -156,21 +157,21 @@ export default function RolesSettings() {
                 textAlign: "left",
                 background: r.id === selectedId ? "var(--bg-raised)" : "transparent",
                 border: `1px solid ${r.id === selectedId ? "var(--accent)" : "var(--border-subtle)"}`,
-                borderRadius: 8,
+                borderRadius: "var(--radius-md)",
                 padding: "10px 12px",
                 cursor: "pointer",
                 color: "var(--text-primary)",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 13, fontWeight: 700 }}>{r.name}</span>
+                <span style={{ fontSize: "var(--text-md)", fontWeight: 700 }}>{r.name}</span>
                 {r.is_system && (
-                  <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: "var(--wash-faint)", color: "var(--text-tertiary)" }}>
+                  <span style={{ fontSize: "var(--text-2xs)", fontWeight: 700, padding: "1px 5px", borderRadius: "var(--radius-sm)", background: "var(--wash-faint)", color: "var(--text-tertiary)" }}>
                     SYSTEM
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
+              <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: 2 }}>
                 {r.members.length} member{r.members.length === 1 ? "" : "s"} · {r.permissions.length} permissions
               </div>
             </button>
@@ -180,7 +181,7 @@ export default function RolesSettings() {
             <button
               onClick={() => setWizardOpen(true)}
               className="btn-primary hoverable"
-              style={{ width: "100%", padding: "8px 12px", fontSize: 12, fontWeight: 600 }}
+              style={{ width: "100%", padding: "8px 12px", fontSize: "var(--text-sm)", fontWeight: 600 }}
             >
               + New Role
             </button>
@@ -189,24 +190,24 @@ export default function RolesSettings() {
 
         {/* Editor */}
         {selected && (
-          <div style={{ flex: "1 1 420px", background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 12, padding: 18 }}>
+          <div style={{ flex: "1 1 420px", background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-xl)", padding: 18 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <div style={{ fontSize: 15, fontWeight: 700 }}>
+              <div style={{ fontSize: "var(--text-lg)", fontWeight: 700 }}>
                 {selected.name}
                 {selected.name === "admin" && (
-                  <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text-tertiary)", marginLeft: 8 }}>
+                  <span style={{ fontSize: "var(--text-sm)", fontWeight: 400, color: "var(--text-tertiary)", marginLeft: 8 }}>
                     always has every permission
                   </span>
                 )}
               </div>
               {!selected.is_system && (
-                <button onClick={handleDelete} disabled={saving} className="btn-danger hoverable" style={{ padding: "5px 10px", fontSize: 12 }}>
-                  Delete role
+                <button onClick={handleDelete} disabled={saving} className="btn-danger hoverable" style={{ padding: "5px 10px", fontSize: "var(--text-sm)" }}>
+                  {saving ? "Deleting…" : "Delete role"}
                 </button>
               )}
             </div>
 
-            <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", margin: "10px 0 4px" }}>
+            <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", margin: "10px 0 4px" }}>
               Description
             </label>
             <input
@@ -214,18 +215,18 @@ export default function RolesSettings() {
               value={draftDesc}
               onChange={(e) => setDraftDesc(e.target.value)}
               className="input-standard"
-              style={{ width: "100%", fontSize: 12 }}
+              style={{ width: "100%", fontSize: "var(--text-sm)" }}
             />
 
-            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", margin: "14px 0 8px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", margin: "14px 0 8px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
               Permissions
             </div>
             {Object.entries(catalog).map(([group, items]) => (
               <div key={group} style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>{group}</div>
+                <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, marginBottom: 4 }}>{group}</div>
                 {items.map((item) => (
-                  <label key={item.permission} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, padding: "3px 0", cursor: "pointer" }}>
-                    <input
+                  <label key={item.permission} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: "var(--text-sm)", padding: "3px 0", cursor: "pointer" }}>
+                    <input className="checkbox"
                       type="checkbox"
                       checked={draftPerms.has(item.permission)}
                       onChange={() => togglePerm(item.permission)}
@@ -240,27 +241,27 @@ export default function RolesSettings() {
               </div>
             ))}
 
-            <button onClick={handleSavePerms} disabled={saving} className="btn-primary hoverable" style={{ padding: "7px 16px", fontSize: 12, marginTop: 4 }}>
+            <button onClick={handleSavePerms} disabled={saving} className="btn-primary hoverable" style={{ padding: "7px 16px", fontSize: "var(--text-sm)", marginTop: 4 }}>
               {saving ? "Saving…" : "Save role"}
             </button>
 
-            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", margin: "16px 0 8px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", margin: "16px 0 8px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
               Members ({selected.members.length})
             </div>
             {selected.members.map((m) => (
-              <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, padding: "4px 0" }}>
+              <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "var(--text-sm)", padding: "4px 0" }}>
                 <span>{m.email}</span>
                 <button
                   onClick={() => handleRemoveMember(m.id)}
                   className="hoverable"
-                  style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontSize: 12 }}
+                  style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontSize: "var(--text-sm)" }}
                 >
                   Remove
                 </button>
               </div>
             ))}
             <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-              <select value={addUserId} onChange={(e) => setAddUserId(e.target.value)} className="input-standard" style={{ flex: 1, fontSize: 12 }}>
+              <select className="input-standard select" value={addUserId} onChange={(e) => setAddUserId(e.target.value)}  style={{ flex: 1}}>
                 <option value="">Add member…</option>
                 {users
                   .filter((u) => !selected.members.some((m) => m.id === u.id))
@@ -270,12 +271,12 @@ export default function RolesSettings() {
                     </option>
                   ))}
               </select>
-              <button onClick={handleAddMember} disabled={!addUserId} className="btn-secondary hoverable" style={{ padding: "6px 12px", fontSize: 12 }}>
+              <button onClick={handleAddMember} disabled={!addUserId} className="btn-secondary hoverable" style={{ padding: "6px 12px", fontSize: "var(--text-sm)" }}>
                 Add
               </button>
             </div>
             <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-              <select value={addUserId} onChange={(e) => setAddUserId(e.target.value)} className="input-standard" style={{ flex: 1, fontSize: 12 }}>
+              <select className="input-standard select" value={addUserId} onChange={(e) => setAddUserId(e.target.value)}  style={{ flex: 1}}>
                 <option value="">Add member…</option>
                 {users
                   .filter((u) => !selected.members.some((m) => m.id === u.id))
@@ -285,7 +286,7 @@ export default function RolesSettings() {
                     </option>
                   ))}
               </select>
-              <button onClick={handleAddMember} disabled={!addUserId} className="btn-secondary hoverable" style={{ padding: "6px 12px", fontSize: 12 }}>
+              <button onClick={handleAddMember} disabled={!addUserId} className="btn-secondary hoverable" style={{ padding: "6px 12px", fontSize: "var(--text-sm)" }}>
                 Add
               </button>
             </div>
@@ -399,19 +400,19 @@ function NewRoleWizard({
               <button
                 onClick={() => setStep(step - 1)}
                 className="hoverable"
-                style={{ background: "var(--bg-raised)", border: "none", borderRadius: 6, color: "var(--text-secondary)", padding: "4px 8px", fontSize: 12, cursor: "pointer" }}
+                style={{ background: "var(--bg-raised)", border: "none", borderRadius: "var(--radius-sm)", color: "var(--text-secondary)", padding: "4px 8px", fontSize: "var(--text-sm)", cursor: "pointer" }}
               >
                 ← Back
               </button>
             )}
-            <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>New Role</h3>
+            <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, margin: 0 }}>New Role</h3>
           </div>
           <button
             onClick={onClose}
             className="hoverable"
-            style={{ background: "none", border: "none", color: "var(--text-tertiary)", fontSize: 20, cursor: "pointer", padding: "2px 6px" }}
+            style={{ background: "none", border: "none", color: "var(--text-tertiary)", fontSize: "var(--text-xl)", cursor: "pointer", padding: "2px 6px" }}
           >
-            ✕
+            <Icon name="x" size={13} />
           </button>
         </div>
 
@@ -422,11 +423,11 @@ function NewRoleWizard({
               <div
                 style={{
                   height: 3,
-                  borderRadius: 2,
+                  borderRadius: "var(--radius-pill)",
                   background: i < step ? "var(--success)" : i === step ? "var(--accent)" : "var(--border-subtle)",
                 }}
               />
-              <div style={{ fontSize: 10, fontWeight: i === step ? 700 : 400, color: i === step ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+              <div style={{ fontSize: "var(--text-xs)", fontWeight: i === step ? 700 : 400, color: i === step ? "var(--text-primary)" : "var(--text-tertiary)" }}>
                 {i + 1}. {label}
               </div>
             </div>
@@ -434,7 +435,7 @@ function NewRoleWizard({
         </div>
 
         {error && (
-          <div style={{ fontSize: 12, color: "var(--danger)", background: "rgba(255, 69, 58, 0.1)", padding: "10px 12px", borderRadius: 8, marginBottom: 16 }}>
+          <div style={{ fontSize: "var(--text-sm)", color: "var(--danger)", background: "rgba(255, 69, 58, 0.1)", padding: "10px 12px", borderRadius: "var(--radius-md)", marginBottom: 16 }}>
             {error}
           </div>
         )}
@@ -442,10 +443,10 @@ function NewRoleWizard({
         {/* STEP 1: Details */}
         {step === 0 && (
           <div>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}>
+            <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 16px" }}>
               Name the role. Optionally start from an existing role's permissions.
             </p>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Role name</label>
+            <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>Role name</label>
             <input
               type="text"
               placeholder="e.g. Support agent"
@@ -455,13 +456,13 @@ function NewRoleWizard({
               className="input-standard"
               style={{ width: "100%", marginBottom: 4 }}
             />
-            <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 14 }}>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginBottom: 14 }}>
               Saved as <code style={{ fontFamily: "var(--font-mono, monospace)" }}>{normalized || "…"}</code>
               {roles.some((r) => r.name === normalized) && normalized && (
                 <span style={{ color: "var(--danger)" }}> — that name is taken</span>
               )}
             </div>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Description (optional)</label>
+            <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>Description (optional)</label>
             <input
               type="text"
               placeholder="What is this role for?"
@@ -470,8 +471,8 @@ function NewRoleWizard({
               className="input-standard"
               style={{ width: "100%", marginBottom: 14 }}
             />
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Start from (optional)</label>
-            <select value={cloneFrom} onChange={(e) => pickClone(e.target.value)} className="input-standard" style={{ width: "100%" }}>
+            <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>Start from (optional)</label>
+            <select className="input-standard select" value={cloneFrom} onChange={(e) => pickClone(e.target.value)}  style={{ width: "100%" }}>
               <option value="">Blank — pick permissions next</option>
               {roles.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -485,15 +486,15 @@ function NewRoleWizard({
         {/* STEP 2: Permissions */}
         {step === 1 && (
           <div>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 12px" }}>
+            <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 12px" }}>
               {perms.size} permission{perms.size === 1 ? "" : "s"} selected. Reads let members see a section; writes let them change it.
             </p>
             {Object.entries(catalog).map(([group, items]) => (
               <div key={group} style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>{group}</div>
+                <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, marginBottom: 4 }}>{group}</div>
                 {items.map((item) => (
-                  <label key={item.permission} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, padding: "3px 0", cursor: "pointer" }}>
-                    <input type="checkbox" checked={perms.has(item.permission)} onChange={() => togglePerm(item.permission)} style={{ marginTop: 2 }} />
+                  <label key={item.permission} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: "var(--text-sm)", padding: "3px 0", cursor: "pointer" }}>
+                    <input className="checkbox" type="checkbox" checked={perms.has(item.permission)} onChange={() => togglePerm(item.permission)} style={{ marginTop: 2 }} />
                     <span>
                       <span style={{ fontFamily: "var(--font-mono, monospace)", color: "var(--text-primary)" }}>{item.permission}</span>
                       <span style={{ color: "var(--text-tertiary)" }}> — {item.description}</span>
@@ -508,15 +509,15 @@ function NewRoleWizard({
         {/* STEP 3: Members */}
         {step === 2 && (
           <div>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 12px" }}>
+            <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 12px" }}>
               Who gets this role? You can also assign members later.
             </p>
             {users.map((u) => (
-              <label key={u.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, padding: "7px 10px", border: "1px solid var(--border-subtle)", borderRadius: 8, marginBottom: 6, cursor: "pointer" }}>
-                <input type="checkbox" checked={memberIds.has(u.id)} onChange={() => toggleMember(u.id)} />
+              <label key={u.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "var(--text-md)", padding: "7px 10px", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", marginBottom: 6, cursor: "pointer" }}>
+                <input className="checkbox" type="checkbox" checked={memberIds.has(u.id)} onChange={() => toggleMember(u.id)} />
                 <span style={{ flex: 1 }}>
                   <span style={{ fontWeight: 600 }}>{u.display_name || u.email}</span>
-                  <span style={{ color: "var(--text-tertiary)", marginLeft: 8, fontSize: 12 }}>{u.email} · {u.role}</span>
+                  <span style={{ color: "var(--text-tertiary)", marginLeft: 8, fontSize: "var(--text-sm)" }}>{u.email} · {u.role}</span>
                 </span>
               </label>
             ))}
@@ -526,10 +527,10 @@ function NewRoleWizard({
         {/* STEP 4: Review */}
         {step === 3 && (
           <div>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 12px" }}>
+            <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 12px" }}>
               Confirm before creating.
             </p>
-            <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 8, padding: 14, fontSize: 13 }}>
+            <div style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: 14, fontSize: "var(--text-md)" }}>
               <div style={{ marginBottom: 8 }}>
                 <span style={{ color: "var(--text-tertiary)" }}>Name: </span>
                 <code style={{ fontFamily: "var(--font-mono, monospace)", fontWeight: 700 }}>{normalized}</code>

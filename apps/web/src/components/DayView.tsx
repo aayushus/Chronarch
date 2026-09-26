@@ -258,9 +258,9 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
               style={{
                 background: isCancelledEvent(e) ? "repeating-linear-gradient(135deg, rgba(128,128,128,.18) 0 6px, rgba(128,128,128,.07) 6px 12px), var(--bg-raised)" : color,
                 color: isCancelledEvent(e) ? "var(--text-secondary)" : contrastText(color.startsWith("#") ? color : "#0a84ff"),
-                borderRadius: 6,
+                borderRadius: "var(--radius-sm)",
                 padding: "4px 10px",
-                fontSize: 12,
+                fontSize: "var(--text-sm)",
                 fontWeight: 600,
                 marginBottom: 4,
                 cursor: canWrite(cal) ? "grab" : "pointer",
@@ -270,7 +270,7 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                 alignItems: "center",
               }}
             >
-              {isCancelledEvent(e) && <span style={{ fontSize: 9, letterSpacing: .5, color: "var(--text-tertiary)", marginRight: 5 }}>CANCELLED</span>}{e.title}
+              {isCancelledEvent(e) && <span style={{ fontSize: "var(--text-2xs)", letterSpacing: .5, color: "var(--text-tertiary)", marginRight: 5 }}>CANCELLED</span>}{e.title}
             </div>
           );
         })}
@@ -316,7 +316,7 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                   position: "absolute",
                   top: HOUR_H / 2,
                   left: 8,
-                  fontSize: 11,
+                  fontSize: "var(--text-sm)",
                   lineHeight: 1.1,
                   transform: "translateY(-50%)",
                   color: "var(--text-tertiary)",
@@ -326,7 +326,7 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
               >
                 {formatHour(h)}
                 {secondaryLabels[i] ? (
-                  <span style={{ display: "block", fontSize: 9, opacity: 0.75 }}>{secondaryLabels[i]}</span>
+                  <span style={{ display: "block", fontSize: "var(--text-2xs)", opacity: 0.75 }}>{secondaryLabels[i]}</span>
                 ) : null}
               </span>}
             </div>
@@ -343,7 +343,7 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                 right: 8,
                 background: "var(--accent)",
                 opacity: 0.35,
-                borderRadius: 6,
+                borderRadius: "var(--radius-sm)",
                 pointerEvents: "none",
               }}
             />
@@ -360,9 +360,9 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                     top: -9,
                     background: "var(--danger)",
                     color: "#fff",
-                    fontSize: 10,
+                    fontSize: "var(--text-xs)",
                     fontWeight: 700,
-                    borderRadius: 4,
+                    borderRadius: "var(--radius-sm)",
                     padding: "2px 4px",
                   }}
                 >
@@ -387,9 +387,9 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                   right: 8,
                   background: "var(--accent)",
                   opacity: 0.35,
-                  borderRadius: 6,
+                  borderRadius: "var(--radius-sm)",
                   padding: "4px 8px",
-                  fontSize: 12,
+                  fontSize: "var(--text-sm)",
                   fontWeight: 600,
                   overflow: "hidden",
                   whiteSpace: "nowrap",
@@ -450,7 +450,7 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                   background: color,
                   border: "1px solid rgba(255, 255, 255, 0.15)",
                   boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
-                  borderRadius: 8,
+                  borderRadius: "var(--radius-md)",
                   padding: "6px 10px",
                   overflow: "hidden",
                   cursor: draggable ? "grab" : "pointer",
@@ -464,7 +464,7 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                 <div
                   title={event.title}
                   style={{
-                    fontSize: 13,
+                    fontSize: "var(--text-md)",
                     fontWeight: 700,
                     color: contrastText(color),
                     display: "-webkit-box",
@@ -479,7 +479,7 @@ export default function DayView({ day, events, calendarById, onSelectEvent, sele
                   {event.title}
                 </div>
                 {height > 34 && (
-                  <div className="tabular-nums" style={{ fontSize: 11, fontWeight: 500, color: contrastText(color) === "#ffffff" ? "rgba(255, 255, 255, 0.88)" : "rgba(0, 0, 0, 0.7)", marginTop: 2 }}>
+                  <div className="tabular-nums" style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: contrastText(color) === "#ffffff" ? "rgba(255, 255, 255, 0.88)" : "rgba(0, 0, 0, 0.7)", marginTop: 2 }}>
                     {formatTimeRange(displayStart, displayEnd)}
                   </div>
                 )}

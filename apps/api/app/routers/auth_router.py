@@ -234,7 +234,7 @@ def _me_response(user: User, *, permissions=None, roles=None) -> MeResponse:
 
 @router.get("/me", response_model=MeResponse)
 async def me(
-    user: User = Depends(get_current_user_for_password_change),
+    user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
     from chronarch_core import rbac as _rbac

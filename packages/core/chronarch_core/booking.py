@@ -206,14 +206,15 @@ async def _book_event(session: AsyncSession, link: BookingLink, host: User,
     from .models.contact import Contact
 
     try:
-        await create_contact(session, email=email, display_name=name)
+        await create_contact(session, email=email, display_name=name, owner_user_id=host.id)
     except ValueError:
         pass  # already known — the directory keeps its row
     # Count the booking meeting like extraction counts synced invites.
     # Without this, booking-created rows sit at event_count=0 and sort last
     # in the most-met-first directory (often past the default limit).
     contact = (
-        await session.execute(select(Contact).where(Contact.email == email.strip().lower()))
+        await session.execute(select(Contact).where(
+            Contact.email == email.strip().lower(), Contact.owner_user_id == host.id))
     ).scalar_one_or_none()
     if contact is not None and contact.deleted_at is None:
         contact.event_count = (contact.event_count or 0) + 1

@@ -3,8 +3,16 @@ import React from "react";
 import Icon, { IconName } from "./Icon";
 
 /** Shared empty state (Chronarch design philosophy): icon tile + title +
- * guidance + one CTA. Every empty list in the app uses this — no bespoke
- * emoji placeholders, no dead ends.
+ *  guidance + one CTA. Every empty list in the app uses this — no bespoke
+ *  emoji placeholders, no dead ends.
+ *
+ *  Two deliberate choices. The border is a solid hairline, not dashed:
+ *  dashed is the language of *incomplete or invalid*, and an empty list is
+ *  neither — it is Tuesday. And the icon tile is accent-tinted *only when
+ *  there is a CTA*, so the one saturated element in an empty state is the
+ *  next step rather than the decoration. Four call sites pass an icon with no
+ *  action (audit-log no-results, kiosk unpaired, no calendars, no contacts),
+ *  so the tile is never hidden — it drops to a neutral wash instead.
  */
 interface Props {
   icon: IconName;
@@ -18,10 +26,10 @@ export default function EmptyState({ icon, title, body, actionLabel, onAction }:
   return (
     <div
       style={{
-        background: "var(--bg-raised)",
+        background: "transparent",
         borderRadius: "var(--radius-md)",
-        border: "1px dashed var(--border)",
-        padding: "36px 20px",
+        border: "1px solid var(--border-subtle)",
+        padding: "48px 24px",
         textAlign: "center",
       }}
     >
@@ -29,26 +37,27 @@ export default function EmptyState({ icon, title, body, actionLabel, onAction }:
         style={{
           width: 44,
           height: 44,
-          borderRadius: 12,
-          background: "rgba(10, 132, 255, 0.12)",
-          color: "var(--accent)",
+          borderRadius: "var(--radius-xl)",
+          background: actionLabel ? "var(--accent-soft)" : "var(--wash-faint)",
+          color: actionLabel ? "var(--accent)" : "var(--text-tertiary)",
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: 8,
+          marginBottom: 14,
         }}
       >
         <Icon name={icon} size={20} />
       </div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
+      <div style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>
         {title}
       </div>
       <div
         style={{
-          fontSize: 12,
+          fontSize: "var(--text-sm)",
+          lineHeight: 1.55,
           color: "var(--text-secondary)",
-          marginBottom: actionLabel ? 16 : 0,
-          maxWidth: 460,
+          marginBottom: actionLabel ? 18 : 0,
+          maxWidth: 440,
           marginLeft: "auto",
           marginRight: "auto",
         }}
@@ -59,9 +68,10 @@ export default function EmptyState({ icon, title, body, actionLabel, onAction }:
         <button
           onClick={onAction}
           className="btn-primary hoverable"
-          style={{ padding: "7px 16px", fontSize: 12, fontWeight: 600 }}
+          style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}
         >
-          + {actionLabel}
+          <Icon name="plus" size={13} />
+          {actionLabel}
         </button>
       )}
     </div>

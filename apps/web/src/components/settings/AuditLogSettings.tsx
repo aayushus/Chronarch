@@ -134,8 +134,8 @@ const ACTOR_METAS: Record<string, { label: string; icon: IconName; bg: string; c
   delegate_ui: {
     label: "Delegate",
     icon: "users",
-    bg: "rgba(175, 82, 222, 0.15)",
-    color: "#bf5af2",
+    bg: "var(--accent-alt-soft)",
+    color: "var(--accent-alt)",
   },
   copilot: {
     label: "AI Copilot",
@@ -226,7 +226,7 @@ export default function AuditLogSettings() {
 
   if (loading) {
     return (
-      <div style={{ padding: "32px 0", color: "var(--text-tertiary)", fontSize: 13 }}>
+      <div style={{ padding: "32px 0", color: "var(--text-tertiary)", fontSize: "var(--text-md)" }}>
         Loading immutable audit log…
       </div>
     );
@@ -246,7 +246,7 @@ export default function AuditLogSettings() {
       {error && (
         <div
           style={{
-            fontSize: 13,
+            fontSize: "var(--text-md)",
             borderRadius: "var(--radius-sm)",
             padding: "10px 14px",
             marginBottom: 20,
@@ -264,7 +264,7 @@ export default function AuditLogSettings() {
         style={{
           background: "var(--bg-raised)",
           border: "1px solid var(--border-subtle)",
-          borderRadius: 12,
+          borderRadius: "var(--radius-xl)",
           padding: 14,
           marginBottom: 16,
           display: "flex",
@@ -283,10 +283,10 @@ export default function AuditLogSettings() {
               width: "100%",
               background: "var(--bg-app)",
               border: "1px solid var(--border)",
-              borderRadius: 8,
+              borderRadius: "var(--radius-md)",
               color: "var(--text-primary)",
               padding: "7px 12px 7px 32px",
-              fontSize: 12.5,
+              fontSize: "var(--text-sm)",
               boxSizing: "border-box",
             }}
           />
@@ -296,12 +296,12 @@ export default function AuditLogSettings() {
               left: 10,
               top: "50%",
               transform: "translateY(-50%)",
-              fontSize: 13,
+              fontSize: "var(--text-md)",
               color: "var(--text-tertiary)",
               pointerEvents: "none",
             }}
           >
-            🔍
+            <Icon name="search" size={15} />
           </span>
           {search && (
             <button
@@ -315,29 +315,21 @@ export default function AuditLogSettings() {
                 border: "none",
                 color: "var(--text-tertiary)",
                 cursor: "pointer",
-                fontSize: 13,
+                fontSize: "var(--text-md)",
                 padding: 2,
               }}
             >
-              ✕
+              <Icon name="x" size={13} />
             </button>
           )}
         </div>
 
         {/* Actor Filter */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>Source:</span>
-          <select
+          <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>Source:</span>
+          <select className="input-standard select"
             value={selectedActor}
             onChange={(e) => setSelectedActor(e.target.value)}
-            style={{
-              background: "var(--bg-app)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              color: "var(--text-primary)",
-              padding: "7px 10px",
-              fontSize: 12,
-            }}
           >
             <option value="all">All Sources</option>
             <option value="admin_ui">Admin UI</option>
@@ -352,18 +344,10 @@ export default function AuditLogSettings() {
 
         {/* Action Category Filter */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>Type:</span>
-          <select
+          <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>Type:</span>
+          <select className="input-standard select"
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            style={{
-              background: "var(--bg-app)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              color: "var(--text-primary)",
-              padding: "7px 10px",
-              fontSize: 12,
-            }}
           >
             <option value="all">All Operations</option>
             <option value="create">Created / Added</option>
@@ -372,7 +356,7 @@ export default function AuditLogSettings() {
           </select>
         </div>
 
-        <span style={{ fontSize: 11, color: "var(--text-tertiary)", marginLeft: "auto" }}>
+        <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginLeft: "auto" }}>
           Showing {filteredEntries.length} of {entries.length} entries
         </span>
       </div>
@@ -382,7 +366,7 @@ export default function AuditLogSettings() {
         style={{
           background: "var(--bg-raised)",
           border: "1px solid var(--border-subtle)",
-          borderRadius: 12,
+          borderRadius: "var(--radius-xl)",
           overflow: "hidden",
         }}
       >
@@ -393,7 +377,7 @@ export default function AuditLogSettings() {
             body="Try clearing your search terms or filter selections."
           />
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 12.5 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "var(--text-sm)" }}>
             <thead>
               <tr
                 style={{
@@ -457,7 +441,7 @@ export default function AuditLogSettings() {
                         whiteSpace: "nowrap",
                         color: "var(--text-secondary)",
                         fontFamily: "var(--font-mono, monospace)",
-                        fontSize: 11.5,
+                        fontSize: "var(--text-sm)",
                       }}
                     >
                       <div>
@@ -466,7 +450,7 @@ export default function AuditLogSettings() {
                           day: "numeric",
                         })}
                       </div>
-                      <div style={{ color: "var(--text-tertiary)", fontSize: 10.5 }}>
+                      <div style={{ color: "var(--text-tertiary)", fontSize: "var(--text-xs)" }}>
                         {date.toLocaleTimeString(undefined, {
                           hour: "2-digit",
                           minute: "2-digit",
@@ -483,10 +467,10 @@ export default function AuditLogSettings() {
                           alignItems: "center",
                           gap: 6,
                           padding: "3px 8px",
-                          borderRadius: 6,
+                          borderRadius: "var(--radius-sm)",
                           background: actorMeta.bg,
                           color: actorMeta.color,
-                          fontSize: 11,
+                          fontSize: "var(--text-sm)",
                           fontWeight: 600,
                         }}
                       >
@@ -503,11 +487,11 @@ export default function AuditLogSettings() {
                         style={{
                           display: "inline-block",
                           padding: "3px 8px",
-                          borderRadius: 6,
+                          borderRadius: "var(--radius-sm)",
                           background: actionMeta.badgeBg,
                           color: actionMeta.badgeColor,
                           border: `1px solid ${actionMeta.badgeBorder}`,
-                          fontSize: 11,
+                          fontSize: "var(--text-sm)",
                           fontWeight: 600,
                         }}
                       >
@@ -519,17 +503,17 @@ export default function AuditLogSettings() {
                     <td style={{ padding: "11px 14px" }}>
                       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                         {e.actor_email && (
-                          <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)" }}>
+                          <div style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)" }}>
                             {e.actor_email}
                           </div>
                         )}
                         {e.calendar_name && (
-                          <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                          <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>
                             Calendar: <span style={{ color: "var(--text-secondary)" }}>{e.calendar_name}</span>
                           </div>
                         )}
                         {!e.actor_email && !e.calendar_name && (
-                          <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>System routine</div>
+                          <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>System routine</div>
                         )}
                       </div>
                     </td>
@@ -542,7 +526,7 @@ export default function AuditLogSettings() {
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
                           color: "var(--text-tertiary)",
-                          fontSize: 11.5,
+                          fontSize: "var(--text-sm)",
                           fontFamily: "var(--font-mono, monospace)",
                         }}
                       >
@@ -552,7 +536,7 @@ export default function AuditLogSettings() {
 
                     {/* Inspect View */}
                     <td style={{ padding: "11px 14px", textAlign: "right" }}>
-                      <span style={{ fontSize: 11, color: "var(--primary)", fontWeight: 600 }}>
+                      <span style={{ fontSize: "var(--text-sm)", color: "var(--primary)", fontWeight: 600 }}>
                         View ↗
                       </span>
                     </td>
@@ -585,7 +569,7 @@ export default function AuditLogSettings() {
             onClick={(e) => e.stopPropagation()}
             style={{
               background: "var(--bg-panel)",
-              borderRadius: 14,
+              borderRadius: "var(--radius-pill)",
               padding: 24,
               width: 540,
               maxWidth: "92vw",
@@ -596,13 +580,13 @@ export default function AuditLogSettings() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Audit Entry Details</h3>
+                  <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, margin: 0 }}>Audit Entry Details</h3>
                   <span
                     style={{
-                      fontSize: 10,
+                      fontSize: "var(--text-xs)",
                       fontWeight: 700,
                       padding: "2px 6px",
-                      borderRadius: 4,
+                      borderRadius: "var(--radius-sm)",
                       background: "var(--bg-app)",
                       color: "var(--text-tertiary)",
                     }}
@@ -610,7 +594,7 @@ export default function AuditLogSettings() {
                     ID: {selectedEntry.id.slice(0, 8)}…
                   </span>
                 </div>
-                <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>
+                <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: 4 }}>
                   Occurred on {new Date(selectedEntry.occurred_at).toLocaleString()}
                 </div>
               </div>
@@ -621,62 +605,62 @@ export default function AuditLogSettings() {
                   background: "none",
                   border: "none",
                   color: "var(--text-tertiary)",
-                  fontSize: 20,
+                  fontSize: "var(--text-xl)",
                   cursor: "pointer",
                   padding: "2px 6px",
                 }}
               >
-                ✕
+                <Icon name="x" size={13} />
               </button>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-              <div style={{ background: "var(--bg-app)", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)" }}>
-                <div style={{ fontSize: 10.5, textTransform: "uppercase", color: "var(--text-tertiary)", fontWeight: 600 }}>Operation</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginTop: 2 }}>
+              <div style={{ background: "var(--bg-app)", padding: "10px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
+                <div style={{ fontSize: "var(--text-xs)", textTransform: "uppercase", color: "var(--text-tertiary)", fontWeight: 600 }}>Operation</div>
+                <div style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)", marginTop: 2 }}>
                   {ACTION_METAS[selectedEntry.action]?.label || selectedEntry.action}
                 </div>
               </div>
 
-              <div style={{ background: "var(--bg-app)", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)" }}>
-                <div style={{ fontSize: 10.5, textTransform: "uppercase", color: "var(--text-tertiary)", fontWeight: 600 }}>Source System</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginTop: 2 }}>
+              <div style={{ background: "var(--bg-app)", padding: "10px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
+                <div style={{ fontSize: "var(--text-xs)", textTransform: "uppercase", color: "var(--text-tertiary)", fontWeight: 600 }}>Source System</div>
+                <div style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)", marginTop: 2 }}>
                   {ACTOR_METAS[selectedEntry.actor_type]?.label || selectedEntry.actor_type}
                 </div>
               </div>
 
-              <div style={{ background: "var(--bg-app)", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)" }}>
-                <div style={{ fontSize: 10.5, textTransform: "uppercase", color: "var(--text-tertiary)", fontWeight: 600 }}>Actor Email</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginTop: 2 }}>
+              <div style={{ background: "var(--bg-app)", padding: "10px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
+                <div style={{ fontSize: "var(--text-xs)", textTransform: "uppercase", color: "var(--text-tertiary)", fontWeight: 600 }}>Actor Email</div>
+                <div style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)", marginTop: 2 }}>
                   {selectedEntry.actor_email || "System"}
                 </div>
               </div>
 
-              <div style={{ background: "var(--bg-app)", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border-subtle)" }}>
-                <div style={{ fontSize: 10.5, textTransform: "uppercase", color: "var(--text-tertiary)", fontWeight: 600 }}>Calendar</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginTop: 2 }}>
+              <div style={{ background: "var(--bg-app)", padding: "10px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
+                <div style={{ fontSize: "var(--text-xs)", textTransform: "uppercase", color: "var(--text-tertiary)", fontWeight: 600 }}>Calendar</div>
+                <div style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)", marginTop: 2 }}>
                   {selectedEntry.calendar_name || "N/A"}
                 </div>
               </div>
             </div>
 
             {selectedEntry.event_id && (
-              <div style={{ marginBottom: 12, fontSize: 12, color: "var(--text-secondary)" }}>
-                Event ID: <code style={{ fontSize: 11, background: "var(--bg-app)", padding: "2px 6px", borderRadius: 4 }}>{selectedEntry.event_id}</code>
+              <div style={{ marginBottom: 12, fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
+                Event ID: <code style={{ fontSize: "var(--text-sm)", background: "var(--bg-app)", padding: "2px 6px", borderRadius: "var(--radius-sm)" }}>{selectedEntry.event_id}</code>
               </div>
             )}
 
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+              <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
                 Payload Attributes
               </div>
               <pre
                 style={{
                   background: "var(--bg-app)",
                   border: "1px solid var(--border)",
-                  borderRadius: 8,
+                  borderRadius: "var(--radius-md)",
                   padding: 12,
-                  fontSize: 12,
+                  fontSize: "var(--text-sm)",
                   maxHeight: 220,
                   overflowY: "auto",
                   color: "var(--text-primary)",
@@ -692,7 +676,7 @@ export default function AuditLogSettings() {
               <button
                 onClick={() => setSelectedEntry(null)}
                 className="btn-primary hoverable"
-                style={{ padding: "7px 18px", fontSize: 12 }}
+                style={{ padding: "7px 18px", fontSize: "var(--text-sm)" }}
               >
                 Close
               </button>

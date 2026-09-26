@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 
 import { apiFetch } from "../api/client";
 import { friendlyError } from "../api/client";
+import Icon from "../components/Icon";
 
 interface LinkMeta {
   slug: string;
@@ -266,11 +267,11 @@ export default function BookPage() {
     <div style={{ minHeight: "100vh", background: "var(--bg-app)", display: "flex", justifyContent: "center", padding: isMobile ? "32px 16px" : "48px 20px" }}>
       <div style={{ width: isMobile ? 640 : 1020, maxWidth: "100%" }}>
         {loading ? (
-          <div style={{ color: "var(--text-tertiary)", fontSize: 14, textAlign: "center", paddingTop: 60 }}>Loading…</div>
+          <div style={{ color: "var(--text-tertiary)", fontSize: "var(--text-md)", textAlign: "center", paddingTop: 60 }}>Loading…</div>
         ) : error && !meta ? (
-          <div style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: 12, padding: 32, textAlign: "center" }}>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Link not found</div>
-            <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{error}</div>
+          <div style={{ background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-xl)", padding: 32, textAlign: "center" }}>
+            <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginBottom: 8 }}>Link not found</div>
+            <div style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)" }}>{error}</div>
           </div>
         ) : meta && (
           <>
@@ -357,10 +358,10 @@ function MobileWeekView(props: {
   return (
     <>
       <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 13, color: "var(--text-tertiary)", marginBottom: 4 }}>Book time with {meta.host_name}</div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em", color: "#f5f5f7" }}>{meta.title}</h1>
-        {meta.description && <p style={{ fontSize: 15, color: "var(--text-secondary)", margin: "0 0 6px", lineHeight: 1.5 }}>{meta.description}</p>}
-        <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
+        <div style={{ fontSize: "var(--text-md)", color: "var(--text-tertiary)", marginBottom: 4 }}>Book time with {meta.host_name}</div>
+        <h1 style={{ fontSize: "var(--text-2xl)", fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em", color: "var(--text-primary)" }}>{meta.title}</h1>
+        {meta.description && <p style={{ fontSize: "var(--text-lg)", color: "var(--text-secondary)", margin: "0 0 6px", lineHeight: 1.5 }}>{meta.description}</p>}
+        <div style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)" }}>
           {meta.duration_minutes} minutes · {tz}
         </div>
       </div>
@@ -372,11 +373,11 @@ function MobileWeekView(props: {
       ) : (
         <>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <button onClick={() => setWeekOffset((v) => Math.max(0, v - 1))} disabled={weekOffset === 0} className="hoverable" style={{ background: "var(--bg-raised)", border: "1px solid var(--border)", borderRadius: "var(--control-radius)", color: weekOffset === 0 ? "var(--text-tertiary)" : "var(--text-primary)", padding: "10px 18px", fontSize: 14, fontWeight: 600, cursor: weekOffset === 0 ? "default" : "pointer" }}>← Prev</button>
-            <span style={{ fontSize: 14, fontWeight: 700, color: "#f5f5f7" }}>
+            <button onClick={() => setWeekOffset((v) => Math.max(0, v - 1))} disabled={weekOffset === 0} className="hoverable" style={{ background: "var(--bg-raised)", border: "1px solid var(--border)", borderRadius: "var(--control-radius)", color: weekOffset === 0 ? "var(--text-tertiary)" : "var(--text-primary)", padding: "10px 18px", fontSize: "var(--text-md)", fontWeight: 600, cursor: weekOffset === 0 ? "default" : "pointer" }}>← Prev</button>
+            <span style={{ fontSize: "var(--text-md)", fontWeight: 700, color: "var(--text-primary)" }}>
               {days[0].toLocaleDateString(undefined, { month: "short", day: "numeric" })} – {days[6].toLocaleDateString(undefined, { month: "short", day: "numeric" })}
             </span>
-            <button onClick={() => setWeekOffset((v) => v + 1)} className="hoverable" style={{ background: "var(--bg-raised)", border: "1px solid var(--border)", borderRadius: "var(--control-radius)", color: "var(--text-primary)", padding: "10px 18px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Next →</button>
+            <button onClick={() => setWeekOffset((v) => v + 1)} className="hoverable" style={{ background: "var(--bg-raised)", border: "1px solid var(--border)", borderRadius: "var(--control-radius)", color: "var(--text-primary)", padding: "10px 18px", fontSize: "var(--text-md)", fontWeight: 600, cursor: "pointer" }}>Next →</button>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {days.map((d) => {
@@ -385,11 +386,11 @@ function MobileWeekView(props: {
               const isPicked = pickedDay === key;
               return (
                 <div key={localKey(d)} style={{ background: "var(--bg-panel)", border: "1px solid var(--border-subtle)", borderRadius: "var(--card-radius)", overflow: "hidden" }}>
-                  <button onClick={() => setPickedDay(isPicked ? null : key)} className="hoverable" style={{ width: "100%", textAlign: "left", background: "none", border: "none", padding: "15px 18px", cursor: "pointer", color: "#f5f5f7", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 15, fontWeight: 600 }}>
+                  <button onClick={() => setPickedDay(isPicked ? null : key)} className="hoverable" style={{ width: "100%", textAlign: "left", background: "none", border: "none", padding: "15px 18px", cursor: "pointer", color: "var(--text-primary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "var(--text-lg)", fontWeight: 600 }}>
                       {d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", timeZone: tz })}
                     </span>
-                    <span style={{ fontSize: 13, color: "#636366" }}>
+                    <span style={{ fontSize: "var(--text-md)", color: "var(--text-tertiary)" }}>
                       {daySlots.length === 0 ? "Nothing open" : `${daySlots.length} open`}
                     </span>
                   </button>
@@ -401,7 +402,7 @@ function MobileWeekView(props: {
                           onClick={() => void props.pickSlot(s)}
                           disabled={props.holding}
                           className="hoverable"
-                          style={{ border: "1px solid var(--accent)", background: "rgba(10, 132, 255, 0.1)", color: "#f5f5f7", borderRadius: 6, padding: "7px 14px", fontSize: 13, fontWeight: 500, cursor: "pointer" }}
+                          style={{ border: "1px solid var(--accent)", background: "rgba(10, 132, 255, 0.1)", color: "var(--text-primary)", borderRadius: "var(--radius-sm)", padding: "7px 14px", fontSize: "var(--text-md)", fontWeight: 500, cursor: "pointer" }}
                         >
                           {props.fmtTime(s.start)}
                         </button>
@@ -412,7 +413,7 @@ function MobileWeekView(props: {
               );
             })}
           </div>
-          {props.error && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 12 }}>{props.error}</div>}
+          {props.error && <div style={{ fontSize: "var(--text-sm)", color: "var(--danger)", marginTop: 12 }}>{props.error}</div>}
         </>
       )}
     </>
@@ -456,21 +457,25 @@ function DesktopMonthView(props: {
     <div style={{ background: "var(--bg-panel)", border: "1px solid var(--border)", borderRadius: "var(--card-radius)", overflow: "hidden", display: "flex", alignItems: "stretch" }}>
       {/* Left: event info */}
       <div style={{ flex: "0 0 240px", padding: "28px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-        <div style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--bg-raised-hover)", color: "var(--text-primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>
+        <div style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--bg-raised-hover)", color: "var(--text-primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--text-md)", fontWeight: 700 }}>
           {initials(meta.host_name)}
         </div>
-        <div style={{ fontSize: 13, color: "#98989d" }}>{meta.host_name}</div>
-        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: "#f5f5f7", lineHeight: 1.2 }}>{meta.title}</div>
-        {meta.description && <div style={{ fontSize: 13, color: "#98989d", lineHeight: 1.5 }}>{meta.description}</div>}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#f5f5f7" }}>
-          <span style={{ color: "#98989d" }}>◷</span> {meta.duration_minutes >= 60 ? `${meta.duration_minutes / 60}h` : `${meta.duration_minutes} mins`}
+        <div style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)" }}>{meta.host_name}</div>
+        <div style={{ fontSize: "var(--text-xl)", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text-primary)", lineHeight: 1.2 }}>{meta.title}</div>
+        {meta.description && <div style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", lineHeight: 1.5 }}>{meta.description}</div>}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-md)", color: "var(--text-primary)" }}>
+          <span style={{ color: "var(--text-secondary)" }}>◷</span> {meta.duration_minutes >= 60 ? `${meta.duration_minutes / 60}h` : `${meta.duration_minutes} mins`}
         </div>
         {meta.approval_required && (
-          <div style={{ fontSize: 12, color: "#ff9f0a" }}>Needs host approval</div>
+          <div style={{ fontSize: "var(--text-sm)", color: "var(--warning)" }}>Needs host approval</div>
         )}
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#f5f5f7", marginTop: 4 }}>
-          <span style={{ color: "#98989d" }}>🌐</span>
-          <select value={tz} onChange={(e) => setTz(e.target.value)} aria-label="Timezone" style={{ background: "transparent", border: "none", color: "#f5f5f7", fontSize: 13, cursor: "pointer", maxWidth: 170 }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-md)", color: "var(--text-primary)", marginTop: 4 }}>
+          <span style={{ color: "var(--text-tertiary)", display: "inline-flex" }}>
+            <Icon name="globe" size={15} />
+          </span>
+          <select className="select" value={tz} onChange={(e) => setTz(e.target.value)} aria-label="Timezone"
+            style={{ backgroundColor: "transparent", border: "none", color: "var(--text-primary)",
+                     fontSize: "var(--text-md)", maxWidth: 170 }}>
             {tzOptions.map((z) => (
               <option key={z} value={z} style={{ color: "#000" }}>{z}</option>
             ))}
@@ -479,19 +484,19 @@ function DesktopMonthView(props: {
       </div>
 
       {/* Middle: month calendar */}
-      <div style={{ flex: "1.5", borderLeft: "1px solid #2c2c2e", padding: "24px 24px 28px" }}>
+      <div style={{ flex: "1.5", borderLeft: "1px solid var(--border-subtle)", padding: "24px 24px 28px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: "#f5f5f7" }}>
-            {monthLabel} <span style={{ fontWeight: 400, color: "#98989d" }}>{yearLabel}</span>
+          <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--text-primary)" }}>
+            {monthLabel} <span style={{ fontWeight: 400, color: "var(--text-secondary)" }}>{yearLabel}</span>
           </div>
           <div style={{ display: "flex", gap: 4 }}>
-            <button onClick={() => canGoPrevMonth && shiftMonth(-1)} disabled={!canGoPrevMonth} aria-label="Previous month" className="hoverable" style={{ background: "none", border: "none", color: canGoPrevMonth ? "#98989d" : "#3a3a3c", fontSize: 18, cursor: canGoPrevMonth ? "pointer" : "default", padding: "4px 10px" }}>‹</button>
-            <button onClick={() => shiftMonth(1)} aria-label="Next month" className="hoverable" style={{ background: "none", border: "none", color: "#98989d", fontSize: 18, cursor: "pointer", padding: "4px 10px" }}>›</button>
+            <button onClick={() => canGoPrevMonth && shiftMonth(-1)} disabled={!canGoPrevMonth} aria-label="Previous month" className="hoverable" style={{ background: "none", border: "none", color: canGoPrevMonth ? "var(--text-secondary)" : "var(--text-tertiary)", fontSize: "var(--text-lg)", cursor: canGoPrevMonth ? "pointer" : "default", padding: "4px 10px" }}>‹</button>
+            <button onClick={() => shiftMonth(1)} aria-label="Next month" className="hoverable" style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: "var(--text-lg)", cursor: "pointer", padding: "4px 10px" }}>›</button>
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 8 }}>
           {WEEKDAYS.map((w) => (
-            <div key={w} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", color: "#f5f5f7", padding: "4px 0" }}>{w}</div>
+            <div key={w} style={{ textAlign: "center", fontSize: "var(--text-sm)", fontWeight: 600, letterSpacing: "0.08em", color: "var(--text-primary)", padding: "4px 0" }}>{w}</div>
           ))}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
@@ -511,12 +516,12 @@ function DesktopMonthView(props: {
                 className="hoverable"
                 style={{
                   aspectRatio: "1",
-                  borderRadius: 8,
+                  borderRadius: "var(--radius-md)",
                   border: "none",
-                  background: isPicked ? "#f5f5f7" : count > 0 && inMonth ? "#2c2c2e" : inMonth ? "transparent" : "transparent",
+                  background: isPicked ? "var(--text-primary)" : count > 0 && inMonth ? "var(--bg-raised)" : inMonth ? "transparent" : "transparent",
                   opacity: inMonth ? 1 : 0.35,
-                  color: isPicked ? "#111113" : "#f5f5f7",
-                  fontSize: 14,
+                  color: isPicked ? "var(--bg-app)" : "var(--text-primary)",
+                  fontSize: "var(--text-md)",
                   fontWeight: 500,
                   cursor: clickable ? "pointer" : "default",
                   display: "flex",
@@ -527,7 +532,7 @@ function DesktopMonthView(props: {
                 }}
               >
                 <span>{d.getDate()}</span>
-                {isToday && <span style={{ width: 4, height: 4, borderRadius: "50%", background: isPicked ? "#111113" : "#f5f5f7" }} />}
+                {isToday && <span style={{ width: 4, height: 4, borderRadius: "50%", background: isPicked ? "var(--bg-app)" : "var(--text-primary)" }} />}
               </button>
             );
           })}
@@ -535,20 +540,20 @@ function DesktopMonthView(props: {
       </div>
 
       {/* Right: time slots */}
-      <div style={{ flex: "0 0 250px", borderLeft: "1px solid #2c2c2e", padding: "24px 20px", display: "flex", flexDirection: "column", minHeight: 480, maxHeight: 620 }}>
+      <div style={{ flex: "0 0 250px", borderLeft: "1px solid var(--border-subtle)", padding: "24px 20px", display: "flex", flexDirection: "column", minHeight: 480, maxHeight: 620 }}>
         {props.done ? (
           <div style={{ textAlign: "center", paddingTop: 40 }}>
-            <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(48, 209, 88, 0.14)", color: "var(--success)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 20, marginBottom: 12 }}>✓</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#f5f5f7", marginBottom: 6 }}>
+            <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(48, 209, 88, 0.14)", color: "var(--success)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}><Icon name="check" size={22} strokeWidth={2.5} /></div>
+            <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--text-primary)", marginBottom: 6 }}>
               {props.done.status === "pending" ? "Request received" : "You're booked"}
             </div>
-            <p style={{ fontSize: 13, color: "#98989d", margin: "0 0 4px" }}>
+            <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 4px" }}>
               {new Date(props.done.start).toLocaleString(undefined, { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: tz })}
             </p>
-            <p style={{ fontSize: 13, color: "#98989d", margin: "0 0 16px" }}>
+            <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 16px" }}>
               {props.done.status === "pending" ? `${meta.host_name} confirms shortly.` : "Invite is on its way."}
             </p>
-            <a href={`/book/cancel/${props.done.booker_token}`} style={{ fontSize: 13, color: "var(--danger)" }}>Cancel this booking</a>
+            <a href={`/book/cancel/${props.done.booker_token}`} style={{ fontSize: "var(--text-md)", color: "var(--danger)" }}>Cancel this booking</a>
           </div>
         ) : props.held ? (
           <div style={{ overflowY: "auto" }}>
@@ -557,7 +562,7 @@ function DesktopMonthView(props: {
         ) : (
           <>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#f5f5f7" }}>{pickedLabel || "Pick a day"}</div>
+              <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--text-primary)" }}>{pickedLabel || "Pick a day"}</div>
               <div style={{ display: "flex", background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--control-radius)", padding: 2 }}>
                 {(["12h", "24h"] as const).map((opt) => {
                   const active = (opt === "12h") === props.hour12;
@@ -566,7 +571,7 @@ function DesktopMonthView(props: {
                       key={opt}
                       onClick={() => props.setHour12(opt === "12h")}
                       className="hoverable"
-                      style={{ border: "none", borderRadius: 6, background: active ? "#2c2c2e" : "transparent", color: active ? "#f5f5f7" : "#636366", fontSize: 12, fontWeight: 600, padding: "5px 10px", cursor: "pointer" }}
+                      style={{ border: "none", borderRadius: "var(--radius-sm)", background: active ? "var(--bg-raised)" : "transparent", color: active ? "var(--text-primary)" : "var(--text-tertiary)", fontSize: "var(--text-sm)", fontWeight: 600, padding: "5px 10px", cursor: "pointer" }}
                     >
                       {opt}
                     </button>
@@ -576,7 +581,7 @@ function DesktopMonthView(props: {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto", paddingRight: 2 }}>
               {pickedSlots.length === 0 ? (
-                <div style={{ fontSize: 13, color: "#636366", textAlign: "center", paddingTop: 40 }}>
+                <div style={{ fontSize: "var(--text-md)", color: "var(--text-tertiary)", textAlign: "center", paddingTop: 40 }}>
                   {pickedDay ? "Nothing open this day." : "Select an open day."}
                 </div>
               ) : (
@@ -586,14 +591,14 @@ function DesktopMonthView(props: {
                     onClick={() => void props.pickSlot(s)}
                     disabled={props.holding}
                     className="hoverable"
-                    style={{ border: "1px solid #3a3a3c", background: "transparent", color: "#f5f5f7", borderRadius: 8, padding: "11px 0", fontSize: 14, fontWeight: 500, cursor: "pointer", width: "100%" }}
+                    style={{ border: "1px solid var(--border)", background: "transparent", color: "var(--text-primary)", borderRadius: "var(--radius-md)", padding: "11px 0", fontSize: "var(--text-md)", fontWeight: 500, cursor: "pointer", width: "100%" }}
                   >
                     {props.fmtTime(s.start)}
                   </button>
                 ))
               )}
             </div>
-            {props.error && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 10 }}>{props.error}</div>}
+            {props.error && <div style={{ fontSize: "var(--text-sm)", color: "var(--danger)", marginTop: 10 }}>{props.error}</div>}
           </>
         )}
       </div>
@@ -612,29 +617,29 @@ function BookForm(props: {
   const { meta, held } = props;
   if (!held) return null;
   return (
-    <form onSubmit={props.confirm} style={{ background: props.compact ? "transparent" : "var(--bg-raised)", border: props.compact ? "none" : "1px solid var(--border-subtle)", borderRadius: 12, padding: props.compact ? 0 : 24, display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ fontSize: 15, fontWeight: 700, color: "#f5f5f7" }}>
+    <form onSubmit={props.confirm} style={{ background: props.compact ? "transparent" : "var(--bg-raised)", border: props.compact ? "none" : "1px solid var(--border-subtle)", borderRadius: "var(--radius-xl)", padding: props.compact ? 0 : 24, display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--text-primary)" }}>
         {new Date(held.start).toLocaleString(undefined, { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: props.tz })}
       </div>
-      <div style={{ fontSize: 12, color: "#636366" }}>Held for you for the next few minutes.</div>
+      <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>Held for you for the next few minutes.</div>
       <div>
-        <label htmlFor="book-name" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "#f5f5f7" }}>Your name</label>
-        <input id="book-name" value={props.name} onChange={(e) => props.setName(e.target.value)} placeholder="e.g. Jane Rivera" autoFocus className="input-standard" style={{ width: "100%", fontSize: 13 }} />
+        <label htmlFor="book-name" style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6, color: "var(--text-primary)" }}>Your name</label>
+        <input id="book-name" value={props.name} onChange={(e) => props.setName(e.target.value)} placeholder="e.g. Jane Rivera" autoFocus className="input-standard" style={{ width: "100%", fontSize: "var(--text-md)" }} />
       </div>
       <div>
-        <label htmlFor="book-email" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "#f5f5f7" }}>Email for the invite</label>
-        <input id="book-email" type="email" value={props.email} onChange={(e) => props.setEmail(e.target.value)} placeholder="e.g. jane@acme.com" className="input-standard" style={{ width: "100%", fontSize: 13 }} />
+        <label htmlFor="book-email" style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6, color: "var(--text-primary)" }}>Email for the invite</label>
+        <input id="book-email" type="email" value={props.email} onChange={(e) => props.setEmail(e.target.value)} placeholder="e.g. jane@acme.com" className="input-standard" style={{ width: "100%", fontSize: "var(--text-md)" }} />
       </div>
       <div>
-        <label htmlFor="book-note" style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "#f5f5f7" }}>Note <span style={{ fontWeight: 400, color: "#636366" }}>(optional)</span></label>
-        <input id="book-note" value={props.note} onChange={(e) => props.setNote(e.target.value)} placeholder="What should we talk about?" className="input-standard" style={{ width: "100%", fontSize: 13 }} />
+        <label htmlFor="book-note" style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6, color: "var(--text-primary)" }}>Note <span style={{ fontWeight: 400, color: "var(--text-tertiary)" }}>(optional)</span></label>
+        <input id="book-note" value={props.note} onChange={(e) => props.setNote(e.target.value)} placeholder="What should we talk about?" className="input-standard" style={{ width: "100%", fontSize: "var(--text-md)" }} />
       </div>
-      {props.error && <div style={{ fontSize: 12, color: "var(--danger)" }}>{props.error}</div>}
+      {props.error && <div style={{ fontSize: "var(--text-sm)", color: "var(--danger)" }}>{props.error}</div>}
       <div style={{ display: "flex", gap: 10 }}>
         <button type="button" onClick={() => props.setHeld(null)} className="btn-secondary hoverable" style={{ flex: 1 }}>
           Back
         </button>
-        <button type="submit" disabled={props.confirming || !props.name.trim() || !props.email.trim()} className="btn-primary hoverable" style={{ flex: 2, opacity: props.confirming || !props.name.trim() || !props.email.trim() ? 0.5 : 1 }}>
+        <button type="submit" disabled={props.confirming || !props.name.trim() || !props.email.trim()} className="btn-primary hoverable" style={{ flex: 2 }}>
           {props.confirming ? "Booking…" : meta.approval_required ? "Request booking" : "Confirm booking"}
         </button>
       </div>
@@ -645,17 +650,17 @@ function BookForm(props: {
 function DoneCard({ meta, done }: { meta: LinkMeta; done: { status: string; start: string; booker_token: string } }) {
   return (
     <div style={{ background: "var(--bg-panel)", border: "1px solid var(--border-subtle)", borderRadius: "var(--card-radius)", padding: 28, textAlign: "center" }}>
-      <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(48, 209, 88, 0.14)", color: "var(--success)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 20, marginBottom: 12 }}>✓</div>
-      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, color: "#f5f5f7" }}>
+      <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(48, 209, 88, 0.14)", color: "var(--success)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}><Icon name="check" size={22} strokeWidth={2.5} /></div>
+      <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginBottom: 6, color: "var(--text-primary)" }}>
         {done.status === "pending" ? "Request received" : "You're booked"}
       </div>
-      <p style={{ fontSize: 13, color: "#98989d", margin: "0 0 4px" }}>
+      <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 4px" }}>
         {new Date(done.start).toLocaleString(undefined, { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}
       </p>
-      <p style={{ fontSize: 13, color: "#98989d", margin: "0 0 16px" }}>
+      <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 16px" }}>
         {done.status === "pending" ? `${meta.host_name} confirms shortly — the invite follows.` : "The calendar invite is on its way to your inbox."}
       </p>
-      <a href={`/book/cancel/${done.booker_token}`} style={{ fontSize: 13, color: "var(--danger)" }}>
+      <a href={`/book/cancel/${done.booker_token}`} style={{ fontSize: "var(--text-md)", color: "var(--danger)" }}>
         Cancel this booking
       </a>
     </div>

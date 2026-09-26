@@ -27,10 +27,10 @@ export default function Markdown({ text }: { text: string }) {
             <code
               style={{
                 fontFamily: "var(--font-mono, monospace)",
-                fontSize: 12,
+                fontSize: "var(--text-sm)",
                 background: "var(--wash-faint)",
                 padding: "1px 5px",
-                borderRadius: 4,
+                borderRadius: "var(--radius-sm)",
               }}
             >
               {children}
@@ -40,10 +40,10 @@ export default function Markdown({ text }: { text: string }) {
             <pre
               style={{
                 fontFamily: "var(--font-mono, monospace)",
-                fontSize: 12,
+                fontSize: "var(--text-sm)",
                 background: "rgba(0,0,0,0.3)",
                 padding: "8px 10px",
-                borderRadius: 8,
+                borderRadius: "var(--radius-md)",
                 overflowX: "auto",
                 margin: "4px 0 8px",
               }}
@@ -57,7 +57,7 @@ export default function Markdown({ text }: { text: string }) {
                 style={{
                   borderCollapse: "collapse",
                   width: "100%",
-                  fontSize: 12,
+                  fontSize: "var(--text-sm)",
                 }}
               >
                 {children}
@@ -112,10 +112,10 @@ export default function Markdown({ text }: { text: string }) {
               {children}
             </blockquote>
           ),
-          h1: ({ children }) => <div style={{ fontWeight: 700, fontSize: 14, margin: "0 0 6px" }}>{children}</div>,
-          h2: ({ children }) => <div style={{ fontWeight: 700, fontSize: 13.5, margin: "0 0 6px" }}>{children}</div>,
-          h3: ({ children }) => <div style={{ fontWeight: 700, fontSize: 13, margin: "0 0 6px" }}>{children}</div>,
-          h4: ({ children }) => <div style={{ fontWeight: 700, fontSize: 12.5, margin: "0 0 6px" }}>{children}</div>,
+          h1: ({ children }) => <div style={{ fontWeight: 700, fontSize: "var(--text-md)", margin: "0 0 6px" }}>{children}</div>,
+          h2: ({ children }) => <div style={{ fontWeight: 700, fontSize: "var(--text-md)", margin: "0 0 6px" }}>{children}</div>,
+          h3: ({ children }) => <div style={{ fontWeight: 700, fontSize: "var(--text-md)", margin: "0 0 6px" }}>{children}</div>,
+          h4: ({ children }) => <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", margin: "0 0 6px" }}>{children}</div>,
           hr: () => <hr style={{ border: "none", borderTop: "1px solid var(--border-subtle)", margin: "8px 0" }} />,
         }}
       >

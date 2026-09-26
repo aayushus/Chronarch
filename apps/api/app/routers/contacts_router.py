@@ -110,6 +110,7 @@ async def update_contact(
     try:
         contact = await _contacts.update_contact(
             session, contact_id,
+            owner_user_id=_user.id,
             **{k: v for k, v in body.model_dump().items() if v is not None})
     except ValueError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc))

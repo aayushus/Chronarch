@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models.account import Account
@@ -75,6 +75,14 @@ async def refresh_contacts_for_account(session: AsyncSession, account_id: str) -
                         Contact.owner_user_id == account.owner_user_id,
                     ))
                 ).scalar_one_or_none()
+                if contact is None and account.owner_user_id is not None:
+                    # A pre-ownership row may be safely claimed when its
+                    # provenance is now observed on this owner's account.
+                    contact = (await session.execute(select(Contact).where(
+                        Contact.email == email, Contact.owner_user_id.is_(None)
+                    ))).scalar_one_or_none()
+                    if contact is not None:
+                        contact.owner_user_id = account.owner_user_id
                 now = _now()
                 if contact is None:
                     session.add(Contact(
@@ -116,7 +124,7 @@ def _name_match(query: str, candidate: str) -> bool:
     return bool(_name_tokens(q) & _name_tokens(c))
 
 
-async def resolve_contact(session: AsyncSession, query: str) -> dict:
+async def resolve_contact(session: AsyncSession, query: str, owner_user_id: str | None = None) -> dict:
     """Resolve "John" or "john@x.com" against the directory.
 
     Returns {"status": "found", "contact"} on an unambiguous hit,
@@ -128,15 +136,20 @@ async def resolve_contact(session: AsyncSession, query: str) -> dict:
     if not q:
         return {"status": "not_found", "candidates": []}
     if "@" in q:
+        stmt = select(Contact).where(Contact.email == _clean_email(q))
+        if owner_user_id is not None:
+            stmt = stmt.where(Contact.owner_user_id == owner_user_id)
         contact = (
-            await session.execute(
-                _live_only(select(Contact).where(Contact.email == _clean_email(q))))
+            await session.execute(_live_only(stmt))
         ).scalar_one_or_none()
         if contact is None:
             return {"status": "not_found", "candidates": []}
         return {"status": "found", "contact": contact}
 
-    contacts = list((await session.execute(_live_only(select(Contact)))).scalars())
+    stmt = select(Contact)
+    if owner_user_id is not None:
+        stmt = stmt.where(or_(Contact.owner_user_id == owner_user_id, Contact.owner_user_id.is_(None)))
+    contacts = list((await session.execute(_live_only(stmt))).scalars())
     hits = [c for c in contacts
             if (c.display_name and _name_match(q, c.display_name)) or _name_match(q, c.email)]
     if not hits:
@@ -152,7 +165,7 @@ async def search_contacts(session: AsyncSession, query: str, limit: int = 10, ow
     q = _norm(query)
     stmt = _live_only(select(Contact))
     if owner_user_id is not None:
-        stmt = stmt.where(Contact.owner_user_id == owner_user_id)
+        stmt = stmt.where(or_(Contact.owner_user_id == owner_user_id, Contact.owner_user_id.is_(None)))
     contacts = list((await session.execute(stmt)).scalars())
     if q:
         contacts = [c for c in contacts
@@ -191,6 +204,23 @@ async def create_contact(
         await session.execute(select(Contact).where(
             Contact.email == cleaned, Contact.owner_user_id == owner_user_id))
     ).scalar_one_or_none()
+    if existing is None and owner_user_id is not None:
+        # Explicitly adding a legacy unowned address is an unambiguous user
+        # action, so claim and restore that row instead of creating a second
+        # record. This does not expose unowned rows through reads.
+        existing = (await session.execute(select(Contact).where(
+            Contact.email == cleaned, Contact.owner_user_id.is_(None)
+        ))).scalar_one_or_none()
+        if existing is not None:
+            existing.owner_user_id = owner_user_id
+    elif existing is None and owner_user_id is None:
+        # Compatibility for internal callers that predate ownership. If
+        # exactly one matching row exists, restore it rather than duplicating
+        # it; owner-aware application callers never use this branch.
+        matches = list((await session.execute(select(Contact).where(
+            Contact.email == cleaned))).scalars())
+        if len(matches) == 1:
+            existing = matches[0]
     if existing is not None:
         if existing.deleted_at is not None:
             existing.deleted_at = None
@@ -212,7 +242,7 @@ async def create_contact(
 
 
 async def update_contact(
-    session: AsyncSession, contact_id: str, **fields,
+    session: AsyncSession, contact_id: str, owner_user_id: str | None = None, **fields,
 ) -> Contact | None:
     """Edit name/email/phone/company/job title. Returns None for missing or
     deleted rows. Setting a name locks it against extraction. Changing email
@@ -220,16 +250,21 @@ async def update_contact(
     contact = await session.get(Contact, contact_id)
     if contact is None or contact.deleted_at is not None:
         return None
+    if owner_user_id is not None and contact.owner_user_id not in (owner_user_id, None):
+        return None
     allowed = {"display_name", "email", "phone", "company", "job_title"}
     unknown = set(fields) - allowed
     if unknown:
         raise ValueError(f"Cannot update: {', '.join(sorted(unknown))}.")
     if "email" in fields and fields["email"] is not None:
         cleaned = _validate_email(fields["email"])
-        clash = (
-            await session.execute(select(Contact).where(
-                Contact.email == cleaned, Contact.id != contact_id))
-        ).scalar_one_or_none()
+        clash_stmt = select(Contact).where(Contact.email == cleaned, Contact.id != contact_id)
+        if owner_user_id is not None:
+            clash_stmt = clash_stmt.where(or_(
+                Contact.owner_user_id == owner_user_id,
+                Contact.owner_user_id.is_(None),
+            ))
+        clash = (await session.execute(clash_stmt)).scalar_one_or_none()
         if clash is not None:
             raise ValueError(f"{cleaned} is already in your contacts.")
         contact.email = cleaned

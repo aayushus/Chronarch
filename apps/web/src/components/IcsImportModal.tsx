@@ -101,13 +101,13 @@ export default function IcsImportModal({ calendars, initialContent, onClose, onI
         onClick={(e) => e.stopPropagation()}
         style={{ width: 540, maxWidth: "90vw", padding: 24 }}
       >
-        <h3 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 6px" }}>Import .ics Calendar File</h3>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}>
+        <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, margin: "0 0 6px" }}>Import .ics Calendar File</h3>
+        <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 16px" }}>
           Upload a local .ics calendar file to preview and import its events into your calendar (BR-ICS-001..003).
         </p>
 
         {error && (
-          <div style={{ color: "var(--danger)", fontSize: 13, marginBottom: 14, background: "rgba(255, 69, 58, 0.1)", padding: "8px 12px", borderRadius: "var(--radius-sm)" }}>
+          <div style={{ color: "var(--danger)", fontSize: "var(--text-md)", marginBottom: 14, background: "rgba(255, 69, 58, 0.1)", padding: "8px 12px", borderRadius: "var(--radius-sm)" }}>
             {error}
           </div>
         )}
@@ -136,7 +136,7 @@ export default function IcsImportModal({ calendars, initialContent, onClose, onI
               style={{
                 width: 44,
                 height: 44,
-                borderRadius: 12,
+                borderRadius: "var(--radius-xl)",
                 background: "rgba(10, 132, 255, 0.12)",
                 color: "var(--accent)",
                 display: "inline-flex",
@@ -147,22 +147,22 @@ export default function IcsImportModal({ calendars, initialContent, onClose, onI
             >
               <Icon name="upload" size={20} />
             </div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>Click to select or drag & drop an .ics file</div>
-            <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 4 }}>
+            <div style={{ fontSize: "var(--text-md)", fontWeight: 600 }}>Click to select or drag & drop an .ics file</div>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginTop: 4 }}>
               Supports standard iCalendar exports (.ics)
             </div>
           </div>
         )}
 
         {loading && (
-          <div style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>
+          <div style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)", fontSize: "var(--text-md)" }}>
             Parsing .ics file…
           </div>
         )}
 
         {previewEvents.length > 0 && (
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+            <div style={{ fontSize: "var(--text-md)", fontWeight: 600, marginBottom: 8 }}>
               {previewEvents.length} Event{previewEvents.length === 1 ? "" : "s"} Found in {fileName || "file"}:
             </div>
 
@@ -185,14 +185,14 @@ export default function IcsImportModal({ calendars, initialContent, onClose, onI
                     borderBottom: idx < previewEvents.length - 1 ? "1px solid var(--border-subtle)" : "none",
                   }}
                 >
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{ev.title}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
+                  <div style={{ fontWeight: 600, fontSize: "var(--text-md)" }}>{ev.title}</div>
+                  <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: 2 }}>
                     {new Date(ev.start).toLocaleString()} - {new Date(ev.end).toLocaleString()}
                     {ev.all_day && " (All day)"}
                     {ev.location && ` • ${ev.location}`}
                   </div>
                   {ev.description && (
-                    <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2, maxHeight: 32, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginTop: 2, maxHeight: 32, overflow: "hidden", textOverflow: "ellipsis" }}>
                       {ev.description}
                     </div>
                   )}
@@ -201,13 +201,12 @@ export default function IcsImportModal({ calendars, initialContent, onClose, onI
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+              <label style={{ display: "block", fontSize: "var(--text-md)", fontWeight: 600, marginBottom: 6 }}>
                 Destination Calendar (BR-ICS-003):
               </label>
-              <select
+              <select className="input-standard select"
                 value={selectedCalendarId}
                 onChange={(e) => setSelectedCalendarId(e.target.value)}
-                className="input-standard"
                 style={{ width: "100%" }}
               >
                 {writableCalendars.map((c) => (

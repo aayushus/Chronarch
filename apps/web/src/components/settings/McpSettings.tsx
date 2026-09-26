@@ -4,6 +4,7 @@ import EmptyState from "../EmptyState";
 import { Badge, SectionHeader } from "../ui";
 
 import { useAuth } from "../../api/auth";
+import Icon from "../Icon";
 import {
   AdminUser,
   MCPCredential,
@@ -127,7 +128,7 @@ export default function McpSettings() {
 
   if (loading) {
     return (
-      <div style={{ padding: "32px 0", color: "var(--text-tertiary)", fontSize: 13 }}>
+      <div style={{ padding: "32px 0", color: "var(--text-tertiary)", fontSize: "var(--text-md)" }}>
         Loading MCP credentials…
       </div>
     );
@@ -156,12 +157,12 @@ export default function McpSettings() {
             alignItems: "center",
             gap: 6,
             padding: "8px 16px",
-            fontSize: 13,
+            fontSize: "var(--text-md)",
             fontWeight: 600,
             borderRadius: "var(--radius-sm)",
           }}
         >
-          <span style={{ fontSize: 15, lineHeight: 1 }}>+</span>
+          <span style={{ fontSize: "var(--text-lg)", lineHeight: 1 }}>+</span>
           <span>New Credential</span>
         </button>
       </div>
@@ -169,7 +170,7 @@ export default function McpSettings() {
       {banner && (
         <div
           style={{
-            fontSize: 13,
+            fontSize: "var(--text-md)",
             borderRadius: "var(--radius-sm)",
             padding: "10px 14px",
             marginBottom: 20,
@@ -184,9 +185,9 @@ export default function McpSettings() {
           <span>{banner.text}</span>
           <button
             onClick={() => setBanner(null)}
-            style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 16 }}
+            style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "var(--text-lg)" }}
           >
-            ×
+            <Icon name="x" size={13} />
           </button>
         </div>
       )}
@@ -194,7 +195,7 @@ export default function McpSettings() {
       {error && (
         <div
           style={{
-            fontSize: 13,
+            fontSize: "var(--text-md)",
             borderRadius: "var(--radius-sm)",
             padding: "10px 14px",
             marginBottom: 20,
@@ -212,7 +213,7 @@ export default function McpSettings() {
         style={{
           background: "var(--bg-raised)",
           border: "1px solid var(--border-subtle)",
-          borderRadius: 12,
+          borderRadius: "var(--radius-xl)",
           padding: "14px 18px",
           marginBottom: 24,
           display: "flex",
@@ -225,23 +226,23 @@ export default function McpSettings() {
             style={{
               width: 32,
               height: 32,
-              borderRadius: 8,
+              borderRadius: "var(--radius-md)",
               background: "rgba(10, 132, 255, 0.15)",
               color: "var(--primary)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 16,
+              fontSize: "var(--text-lg)",
             }}
           >
-            ⚡
+            <Icon name="command" size={19} />
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+            <div style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)" }}>
               MCP Server Endpoint
             </div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
-              Connect clients using endpoint <code style={{ fontSize: 12, background: "var(--bg-app)", padding: "1px 6px", borderRadius: 4 }}>{mcpEndpoint}</code>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: 2 }}>
+              Connect clients using endpoint <code style={{ fontSize: "var(--text-sm)", background: "var(--bg-app)", padding: "1px 6px", borderRadius: "var(--radius-sm)" }}>{mcpEndpoint}</code>
             </div>
           </div>
         </div>
@@ -252,7 +253,7 @@ export default function McpSettings() {
             background: "none",
             border: "none",
             color: "var(--primary)",
-            fontSize: 12,
+            fontSize: "var(--text-sm)",
             fontWeight: 600,
             cursor: "pointer",
             padding: "4px 8px",
@@ -267,24 +268,24 @@ export default function McpSettings() {
           style={{
             background: "var(--bg-raised)",
             border: "1px solid var(--border-subtle)",
-            borderRadius: 12,
+            borderRadius: "var(--radius-xl)",
             padding: 20,
             marginBottom: 24,
           }}
         >
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: "var(--text-primary)" }}>
+          <div style={{ fontSize: "var(--text-md)", fontWeight: 700, marginBottom: 8, color: "var(--text-primary)" }}>
             Connecting Claude Desktop or Cursor
           </div>
-          <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 12, lineHeight: 1.5 }}>
+          <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginBottom: 12, lineHeight: 1.5 }}>
             Add the following block to your <code>claude_desktop_config.json</code> under the <code>mcpServers</code> key:
           </p>
           <pre
             style={{
               background: "var(--bg-app)",
               border: "1px solid var(--border)",
-              borderRadius: 8,
+              borderRadius: "var(--radius-md)",
               padding: 14,
-              fontSize: 12,
+              fontSize: "var(--text-sm)",
               overflowX: "auto",
               color: "var(--text-primary)",
               fontFamily: "var(--font-mono, monospace)",
@@ -327,11 +328,11 @@ export default function McpSettings() {
                 key={c.id}
                 style={{
                   background: "var(--bg-raised)",
-                  borderRadius: 12,
+                  borderRadius: "var(--radius-xl)",
                   border: "1px solid var(--border-subtle)",
                   padding: 20,
                   opacity: isRevoked ? 0.6 : 1,
-                  transition: "all 0.15s ease",
+                  transition: "all var(--transition-fast)",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
@@ -341,30 +342,30 @@ export default function McpSettings() {
                       style={{
                         width: 42,
                         height: 42,
-                        borderRadius: 10,
+                        borderRadius: "var(--radius-lg)",
                         background: isRevoked ? "rgba(255, 69, 58, 0.12)" : "rgba(10, 132, 255, 0.15)",
                         color: isRevoked ? "var(--danger)" : "var(--primary)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: 20,
+                        fontSize: "var(--text-xl)",
                         flexShrink: 0,
                       }}
                     >
-                      {isRevoked ? "🚫" : "🤖"}
+                      <Icon name={isRevoked ? "x" : "check"} size={17} />
                     </div>
 
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>
+                        <span style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--text-primary)" }}>
                           {c.name}
                         </span>
                         <span
                           style={{
-                            fontSize: 10,
+                            fontSize: "var(--text-xs)",
                             fontWeight: 700,
                             padding: "2px 7px",
-                            borderRadius: 6,
+                            borderRadius: "var(--radius-sm)",
                             background: isRevoked ? "rgba(255, 69, 58, 0.15)" : "rgba(40, 200, 64, 0.15)",
                             color: isRevoked ? "var(--danger)" : "var(--success)",
                             border: `1px solid ${isRevoked ? "rgba(255, 69, 58, 0.25)" : "rgba(40, 200, 64, 0.25)"}`,
@@ -374,7 +375,7 @@ export default function McpSettings() {
                         </span>
                       </div>
 
-                      <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>
+                      <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: 4 }}>
                         Acts as identity: <strong style={{ color: "var(--text-primary)" }}>{c.user_email}</strong>
                       </div>
 
@@ -386,12 +387,12 @@ export default function McpSettings() {
                             <span
                               key={s}
                               style={{
-                                fontSize: 11,
+                                fontSize: "var(--text-sm)",
                                 fontWeight: 500,
                                 color: isWrite ? "var(--warning)" : "var(--primary)",
                                 background: isWrite ? "rgba(255, 159, 10, 0.1)" : "rgba(10, 132, 255, 0.1)",
                                 border: `1px solid ${isWrite ? "rgba(255, 159, 10, 0.25)" : "rgba(10, 132, 255, 0.25)"}`,
-                                borderRadius: 6,
+                                borderRadius: "var(--radius-sm)",
                                 padding: "2px 8px",
                               }}
                             >
@@ -409,7 +410,7 @@ export default function McpSettings() {
                       <button
                         onClick={() => handleRevoke(c)}
                         className="btn-danger hoverable"
-                        style={{ padding: "6px 14px", fontSize: 12 }}
+                        style={{ padding: "6px 14px", fontSize: "var(--text-sm)" }}
                       >
                         Revoke Token
                       </button>
@@ -457,7 +458,7 @@ export default function McpSettings() {
             onClick={(e) => e.stopPropagation()}
             style={{
               background: "var(--bg-panel)",
-              borderRadius: 14,
+              borderRadius: "var(--radius-pill)",
               padding: 26,
               width: 480,
               maxWidth: "92vw",
@@ -470,21 +471,20 @@ export default function McpSettings() {
                 style={{
                   width: 32,
                   height: 32,
-                  borderRadius: 8,
+                  borderRadius: "var(--radius-md)",
                   background: "rgba(40, 200, 64, 0.15)",
                   color: "var(--success)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 16,
                 }}
               >
-                ✓
+                <Icon name="check" size={22} strokeWidth={2.5} />
               </div>
-              <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>MCP Token Generated</h3>
+              <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, margin: 0 }}>MCP Token Generated</h3>
             </div>
 
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 14, lineHeight: 1.5 }}>
+            <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", marginBottom: 14, lineHeight: 1.5 }}>
               This API key is only displayed <strong>once</strong>. Store it in a secure location or password manager now.
             </p>
 
@@ -493,7 +493,7 @@ export default function McpSettings() {
                 position: "relative",
                 background: "var(--bg-app)",
                 border: "1px solid var(--border)",
-                borderRadius: 8,
+                borderRadius: "var(--radius-md)",
                 padding: "12px 14px",
                 marginBottom: 16,
               }}
@@ -501,7 +501,7 @@ export default function McpSettings() {
               <code
                 style={{
                   display: "block",
-                  fontSize: 13,
+                  fontSize: "var(--text-md)",
                   fontFamily: "var(--font-mono, monospace)",
                   wordBreak: "break-all",
                   color: "var(--text-primary)",
@@ -520,18 +520,18 @@ export default function McpSettings() {
                   top: "50%",
                   transform: "translateY(-50%)",
                   padding: "5px 10px",
-                  fontSize: 11,
+                  fontSize: "var(--text-sm)",
                   fontWeight: 600,
                 }}
               >
-                {copiedKey ? "✓ Copied!" : "Copy"}
+                {copiedKey ? "Copied" : "Copy"}
               </button>
             </div>
 
             <button
               onClick={() => setNewKey(null)}
               className="btn-primary hoverable"
-              style={{ width: "100%", padding: "9px 0", fontSize: 13, fontWeight: 600 }}
+              style={{ width: "100%", padding: "9px 0", fontSize: "var(--text-md)", fontWeight: 600 }}
             >
               I have safely copied this key
             </button>
@@ -614,7 +614,7 @@ function CreateCredentialModal({
         onClick={(e) => e.stopPropagation()}
         style={{
           background: "var(--bg-panel)",
-          borderRadius: 14,
+          borderRadius: "var(--radius-pill)",
           padding: 26,
           width: 500,
           maxWidth: "92vw",
@@ -623,7 +623,7 @@ function CreateCredentialModal({
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>
+          <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>
             Add MCP Client Credential
           </h3>
           <button
@@ -632,23 +632,23 @@ function CreateCredentialModal({
               background: "none",
               border: "none",
               color: "var(--text-tertiary)",
-              fontSize: 20,
+              fontSize: "var(--text-xl)",
               cursor: "pointer",
               padding: "2px 6px",
             }}
           >
-            ✕
+            <Icon name="x" size={13} />
           </button>
         </div>
 
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 18px", lineHeight: 1.5 }}>
+        <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 18px", lineHeight: 1.5 }}>
           Generate a scoped token for an autonomous agent or tool client acting on behalf of a specific user.
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {/* Client Label */}
           <div>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+            <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
               Client Name
             </label>
             <input
@@ -664,10 +664,10 @@ function CreateCredentialModal({
           {/* User selection (admin only — self-service keys act as you) */}
           {!selfServe && (
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+              <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
                 Authorized User Identity
               </label>
-              <select
+              <select className="input-standard select"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
                 style={modalInputStyle}
@@ -684,7 +684,7 @@ function CreateCredentialModal({
           {/* Scope Presets */}
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+              <label style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)" }}>
                 Permission Scopes
               </label>
               <div style={{ display: "flex", gap: 6 }}>
@@ -699,9 +699,9 @@ function CreateCredentialModal({
                       background: "var(--bg-app)",
                       border: "1px solid var(--border-subtle)",
                       color: "var(--text-secondary)",
-                      borderRadius: 4,
+                      borderRadius: "var(--radius-sm)",
                       padding: "2px 7px",
-                      fontSize: 11,
+                      fontSize: "var(--text-sm)",
                       fontWeight: 500,
                       cursor: "pointer",
                     }}
@@ -713,7 +713,7 @@ function CreateCredentialModal({
             </div>
 
             {/* Scope Matrix */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "var(--bg-app)", padding: 12, borderRadius: 10, border: "1px solid var(--border-subtle)" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "var(--bg-app)", padding: 12, borderRadius: "var(--radius-lg)", border: "1px solid var(--border-subtle)" }}>
               {SCOPE_DEFINITIONS.map(({ key, label, desc, category }) => {
                 const checked = scopes.has(key);
                 return (
@@ -725,30 +725,25 @@ function CreateCredentialModal({
                       alignItems: "flex-start",
                       gap: 10,
                       padding: "6px 8px",
-                      borderRadius: 6,
+                      borderRadius: "var(--radius-sm)",
                       background: checked ? "rgba(10, 132, 255, 0.08)" : "transparent",
                       cursor: "pointer",
                     }}
                   >
-                    <input
+                    <input className="checkbox"
                       type="checkbox"
                       checked={checked}
                       onChange={() => toggleScope(key)}
-                      style={{
-                        marginTop: 2,
-                        accentColor: category === "write" ? "var(--warning)" : "var(--primary)",
-                        width: 14,
-                        height: 14,
-                      }}
+                      style={{ marginTop: 2}}
                     />
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: checked ? "var(--text-primary)" : "var(--text-secondary)" }}>
+                        <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: checked ? "var(--text-primary)" : "var(--text-secondary)" }}>
                           {label}
                         </span>
-                        <code style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{key}</code>
+                        <code style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)" }}>{key}</code>
                       </div>
-                      <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>
+                      <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginTop: 2 }}>
                         {desc}
                       </div>
                     </div>
@@ -762,7 +757,7 @@ function CreateCredentialModal({
             <div
               style={{
                 color: "var(--danger)",
-                fontSize: 12,
+                fontSize: "var(--text-sm)",
                 background: "rgba(255, 69, 58, 0.1)",
                 padding: "8px 12px",
                 borderRadius: "var(--radius-sm)",
@@ -780,7 +775,7 @@ function CreateCredentialModal({
               type="submit"
               disabled={saving || (!selfServe && users.length === 0)}
               className="btn-primary hoverable"
-              style={{ padding: "8px 18px", fontSize: 13, fontWeight: 600 }}
+              style={{ padding: "8px 18px", fontSize: "var(--text-md)", fontWeight: 600 }}
             >
               {saving ? "Generating Key…" : "Generate Key"}
             </button>
@@ -795,10 +790,10 @@ const modalInputStyle: React.CSSProperties = {
   width: "100%",
   background: "var(--bg-app)",
   border: "1px solid var(--border)",
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   color: "var(--text-primary)",
   padding: "8px 12px",
-  fontSize: 13,
+  fontSize: "var(--text-md)",
   boxSizing: "border-box",
   colorScheme: "dark",
 };

@@ -30,11 +30,11 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
   return (
     <div className="cal-wash view-enter" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
       <div style={{ display: "grid", gridTemplateColumns: "36px repeat(7, 1fr)", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
-        <div style={{ padding: "8px 0", textAlign: "center", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", borderRight: "1px solid var(--border-subtle)" }}>
+        <div style={{ padding: "8px 0", textAlign: "center", fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--text-tertiary)", borderRight: "1px solid var(--border-subtle)" }}>
           W#
         </div>
         {WEEKDAY_SHORT.map((w, i) => (
-          <div key={i} style={{ padding: "8px 0", textAlign: "center", fontSize: 11, color: "var(--text-tertiary)" }}>
+          <div key={i} style={{ padding: "8px 0", textAlign: "center", fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>
             {w}
           </div>
         ))}
@@ -52,7 +52,7 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 10,
+                  fontSize: "var(--text-xs)",
                   fontWeight: 600,
                   color: "var(--text-tertiary)",
                   background: "var(--wash-deep)",
@@ -91,7 +91,7 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                   <div
                     className="tabular-nums"
                     style={{
-                      fontSize: 12,
+                      fontSize: "var(--text-sm)",
                       fontWeight: sameDay(d, today) ? 700 : 400,
                       color: sameDay(d, today) ? "var(--danger)" : "var(--text-primary)",
                       marginBottom: 4,
@@ -131,7 +131,7 @@ export default function MonthView({ monthAnchor, events, calendarById, onSelectE
                   })}
 
                   {dayEvents.length > 2 && (
-                    <div style={{ fontSize: 9, color: "var(--text-tertiary)" }}>+{dayEvents.length - 2} more</div>
+                    <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-tertiary)" }}>+{dayEvents.length - 2} more</div>
                   )}
                 </div>
               );

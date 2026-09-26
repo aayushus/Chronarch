@@ -71,7 +71,7 @@ export default function KioskPairPage() {
               style={{ background: "var(--wall-well)", border: "1px solid var(--wall-line)", borderRadius: 8, color: "var(--wall-ink)", padding: "10px 16px", fontSize: 14, width: 260, textAlign: "center", marginBottom: 12, outline: "none" }}
             />
             <div>
-              <button onClick={() => void requestCode()} disabled={requesting} className="btn-primary hoverable" style={{ padding: "10px 28px", fontSize: 14, opacity: requesting ? 0.5 : 1 }}>
+              <button onClick={() => void requestCode()} disabled={requesting} className="btn-primary hoverable" style={{ padding: "10px 28px", fontSize: 14 }}>
                 {requesting ? "Getting code…" : "Get pairing code"}
               </button>
             </div>

@@ -96,7 +96,7 @@ export default function YearView({ year, events, calendarById, selectedDate, onS
               border: "none",
               padding: 0,
               marginBottom: 6,
-              fontSize: 13,
+              fontSize: "var(--text-md)",
               fontWeight: 700,
               color: "var(--text-primary)",
               cursor: "pointer",
@@ -107,7 +107,7 @@ export default function YearView({ year, events, calendarById, selectedDate, onS
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, marginBottom: 2 }}>
             {WEEKDAY_LETTERS.map((w, i) => (
-              <div key={i} style={{ fontSize: 9, textAlign: "center", color: "var(--text-tertiary)" }}>
+              <div key={i} style={{ fontSize: "var(--text-2xs)", textAlign: "center", color: "var(--text-tertiary)" }}>
                 {w}
               </div>
             ))}
@@ -134,18 +134,18 @@ export default function YearView({ year, events, calendarById, selectedDate, onS
                     justifyContent: "center",
                     gap: 1,
                     border: "none",
-                    borderRadius: 6,
+                    borderRadius: "var(--radius-sm)",
                     cursor: "pointer",
                     background: isSelected ? "var(--accent)" : "transparent",
                     color: !inMonth
                       ? "transparent"
                       : isSelected
-                      ? "#fff"
+                      ? "var(--text-on-fill)"
                       : isToday
                       ? "var(--danger)"
                       : "var(--text-primary)",
                     fontWeight: isToday || isSelected ? 700 : 400,
-                    fontSize: 11,
+                    fontSize: "var(--text-sm)",
                     padding: 0,
                     pointerEvents: inMonth ? "auto" : "none",
                   }}
@@ -158,7 +158,7 @@ export default function YearView({ year, events, calendarById, selectedDate, onS
                         style={{
                           width: 3.5,
                           height: 3.5,
-                          borderRadius: 999,
+                          borderRadius: "var(--radius-pill)",
                           background: isCancelledEvent(e)
                             ? "repeating-linear-gradient(135deg, #8c8c93 0 2px, #d0d0d4 2px 4px)"
                             : calendarById[e.calendar_id]?.color ?? "var(--accent)",
@@ -166,7 +166,7 @@ export default function YearView({ year, events, calendarById, selectedDate, onS
                       />
                     ))}
                     {dayEvents.length > 3 && (
-                      <span style={{ fontSize: 8, color: "var(--text-tertiary)", lineHeight: 1 }}>
+                      <span style={{ fontSize: "var(--text-nano)", color: "var(--text-tertiary)", lineHeight: 1 }}>
                         +{dayEvents.length - 3}
                       </span>
                     )}

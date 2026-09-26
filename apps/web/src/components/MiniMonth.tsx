@@ -22,7 +22,7 @@ export default function MiniMonth({ viewedDate, selectedDate, onSelect, onMonthS
         <button onClick={() => onMonthShift(-1)} className="icon-btn" style={navBtnStyle} aria-label="Previous month">
           <Icon name="chevronLeft" size={13} />
         </button>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+        <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)" }}>
           {monthStart.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
         </span>
         <button onClick={() => onMonthShift(1)} className="icon-btn" style={navBtnStyle} aria-label="Next month">
@@ -32,7 +32,7 @@ export default function MiniMonth({ viewedDate, selectedDate, onSelect, onMonthS
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
         {WEEKDAY_SHORT.map((w, i) => (
-          <div key={i} style={{ fontSize: 10, textAlign: "center", color: "var(--text-tertiary)" }}>
+          <div key={i} style={{ fontSize: "var(--text-xs)", textAlign: "center", color: "var(--text-tertiary)" }}>
             {w}
           </div>
         ))}
@@ -53,12 +53,12 @@ export default function MiniMonth({ viewedDate, selectedDate, onSelect, onMonthS
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 11,
+                fontSize: "var(--text-sm)",
                 border: "none",
                 borderRadius: isToday ? 6 : 999,
                 cursor: "pointer",
                 background: isToday ? "var(--danger)" : isSelected ? "var(--bg-raised-hover)" : "transparent",
-                color: isToday ? "#fff" : isCurrentMonth ? "var(--text-primary)" : "var(--text-tertiary)",
+                color: isToday ? "var(--text-on-fill)" : isCurrentMonth ? "var(--text-primary)" : "var(--text-tertiary)",
                 fontWeight: isToday ? 700 : 400,
                 boxShadow: isToday ? "0 2px 6px rgba(255, 69, 58, 0.35)" : "none",
               }}
@@ -76,9 +76,9 @@ export default function MiniMonth({ viewedDate, selectedDate, onSelect, onMonthS
           style={{
             width: "100%",
             padding: "5px 12px",
-            fontSize: 11,
+            fontSize: "var(--text-sm)",
             fontWeight: 600,
-            borderRadius: 999,
+            borderRadius: "var(--radius-pill)",
             background: "var(--wash-lift)",
             color: "var(--accent)",
             border: "1px solid var(--accent-dim)",
@@ -102,7 +102,7 @@ const navBtnStyle: React.CSSProperties = {
   background: "none",
   border: "none",
   color: "var(--text-secondary)",
-  fontSize: 14,
+  fontSize: "var(--text-md)",
   cursor: "pointer",
   padding: 4,
 };

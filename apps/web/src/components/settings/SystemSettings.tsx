@@ -66,17 +66,17 @@ export default function SystemSettings() {
           alignItems: "center",
           gap: 10,
           background: "var(--bg-raised)",
-          borderRadius: 10,
+          borderRadius: "var(--radius-lg)",
           padding: 14,
           marginBottom: 16,
         }}
       >
         <StatusDot status={anyChecking ? "checking" : allOk ? "ok" : "down"} size={12} />
-        <span style={{ fontSize: 14, fontWeight: 600 }}>
+        <span style={{ fontSize: "var(--text-md)", fontWeight: 600 }}>
           {anyChecking ? "Checking…" : allOk ? "All systems operational" : "One or more services are unreachable"}
         </span>
         {lastChecked && (
-          <span style={{ fontSize: 11, color: "var(--text-tertiary)", marginLeft: "auto" }}>
+          <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginLeft: "auto" }}>
             Last checked {lastChecked.toLocaleTimeString()}
           </span>
         )}
@@ -91,18 +91,18 @@ export default function SystemSettings() {
               alignItems: "center",
               gap: 12,
               background: "var(--bg-raised)",
-              borderRadius: 10,
+              borderRadius: "var(--radius-lg)",
               padding: "12px 14px",
             }}
           >
             <StatusDot status={r.status} size={9} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{r.label}</div>
-              <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{r.detail}</div>
+              <div style={{ fontSize: "var(--text-md)", fontWeight: 600 }}>{r.label}</div>
+              <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>{r.detail}</div>
             </div>
-            <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{r.url}</div>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>{r.url}</div>
             {r.latencyMs !== null && (
-              <div className="tabular-nums" style={{ fontSize: 11, color: "var(--text-secondary)", width: 50, textAlign: "right" }}>
+              <div className="tabular-nums" style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", width: 50, textAlign: "right" }}>
                 {r.latencyMs}ms
               </div>
             )}
@@ -110,7 +110,7 @@ export default function SystemSettings() {
         ))}
       </div>
 
-      <p style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+      <p style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>
         Redis, the worker, and the scheduler don't expose an HTTP health endpoint yet, so they aren't checked here —
         API readiness above covers database connectivity, which is the main dependency shared across services.
       </p>
@@ -136,11 +136,11 @@ function StatusDot({ status, size }: { status: "checking" | "ok" | "down"; size:
 
 const btnStyle: React.CSSProperties = {
   border: "none",
-  borderRadius: 6,
-  color: "#fff",
+  borderRadius: "var(--radius-sm)",
+  color: "var(--text-on-fill)",
   background: "var(--accent)",
   padding: "7px 12px",
-  fontSize: 12,
+  fontSize: "var(--text-sm)",
   fontWeight: 600,
   cursor: "pointer",
 };

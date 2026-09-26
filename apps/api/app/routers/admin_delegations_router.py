@@ -96,7 +96,10 @@ async def _to_out(session: AsyncSession, deleg: Delegation) -> DelegationOut:
 
 @router.get("", response_model=list[DelegationOut])
 async def list_delegations(_admin: User = Depends(require_permission("delegations.view")), session: AsyncSession = Depends(get_db_session)):
-    delegations = list((await session.execute(select(Delegation))).scalars())
+    stmt = select(Delegation)
+    if _admin.role != UserRole.ADMIN:
+        stmt = stmt.where(Delegation.owner_user_id == _admin.id)
+    delegations = list((await session.execute(stmt)).scalars())
     return [await _to_out(session, d) for d in delegations]
 
 
@@ -147,6 +150,8 @@ async def delete_delegation(
     deleg = await session.get(Delegation, delegation_id)
     if deleg is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Delegation not found")
+    if _admin.role != UserRole.ADMIN and _admin.id != deleg.owner_user_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the owner or an administrator may manage this delegation")
     from sqlalchemy import delete
     await session.execute(delete(DelegationCalendarGrant).where(DelegationCalendarGrant.delegation_id == delegation_id))
     await session.delete(deleg)
@@ -202,6 +207,8 @@ async def remove_grant(
     deleg = await session.get(Delegation, delegation_id)
     if deleg is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Delegation not found")
+    if _admin.role != UserRole.ADMIN and _admin.id != deleg.owner_user_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the owner or an administrator may manage this delegation")
     existing = (
         await session.execute(
             select(DelegationCalendarGrant).where(
