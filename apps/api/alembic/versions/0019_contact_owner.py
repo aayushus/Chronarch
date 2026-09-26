@@ -11,9 +11,27 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    legacy_constraint = next(
+        (
+            constraint["name"]
+            for constraint in inspector.get_unique_constraints("contacts")
+            if constraint.get("name") and constraint.get("column_names") == ["email"]
+        ),
+        None,
+    )
+    # Some older installations materialized the model's email uniqueness as
+    # an index rather than a table constraint. Drop only matching unique
+    # indexes; the ordinary lookup index must remain intact.
+    for index in inspector.get_indexes("contacts"):
+        if index.get("unique") and index.get("column_names") == ["email"]:
+            op.drop_index(index["name"], table_name="contacts")
+
     with op.batch_alter_table("contacts", recreate="auto") as batch:
         batch.add_column(sa.Column("owner_user_id", sa.String(), nullable=True))
-        batch.drop_constraint("contacts_email_key", type_="unique")
+        if legacy_constraint:
+            batch.drop_constraint(legacy_constraint, type_="unique")
     op.create_index("ix_contacts_owner_user_id", "contacts", ["owner_user_id"])
     # Legacy rows have no owner and must remain nullable until an explicit,
     # auditable backfill can identify their source account. A normal
