@@ -4,6 +4,10 @@ Calls the handler directly with a stub user — no server, no tokens. The DB
 is the real sqlite session with invite-extracted rows.
 """
 
+import pytest
+from fastapi import HTTPException
+from sqlalchemy import select
+
 from app.routers import contacts_router as cr
 from chronarch_core.models.contact import Contact
 from chronarch_core.models.enums import UserRole
@@ -98,3 +102,33 @@ async def test_create_update_delete_restore_round_trip(session, monkeypatch):
         raise AssertionError("expected 404")
     except HTTPException as exc:
         assert exc.status_code == 404
+
+
+async def test_patch_unowned_contact_is_not_writable(session):
+    """COV-003: a legacy unowned row must not be editable by an unrelated user.
+
+    `update_contact` now uses the same strict owner check as `delete_contact`
+    and `restore_contact`. This asserts the router surfaces the rejection as
+    404 — the same answer another user's row gets — rather than performing the
+    write, and that the row is left untouched.
+    """
+    session.add(Contact(email="legacy@acme.com", display_name="Legacy"))
+    await session.flush()
+    row = (await session.execute(
+        select(Contact).where(Contact.email == "legacy@acme.com")
+    )).scalar_one()
+    assert row.owner_user_id is None
+
+    with pytest.raises(HTTPException) as exc:
+        await cr.update_contact(
+            row.id,
+            cr.ContactUpdate(phone="+1-555-0000", display_name="Hacked"),
+            _user=await _user(),
+            session=session,
+        )
+    assert exc.value.status_code == 404
+
+    await session.refresh(row)
+    assert row.phone is None
+    assert row.display_name == "Legacy"
+    assert row.name_locked is False

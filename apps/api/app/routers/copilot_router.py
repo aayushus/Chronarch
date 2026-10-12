@@ -23,6 +23,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from datetime import datetime
 from typing import Any
 
@@ -44,6 +45,24 @@ from ..permission_helpers import get_delegation_grants, get_owned_calendar_ids
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/copilot", tags=["copilot"])
+
+# Rate limit tracking per user (OWASP LLM10 - DoS & Resource Exhaustion)
+_COPILOT_RATE_LIMITS: dict[str, list[float]] = {}
+
+def _check_copilot_rate_limit(user_id: str, limit: int = 20, window_secs: float = 60.0) -> None:
+    now = time.time()
+    history = [t for t in _COPILOT_RATE_LIMITS.get(user_id, []) if now - t < window_secs]
+    if len(history) >= limit:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many requests to the AI Copilot. Please wait a moment before trying again.",
+        )
+    history.append(now)
+    _COPILOT_RATE_LIMITS[user_id] = history
+
+# Rollback snapshot state per user (OWASP LLM06 / MCP Security - Excessive Agency & Reversible Actions)
+_LAST_ACTIONS: dict[str, dict[str, Any]] = {}
+
 
 
 def _friendly_litellm_error(status_code: int, *, key_configured: bool = True) -> str:
@@ -484,6 +503,14 @@ COPILOT_TOOLS = [
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "undo_last_copilot_action",
+                "description": "Undo the user's most recent calendar modification made through the copilot (creation, move, or update).",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
     ]
 
 
@@ -711,17 +738,17 @@ async def _execute_tool(
                     "id": e.id,
                     "calendar_id": e.calendar_id,
                     "calendar_name": cal_names.get(e.calendar_id, ""),
-                    "title": e.title,
+                    "title": f"<external_event_data>{e.title}</external_event_data>",
                     "start": e.start.isoformat(),
                     "end": e.end.isoformat(),
                     "start_local": _local(e.start),
                     "end_local": _local(e.end),
                     "all_day": e.all_day,
-                    "location": e.location if resolve_permission(
+                    "location": f"<external_event_data>{e.location}</external_event_data>" if (e.location and resolve_permission(
                         ctx, cal_by_id[e.calendar_id], CalendarAction.VIEW_FULL_DETAILS,
                         event=e, is_owner=e.calendar_id in owned_ids,
                         delegation_grant=grants.get(e.calendar_id) if grants else None,
-                    ).allowed else None,
+                    ).allowed) else None,
                     "attendees": e.attendees if resolve_permission(
                         ctx, cal_by_id[e.calendar_id], CalendarAction.VIEW_FULL_DETAILS,
                         event=e, is_owner=e.calendar_id in owned_ids,
@@ -819,6 +846,7 @@ async def _execute_tool(
                 "end_local": _local(ev.end),
             },
         }
+        _LAST_ACTIONS[ctx.user_id] = {"action": "create", "event_id": ev.id}
 
     elif name == "move_event":
         from chronarch_core.models.event import UnifiedEvent
@@ -829,6 +857,13 @@ async def _execute_tool(
             return {"error": f"Event {ev_id} not found"}
         is_owner = existing.calendar_id in owned_ids
         grant = grants.get(existing.calendar_id)
+        _LAST_ACTIONS[ctx.user_id] = {
+            "action": "move",
+            "event_id": ev_id,
+            "start": existing.start,
+            "end": existing.end,
+            "all_day": existing.all_day,
+        }
         n_start = _aware(args["new_start"])
         n_end = _aware(args["new_end"])
         ev = await ai_tools.move_event(
@@ -899,10 +934,16 @@ async def _execute_tool(
             return {"error": f"{exc.action.value} denied: {exc.reason}"}
         return {
             "event": {
-                "id": ev.id, "calendar_id": ev.calendar_id, "title": ev.title,
-                "description": ev.description, "start": ev.start.isoformat(),
-                "end": ev.end.isoformat(), "start_local": _local(ev.start),
-                "end_local": _local(ev.end), "all_day": ev.all_day, "location": ev.location,
+                "id": ev.id,
+                "calendar_id": ev.calendar_id,
+                "title": f"<external_event_data>{ev.title}</external_event_data>",
+                "description": f"<external_event_data>{ev.description}</external_event_data>" if ev.description else None,
+                "start": ev.start.isoformat(),
+                "end": ev.end.isoformat(),
+                "start_local": _local(ev.start),
+                "end_local": _local(ev.end),
+                "all_day": ev.all_day,
+                "location": f"<external_event_data>{ev.location}</external_event_data>" if ev.location else None,
                 "attendees": ev.attendees,
             }
         }
@@ -938,6 +979,14 @@ async def _execute_tool(
             return {"error": f"Event {ev_id} not found"}
         is_owner = existing.calendar_id in owned_ids
         grant = grants.get(existing.calendar_id)
+        _LAST_ACTIONS[ctx.user_id] = {
+            "action": "update",
+            "event_id": ev_id,
+            "title": existing.title,
+            "description": existing.description,
+            "location": existing.location,
+            "all_day": existing.all_day,
+        }
         ev = await ai_tools.update_event(
             session, ctx, event_id=ev_id, title=args.get("title"),
             description=args.get("description"), location=args.get("location"),
@@ -1217,6 +1266,21 @@ async def _execute_tool(
                 owner_calendar_ids=owned_ids, grants_by_calendar=grants)
         except ValueError as exc:
             return {"error": str(exc)}
+    elif name == "undo_last_copilot_action":
+        last = _LAST_ACTIONS.pop(ctx.user_id, None)
+        if not last:
+            return {"error": "No recent action to undo"}
+        act = last["action"]
+        if act == "create":
+            await ai_tools.delete_event(session, ctx, event_id=last["event_id"], scope="series", is_owner=True)
+            return {"undone": True, "message": "Created event was deleted"}
+        elif act == "move":
+            await ai_tools.move_event(session, ctx, event_id=last["event_id"], new_start=last["start"], new_end=last["end"], new_all_day=last["all_day"], is_owner=True)
+            return {"undone": True, "message": "Event move was reverted"}
+        elif act == "update":
+            await ai_tools.update_event(session, ctx, event_id=last["event_id"], title=last["title"], description=last["description"], location=last["location"], all_day=last["all_day"], scope="series", is_owner=True)
+            return {"undone": True, "message": "Event update was reverted"}
+        return {"error": f"Cannot undo action '{act}'"}
 
     return {"error": f"Unknown tool: {name}"}
 
@@ -1295,6 +1359,8 @@ def _describe_tool_call(name: str, args: dict[str, Any]) -> str:
         return "Restoring contact"
     if name == "suggest_meeting_times":
         return f"Finding time with {args.get('contact_query', 'them')}"
+    if name == "undo_last_copilot_action":
+        return "Undoing last action"
     return name.replace("_", " ").capitalize()
 
 
@@ -1304,6 +1370,8 @@ def _summarize_tool_result(name: str, result: dict[str, Any]) -> str:
         return "Done"
     if result.get("error"):
         return str(result["error"])[:120]
+    if name == "undo_last_copilot_action":
+        return str(result.get("message", "Action undone"))
     if result.get("requires_confirmation"):
         return f"Needs confirmation: {result.get('title', 'event')}"
     if name == "list_calendars":
@@ -1392,7 +1460,7 @@ def _build_history(req: ChatRequest, user=None, tz_name: str = "UTC") -> list[di
     )
 
     history: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
-    for m in req.messages:
+    for m in req.messages[-10:]:
         item: dict[str, Any] = {"role": m.role}
         if m.content is not None:
             item["content"] = m.content
@@ -1436,6 +1504,7 @@ async def copilot_chat(
 
     if not await _rbac.has_permission(session, user, "copilot.use"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Requires the 'copilot.use' permission")
+    _check_copilot_rate_limit(user.id)
     if not await _any_provider_key(session):
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY,
@@ -1607,6 +1676,7 @@ async def copilot_chat_stream(
 
     if not await _rbac_stream.has_permission(session, user, "copilot.use"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Requires the 'copilot.use' permission")
+    _check_copilot_rate_limit(user.id)
     if not await _any_provider_key(session):
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY,

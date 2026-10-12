@@ -21,5 +21,12 @@ dependencies = [
 requires = ["setuptools>=84"]
 build-backend = "setuptools.build_meta"
 
+[project.optional-dependencies]
+# Test dependencies for `pytest` against apps/api/tests. They live in core's
+# `dev` extra; re-exported here so `pip install -e apps/api[test]` is enough to
+# run the whole suite (see .github/workflows/ci-cd.yml). httpx, cryptography and
+# sqlalchemy arrive from chronarch-core's base dependencies.
+test = ["chronarch-core[dev]"]
+
 [tool.setuptools.packages.find]
 include = ["app*"]

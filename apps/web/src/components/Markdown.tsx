@@ -90,15 +90,24 @@ export default function Markdown({ text }: { text: string }) {
               {children}
             </td>
           ),
-          a: ({ children, href }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer"
-              style={{ color: "var(--accent)" }}
-            >
-              {children}
-            </a>
+          a: ({ children, href }) => {
+            const safeHref =
+              href && /^(https?:\/\/|mailto:)/i.test(href) ? href : "#";
+            return (
+              <a
+                href={safeHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "var(--accent)" }}
+              >
+                {children}
+              </a>
+            );
+          },
+          img: ({ alt }) => (
+            <span style={{ color: "var(--text-secondary)", fontSize: "var(--text-xs)", fontStyle: "italic" }}>
+              [Image: {alt || "image"}]
+            </span>
           ),
           blockquote: ({ children }) => (
             <blockquote

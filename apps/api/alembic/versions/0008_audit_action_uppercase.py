@@ -19,7 +19,18 @@ depends_on: Union[str, Sequence[str], None] = None
 _LABELS = ("CREATE_ROLE", "UPDATE_ROLE", "DELETE_ROLE", "ASSIGN_ROLE", "REVOKE_ROLE")
 
 
+def _is_postgres() -> bool:
+    return op.get_bind().dialect.name == "postgresql"
+
+
 def _enumlabels(name: str) -> set[str]:
+    """Labels of a PostgreSQL enum type; empty on dialects without enums.
+
+    SQLite has no enum type, so `pg_enum` does not exist there. Returning an
+    empty set makes the `ADD VALUE` guards no-ops instead of crashing the run.
+    """
+    if not _is_postgres():
+        return set()
     bind = op.get_bind()
     rows = bind.execute(
         sa.text(
@@ -32,9 +43,14 @@ def _enumlabels(name: str) -> set[str]:
 
 
 def upgrade() -> None:
+    if not _is_postgres():
+        # No enum type to extend and no cast to apply: on SQLite `action` is
+        # already a plain VARCHAR, so there is nothing to uppercase in place.
+        return
     for label in _LABELS:
         if label not in _enumlabels("auditaction"):
             op.execute(sa.text(f"ALTER TYPE auditaction ADD VALUE '{label}'"))
+    # PG forbids ADD VALUE and its use in one transaction.
     op.execute(sa.text("COMMIT"))
     op.execute(
         sa.text(

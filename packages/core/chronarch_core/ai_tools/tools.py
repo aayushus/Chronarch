@@ -149,7 +149,7 @@ async def _readable_calendars(
     to "none", preserving the deny-by-default posture of older callers.
     """
     stmt = select(Calendar)
-    if calendar_ids:
+    if calendar_ids and isinstance(calendar_ids, (list, tuple, set)):
         stmt = stmt.where(Calendar.id.in_(calendar_ids))
     calendars = list((await session.execute(stmt)).scalars())
 
@@ -261,10 +261,23 @@ async def get_events(
     if not cal_by_id:
         return []
 
-    # Do not use JSON `IS NOT NULL` here: SQLite/PostgreSQL adapters may
-    # materialize a JSON null as the literal JSON value `null`, which would
-    # bypass the time-window predicate and leak unrelated one-off events.
-    stmt = select(UnifiedEvent).where(UnifiedEvent.calendar_id.in_(cal_by_id.keys()))
+    # Push the time window filter down to SQL for non-recurring events so
+    # large calendars don't load thousands of out-of-window rows.
+    # Recurring masters are still loaded regardless of start/end so they can
+    # be expanded across the window below.
+    stmt = select(UnifiedEvent).where(
+        UnifiedEvent.calendar_id.in_(cal_by_id.keys()),
+        or_(
+            and_(
+                UnifiedEvent.start < window_end,
+                UnifiedEvent.end > window_start,
+            ),
+            and_(
+                UnifiedEvent.recurrence.isnot(None),
+                UnifiedEvent.recurrence != "null",
+            ),
+        ),
+    )
     events = list((await session.execute(stmt)).scalars())
 
     # Recurring masters are stored at their first occurrence. Expand them

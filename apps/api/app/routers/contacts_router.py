@@ -31,6 +31,20 @@ def _out(c: Contact) -> dict:
     }
 
 
+def _reject_line_breaks(value: str | None) -> str | None:
+    """Reject CR/LF before the value can reach storage or a mail/ICS header.
+
+    Enforced on the models so every consumer is covered, *and* in
+    `chronarch_core.contacts._validate_email` so non-HTTP callers such as the
+    MCP tools and the copilot are covered too.
+    """
+    if value is None:
+        return None
+    if "\r" in value or "\n" in value:
+        raise ValueError("email must not contain line breaks")
+    return value.strip()
+
+
 class ContactCreate(BaseModel):
     email: str
     display_name: str | None = None
@@ -41,9 +55,7 @@ class ContactCreate(BaseModel):
     @field_validator("email")
     @classmethod
     def _safe_email(cls, value: str) -> str:
-        if "\r" in value or "\n" in value:
-            raise ValueError("email must not contain line breaks")
-        return value.strip()
+        return _reject_line_breaks(value)
 
 
 class ContactUpdate(BaseModel):
@@ -56,9 +68,7 @@ class ContactUpdate(BaseModel):
     @field_validator("email")
     @classmethod
     def _safe_email(cls, value: str | None) -> str | None:
-        if value is not None and ("\r" in value or "\n" in value):
-            raise ValueError("email must not contain line breaks")
-        return value.strip() if value is not None else None
+        return _reject_line_breaks(value)
 
 
 @router.get("/search")

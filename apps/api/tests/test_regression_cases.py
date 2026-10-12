@@ -51,10 +51,6 @@ def test_core_api_routes_are_registered():
     assert required <= paths
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="OpenAPI generation currently trips the event route dependency-analysis failure",
-)
 def test_openapi_contract_includes_critical_schemas():
     schema = app.openapi()
     paths = schema["paths"]
@@ -219,3 +215,21 @@ def test_booking_slug_length_boundaries():
     for value in ("ab", "a" * 61):
         with pytest.raises(ValueError):
             normalize_slug(value)
+
+
+def test_list_query_params_are_not_inferred_as_request_bodies():
+    """A `list[str] | None` route parameter must be a query param, not a body.
+
+    FastAPI treats a non-scalar annotation as an embedded request body. Left
+    unannotated, `GET /api/v1/events` grows a `requestBody` and the
+    `?calendar_ids=` filter is silently ignored (or rejected) — a filter that
+    looks like it works but does not. `Query(None)` pins it to the query string.
+    """
+    schema = app.openapi()
+    for path in ("/api/v1/events", "/api/v1/events/conflicts"):
+        operation = schema["paths"][path]["get"]
+        assert "requestBody" not in operation, f"{path} must not require a body"
+        query_names = {p["name"] for p in operation.get("parameters", [])}
+        assert {"window_start", "window_end", "calendar_ids"} <= query_names, (
+            f"{path} query parameters: {sorted(query_names)}"
+        )

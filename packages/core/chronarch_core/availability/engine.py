@@ -102,6 +102,8 @@ def find_free_slots(
     respecting working hours, meeting buffers, and minimum notice
     (BRD §26 — used by MCP find_free_slots and the copilot).
     """
+    if duration.total_seconds() <= 0:
+        raise ValueError("duration must be positive")
     busy = merge_intervals(compute_busy_intervals(events, blocking_calendar_ids))
 
     # Apply buffer by padding each busy interval.

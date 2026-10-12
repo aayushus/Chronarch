@@ -237,3 +237,47 @@ async def test_mcp_actor_respects_ai_can_write_flag(session):
         await ai_tools.create_event(
             session, mcp_ctx, calendar_id=calendar.id, title="AI-created", start=start, end=start + timedelta(hours=1),
         )
+
+
+async def test_get_events_pushes_window_predicate_into_sql(session):
+    """COV-004: the window must be enforced in SQL, not only in Python.
+
+    A results-only assertion cannot distinguish the two implementations,
+    because the Python fallback filter alone already returns the correct
+    events either way — so it would pass even with the predicate removed and
+    every row loaded. This inspects the emitted statement instead, so the
+    pruning cannot silently regress.
+    """
+    from sqlalchemy import event as sa_event
+
+    exec_user, _ea_user, calendar = await _seed(session)
+    ctx = AuthContext(user_id=exec_user.id, role=UserRole.ADMIN, actor_type=ActorType.ADMIN_UI)
+    start = datetime(2026, 9, 17, 10, 0, tzinfo=timezone.utc)
+    await ai_tools.create_event(
+        session, ctx, calendar_id=calendar.id, title="InWindow",
+        start=start, end=start + timedelta(hours=1), is_owner=True)
+
+    statements: list[str] = []
+    engine = session.get_bind()  # the sync Engine behind the AsyncSession
+
+    def _capture(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    sa_event.listen(engine, "before_cursor_execute", _capture)
+    try:
+        await ai_tools.get_events(
+            session, ctx,
+            window_start=start,
+            window_end=start + timedelta(hours=2),
+            owner_calendar_ids={calendar.id},
+        )
+    finally:
+        sa_event.remove(engine, "before_cursor_execute", _capture)
+
+    selects = [s for s in statements if "FROM events" in s]
+    assert selects, "get_events should query the events table"
+    # `end` is a reserved word, so dialects quote it; compare quote-agnostically.
+    sql = selects[0].replace('"', "")
+    assert "start <" in sql, f"window upper bound missing from SQL: {sql}"
+    assert "end >" in sql, f"window lower bound missing from SQL: {sql}"
+    assert "recurrence" in sql, "recurring masters must stay selectable to be expanded"

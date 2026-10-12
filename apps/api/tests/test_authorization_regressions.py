@@ -252,3 +252,29 @@ async def test_caldav_probe_rejects_private_http_without_network(monkeypatch):
 
     assert raised.value.status_code == 422
     assert called is False
+
+
+async def test_calendar_patch_rejects_admin_who_is_not_the_owner(session):
+    """An admin must not mutate another account's calendar settings.
+
+    `is_calendar_owner()` already requires ADMIN role *and* account ownership,
+    so the previous guard (`user.role != ADMIN and not is_calendar_owner(...)`)
+    short-circuited to "allowed" for every admin and made calendar settings a
+    cross-tenant write for any admin account. Pinned here so the tightening is
+    deliberate: an admin owns their own calendars and no others.
+    """
+    owner = await _admin(session, "owner-1", "owner@example.com")
+    other_admin = await _admin(session, "admin-2", "admin2@example.com")
+    calendar = await _account_calendar(session, owner, "owned")
+
+    with pytest.raises(HTTPException) as raised:
+        await calendars_router.update_calendar(
+            calendar.id,
+            calendars_router.CalendarUpdate(name="Renamed by admin"),
+            user=other_admin,
+            session=session,
+        )
+
+    assert raised.value.status_code in {403, 404}
+    await session.refresh(calendar)
+    assert calendar.name != "Renamed by admin"

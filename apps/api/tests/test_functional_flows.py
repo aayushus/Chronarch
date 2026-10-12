@@ -1,9 +1,11 @@
+import pydantic.v1.types  # noqa: F401
 from types import SimpleNamespace
 
 import httpx
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -19,6 +21,7 @@ from app.routers import (
     auth_router,
     booking_links_router,
     calendars_router,
+    contacts_router,
     events_router,
     health,
     public_booking_router,
@@ -41,6 +44,10 @@ WORK_CALENDAR_ID = "calendar-owner-work"
 PERSONAL_CALENDAR_ID = "calendar-owner-personal"
 READONLY_CALENDAR_ID = "calendar-owner-readonly"
 OTHER_CALENDAR_ID = "calendar-other-owner"
+
+EVENT_APP = FastAPI(title="Chronarch Events Functional Test")
+EVENT_APP.include_router(events_router.router)
+EVENT_APP.openapi()
 
 
 class FakeRedis:
@@ -243,11 +250,9 @@ async def api(monkeypatch):
         booking_links_router.router,
         public_booking_router.router,
         calendars_router.router,
+        contacts_router.router,
     ):
         api_app.include_router(router)
-
-    event_app = FastAPI(title="Chronarch Events Functional Test")
-    event_app.include_router(events_router.router)
 
     fake_redis = FakeRedis()
     monkeypatch.setattr(auth_module, "get_redis_client", lambda: fake_redis)
@@ -259,7 +264,7 @@ async def api(monkeypatch):
         raise_app_exceptions=True,
     )
     event_transport = httpx.ASGITransport(
-        app=event_app,
+        app=EVENT_APP,
         raise_app_exceptions=True,
     )
     try:
@@ -411,10 +416,6 @@ async def test_profile_and_password_update_asgi(api):
     assert new_login.status_code == 200
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="event route dependency analysis currently fails before the handler runs",
-)
 async def test_owner_event_create_list_and_update_asgi(api):
     token = await login(api, OWNER_EMAIL)
     calendars = await api.client.get("/api/v1/calendars", headers=bearer(token))
@@ -459,10 +460,6 @@ async def test_owner_event_create_list_and_update_asgi(api):
     assert updated.json()["location"] == "Room 4"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="event route dependency analysis currently fails before the handler runs",
-)
 async def test_owner_event_move_and_delete_asgi(api):
     token = await login(api, OWNER_EMAIL)
     created = await create_event(api, token)
@@ -498,10 +495,6 @@ async def test_owner_event_move_and_delete_asgi(api):
     assert missing.status_code == 404
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="event route dependency analysis currently fails before request validation",
-)
 async def test_event_validation_and_read_only_calendar_asgi(api):
     token = await login(api, OWNER_EMAIL)
     invalid_window = await api.event_client.post(
@@ -596,10 +589,6 @@ async def test_admin_creates_delegate_and_delegate_logs_in_asgi(api):
     assert me.status_code == 428
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="event route dependency analysis currently blocks the delegation journey",
-)
 async def test_delegation_grant_and_deactivation_asgi(api):
     owner_token = await login(api, OWNER_EMAIL)
     created = await create_event(api, owner_token)
@@ -663,10 +652,6 @@ async def test_delegation_grant_and_deactivation_asgi(api):
     assert denied_detail.status_code == 403
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="event route dependency analysis currently blocks the availability journey",
-)
 async def test_availability_only_delegate_gets_redacted_conflict_asgi(api):
     owner_token = await login(api, OWNER_EMAIL)
     created = await create_event(api, owner_token)
@@ -882,10 +867,6 @@ async def test_non_admin_manager_cannot_create_admin_asgi(api):
     assert response.status_code in {400, 403, 422}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="calendar settings can currently be patched across owners",
-)
 async def test_non_owner_cannot_patch_calendar_asgi(api):
     other_owner_token = await login(api, OTHER_OWNER_EMAIL)
     response = await api.client.patch(
@@ -896,10 +877,6 @@ async def test_non_owner_cannot_patch_calendar_asgi(api):
     assert response.status_code in {403, 404}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="event route analysis currently blocks the request; title-only redaction is also a known gap",
-)
 async def test_title_only_delegate_list_is_redacted_asgi(api):
     owner_token = await login(api, OWNER_EMAIL)
     created = await create_event(api, owner_token)
@@ -963,3 +940,106 @@ async def test_oauth_state_cannot_access_authenticated_route_asgi(api):
         headers=bearer(state),
     )
     assert response.status_code == 401
+
+
+async def test_update_me_rejects_inverted_working_hours(api):
+    # COV-001: PATCH /api/v1/auth/me rejects working_hours_start >= working_hours_end with HTTP 422
+    owner_token = await login(api, OWNER_EMAIL)
+
+    # 1. Inverted hours: start > end
+    resp = await api.client.patch(
+        "/api/v1/auth/me",
+        headers=bearer(owner_token),
+        json={
+            "working_hours_start": "17:00",
+            "working_hours_end": "09:00",
+        },
+    )
+    assert resp.status_code == 422
+    assert "working_hours_start must be before working_hours_end" in resp.text
+
+    # 2. Equal hours: start == end
+    resp = await api.client.patch(
+        "/api/v1/auth/me",
+        headers=bearer(owner_token),
+        json={
+            "working_hours_start": "09:00",
+            "working_hours_end": "09:00",
+        },
+    )
+    assert resp.status_code == 422
+    assert "working_hours_start must be before working_hours_end" in resp.text
+
+    # 3. Valid update works cleanly
+    resp = await api.client.patch(
+        "/api/v1/auth/me",
+        headers=bearer(owner_token),
+        json={
+            "working_hours_start": "08:30",
+            "working_hours_end": "16:30",
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["working_hours_start"] == "08:30"
+    assert resp.json()["working_hours_end"] == "16:30"
+
+
+
+async def test_update_me_tolerates_unpadded_legacy_working_hours(api):
+    """COV-001 follow-up: the start-before-end guard must order numerically.
+
+    Profiles predating `_parse_hhmm`'s zero-padding can hold `"9:00"`, which
+    sorts *after* `"17:00"` as a string. A lexical comparison would then reject
+    an unrelated field update on that account with a confusing 422, so the
+    stored pair is only reordered after both values are parsed to minutes.
+    """
+    owner_token = await login(api, OWNER_EMAIL)
+    async with api.session_factory() as s:
+        owner = (await s.execute(
+            select(User).where(User.email == OWNER_EMAIL)
+        )).scalar_one()
+        owner.working_hours_start = "9:00"
+        owner.working_hours_end = "17:00"
+        await s.commit()
+
+    resp = await api.client.patch(
+        "/api/v1/auth/me",
+        headers=bearer(owner_token),
+        json={"min_meeting_notice_minutes": 30},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["working_hours_start"] == "9:00"
+
+    # The guard must still reject a genuinely inverted pair.
+    resp = await api.client.patch(
+        "/api/v1/auth/me",
+        headers=bearer(owner_token),
+        json={"working_hours_start": "18:00", "working_hours_end": "08:00"},
+    )
+    assert resp.status_code == 422
+
+
+async def test_contact_create_over_http_rejects_crlf_email(api):
+    """CR/LF in an email must be a 422 at the real HTTP boundary.
+
+    The unit-level guard proves the model raises; this proves FastAPI maps
+    that to 422 rather than surfacing a 500.
+    """
+    token = await login(api, OWNER_EMAIL)
+    resp = await api.client.post(
+        "/api/v1/contacts",
+        headers=bearer(token),
+        json={
+            "email": "victim@example.com\r\nBcc:attacker@example.com",
+            "display_name": "Victim",
+        },
+    )
+    assert resp.status_code == 422, resp.text
+
+    # And the legitimate case still succeeds, so the guard is not over-broad.
+    resp = await api.client.post(
+        "/api/v1/contacts",
+        headers=bearer(token),
+        json={"email": "clean@example.com"},
+    )
+    assert resp.status_code == 201, resp.text

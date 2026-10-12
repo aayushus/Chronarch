@@ -86,6 +86,9 @@ async def rotate_all_encrypted_data(
         if acct.encrypted_refresh_token:
             acct.encrypted_refresh_token = reencrypt(acct.encrypted_refresh_token, old_cipher, new_cipher)
             changed = True
+        if acct.encrypted_caldav_password:
+            acct.encrypted_caldav_password = reencrypt(acct.encrypted_caldav_password, old_cipher, new_cipher)
+            changed = True
         if changed:
             counts["accounts_tokens"] += 1
 

@@ -28,6 +28,20 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _is_postgres() -> bool:
+    return op.get_bind().dialect.name == "postgresql"
+
+
+def _now() -> str:
+    """`now()` on PostgreSQL; SQLite has no such function."""
+    return "now()" if _is_postgres() else "CURRENT_TIMESTAMP"
+
+
+def _uuid() -> str:
+    """`gen_random_uuid()` on PostgreSQL; SQLite has no such function."""
+    return "gen_random_uuid()" if _is_postgres() else "lower(hex(randomblob(16)))"
+
+
 def _columns(table: str) -> set[str]:
     bind = op.get_bind()
     insp = sa.inspect(bind)
@@ -35,6 +49,13 @@ def _columns(table: str) -> set[str]:
 
 
 def _enumlabels(name: str) -> set[str]:
+    """Labels of a PostgreSQL enum type; empty on dialects without enums.
+
+    SQLite has no enum type, so `pg_enum` does not exist there. Returning an
+    empty set makes the `ADD VALUE` guards no-ops instead of crashing the run.
+    """
+    if not _is_postgres():
+        return set()
     bind = op.get_bind()
     rows = bind.execute(
         sa.text(
@@ -49,13 +70,15 @@ def _enumlabels(name: str) -> set[str]:
 def upgrade() -> None:
     # 0. Enum labels first, committed before use (PG forbids both in one txn).
     # NOTE: exact-case match only — 'admin' present does NOT imply 'ADMIN'.
-    for label in ("ADMIN", "DELEGATE"):
-        if label not in _enumlabels("userrole"):
-            op.execute(sa.text(f"ALTER TYPE userrole ADD VALUE '{label}'"))
-    for label in ("create_role", "update_role", "delete_role", "assign_role", "revoke_role"):
-        if label not in _enumlabels("auditaction"):
-            op.execute(sa.text(f"ALTER TYPE auditaction ADD VALUE '{label}'"))
-    op.execute(sa.text("COMMIT"))
+    if _is_postgres():
+        for label in ("ADMIN", "DELEGATE"):
+            if label not in _enumlabels("userrole"):
+                op.execute(sa.text(f"ALTER TYPE userrole ADD VALUE '{label}'"))
+        for label in ("create_role", "update_role", "delete_role", "assign_role", "revoke_role"):
+            if label not in _enumlabels("auditaction"):
+                op.execute(sa.text(f"ALTER TYPE auditaction ADD VALUE '{label}'"))
+        # PG forbids ADD VALUE and its use in one transaction.
+        op.execute(sa.text("COMMIT"))
 
     user_cols = _columns("users")
     if "is_admin" in user_cols:
@@ -65,16 +88,18 @@ def upgrade() -> None:
         op.drop_column("users", "is_admin")
     # Normalize any lowercase leftovers (incl. a previously partial run) and
     # any pre-existing EXECUTIVE/ASSISTANT rows missed above.
-    op.execute(sa.text("UPDATE users SET role = 'ADMIN' WHERE role::text = 'admin'"))
-    op.execute(sa.text("UPDATE users SET role = 'DELEGATE' WHERE role::text = 'delegate'"))
-    op.execute(sa.text("UPDATE users SET role = 'DELEGATE' WHERE role::text IN ('EXECUTIVE', 'ASSISTANT')"))
+    role = "role::text" if _is_postgres() else "role"
+    op.execute(sa.text(f"UPDATE users SET role = 'ADMIN' WHERE {role} = 'admin'"))
+    op.execute(sa.text(f"UPDATE users SET role = 'DELEGATE' WHERE {role} = 'delegate'"))
+    op.execute(sa.text(
+        f"UPDATE users SET role = 'DELEGATE' WHERE {role} IN ('EXECUTIVE', 'ASSISTANT')"))
 
 
     # 2. Actor type renames (audit history preserved).
     actor_labels = _enumlabels("actortype")
-    if "EXECUTIVE_UI" in actor_labels:
+    if _is_postgres() and "EXECUTIVE_UI" in actor_labels:
         op.execute(sa.text("ALTER TYPE actortype RENAME VALUE 'EXECUTIVE_UI' TO 'ADMIN_UI'"))
-    if "EA_UI" in actor_labels:
+    if _is_postgres() and "EA_UI" in actor_labels:
         op.execute(sa.text("ALTER TYPE actortype RENAME VALUE 'EA_UI' TO 'DELEGATE_UI'"))
 
 
@@ -95,14 +120,14 @@ def upgrade() -> None:
     op.execute(
         sa.text(
             "INSERT INTO roles (id, name, description, is_system, created_at, updated_at) "
-            "SELECT 'admin', 'admin', 'Full access to everything.', true, now(), now() "
+            f"SELECT 'admin', 'admin', 'Full access to everything.', true, {_now()}, {_now()} "
             "WHERE NOT EXISTS (SELECT 1 FROM roles WHERE id = 'admin')"
         )
     )
     op.execute(
         sa.text(
             "INSERT INTO roles (id, name, description, is_system, created_at, updated_at) "
-            "SELECT 'delegate', 'delegate', 'Calendar use, copilot, and own MCP keys.', true, now(), now() "
+            f"SELECT 'delegate', 'delegate', 'Calendar use, copilot, and own MCP keys.', true, {_now()}, {_now()} "
             "WHERE NOT EXISTS (SELECT 1 FROM roles WHERE id = 'delegate')"
         )
     )
@@ -110,14 +135,14 @@ def upgrade() -> None:
         op.execute(
             sa.text(
                 "INSERT INTO role_permissions (id, role_id, permission) "
-                "SELECT gen_random_uuid(), 'delegate', :perm WHERE NOT EXISTS "
+                f"SELECT {_uuid()}, 'delegate', :perm WHERE NOT EXISTS "
                 "(SELECT 1 FROM role_permissions WHERE role_id = 'delegate' AND permission = :perm)"
             ).bindparams(perm=perm)
         )
     op.execute(
         sa.text(
             "INSERT INTO role_assignments (id, user_id, role_id, created_at, updated_at) "
-            "SELECT gen_random_uuid(), u.id, 'delegate', now(), now() FROM users u "
+            f"SELECT {_uuid()}, u.id, 'delegate', {_now()}, {_now()} FROM users u "
             "WHERE u.role = 'DELEGATE' AND NOT EXISTS "
             "(SELECT 1 FROM role_assignments a WHERE a.user_id = u.id AND a.role_id = 'delegate')"
         )
@@ -134,9 +159,10 @@ def downgrade() -> None:
     Role.__table__.drop(bind, checkfirst=True)
     op.alter_column("delegations", "owner_user_id", new_column_name="executive_user_id")
     op.alter_column("delegations", "delegate_user_id", new_column_name="assistant_user_id")
-    op.execute(sa.text("ALTER TYPE actortype RENAME VALUE 'ADMIN_UI' TO 'EXECUTIVE_UI'"))
-    op.execute(sa.text("ALTER TYPE actortype RENAME VALUE 'DELEGATE_UI' TO 'EA_UI'"))
-    op.add_column("users", sa.Column("is_admin", sa.Boolean(), nullable=False, server_default="false"))
+    if _is_postgres():
+        op.execute(sa.text("ALTER TYPE actortype RENAME VALUE 'ADMIN_UI' TO 'EXECUTIVE_UI'"))
+        op.execute(sa.text("ALTER TYPE actortype RENAME VALUE 'DELEGATE_UI' TO 'EA_UI'"))
+    op.add_column("users", sa.Column("is_admin", sa.Boolean(), nullable=False, server_default=sa.false()))
     op.execute(sa.text("UPDATE users SET is_admin = (role = 'ADMIN')"))
     op.execute(sa.text("UPDATE users SET role = 'EXECUTIVE' WHERE role = 'ADMIN'"))
     op.execute(sa.text("UPDATE users SET role = 'ASSISTANT' WHERE role = 'DELEGATE'"))

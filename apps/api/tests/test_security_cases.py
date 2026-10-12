@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 import pytest
+from pydantic import ValidationError
 from starlette.requests import Request
 
 import app.auth as auth_module
@@ -11,6 +12,7 @@ from app.routers import admin_accounts_router
 from app.routers import admin_caldav_router as caldav_router
 from app.routers import booking_links_router as booking_router
 from app.routers import contacts_router
+from chronarch_core import contacts as contacts_module
 from chronarch_core.connectors.caldav import CalDAVConnector
 from chronarch_core.models.account import Account
 from chronarch_core.models.calendar import Calendar
@@ -203,25 +205,44 @@ async def test_caldav_connect_rejects_private_target_before_network(session, mon
     assert called is False
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="contact email validation accepts CR/LF header injection characters",
-)
 async def test_contact_rejects_crlf_email(session):
+    """CR/LF must be rejected by the model *and* by the core layer.
+
+    The model guard is what FastAPI turns into a 422 for HTTP callers; the
+    core `_validate_email` guard is what protects MCP/copilot callers, which
+    never build these models. Asserting only one leaves the other path open.
+    """
     user = await _admin(session, "contact-security")
+    smuggled = "victim@example.com\r\nBcc:attacker@example.com"
+
+    # 1. Model layer: construction fails, so no handler ever sees the value.
+    with pytest.raises(ValidationError):
+        contacts_router.ContactCreate(email=smuggled, display_name="Victim")
+    with pytest.raises(ValidationError):
+        contacts_router.ContactUpdate(email=smuggled)
+
+    # 2. Core layer: non-HTTP callers are still blocked.
+    with pytest.raises(ValueError):
+        contacts_module._validate_email(smuggled)
+    with pytest.raises(ValueError):
+        await contacts_module.create_contact(session, email=smuggled, owner_user_id=user.id)
+
+    assert (await contacts_module.search_contacts(session, "", 10, user.id)) == []
+
+
+async def test_contact_accepts_ordinary_email_with_surrounding_whitespace(session):
+    """The guard must not over-reject: trimming on a clean address still works."""
+    user = await _admin(session, "contact-whitespace")
     body = contacts_router.ContactCreate(
-        email="victim@example.com\r\nBcc:attacker@example.com",
-        display_name="Victim",
+        email="  clean@example.com  ", display_name="Clean",
     )
+    assert body.email == "clean@example.com"
 
-    with pytest.raises(HTTPException) as raised:
-        await contacts_router.create_contact(
-            body,
-            _user=user,
-            session=session,
-        )
-
-    assert raised.value.status_code == 422
+    created = await contacts_module.create_contact(
+        session, email=body.email, owner_user_id=user.id,
+    )
+    assert created is not None
+    assert created.email == "clean@example.com"
 
 
 async def test_booking_update_rejects_negative_minimum_notice(session):

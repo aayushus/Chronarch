@@ -13,6 +13,7 @@ depends_on = None
 def upgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
+    columns = {c["name"] for c in inspector.get_columns("contacts")}
     legacy_constraint = next(
         (
             constraint["name"]
@@ -29,10 +30,18 @@ def upgrade() -> None:
             op.drop_index(index["name"], table_name="contacts")
 
     with op.batch_alter_table("contacts", recreate="auto") as batch:
-        batch.add_column(sa.Column("owner_user_id", sa.String(), nullable=True))
+        # Guarded because `0001_initial_schema` builds the schema with
+        # `Base.metadata.create_all`, so on a fresh database this column is
+        # already present and an unconditional add_column fails with
+        # "duplicate column name". Real upgrades start from 0018, which does
+        # not have it, so the batch rebuild still runs there.
+        if "owner_user_id" not in columns:
+            batch.add_column(sa.Column("owner_user_id", sa.String(), nullable=True))
         if legacy_constraint:
             batch.drop_constraint(legacy_constraint, type_="unique")
-    op.create_index("ix_contacts_owner_user_id", "contacts", ["owner_user_id"])
+    existing_indexes = {i["name"] for i in sa.inspect(bind).get_indexes("contacts")}
+    if "ix_contacts_owner_user_id" not in existing_indexes:
+        op.create_index("ix_contacts_owner_user_id", "contacts", ["owner_user_id"])
     # Legacy rows have no owner and must remain nullable until an explicit,
     # auditable backfill can identify their source account. A normal
     # composite UNIQUE constraint would still allow duplicate NULL owners and

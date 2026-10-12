@@ -267,6 +267,21 @@ def _parse_hhmm(value: str, field: str) -> str:
     return f"{int(m.group(1)):02d}:{m.group(2)}"
 
 
+def _hhmm_minutes(value: str | None) -> int | None:
+    """Minutes since midnight, or None when `value` is not `HH:MM`.
+
+    Ordering is computed numerically, never lexically: profiles can predate
+    `_parse_hhmm`'s zero-padding, and `"9:00" >= "17:00"` is True as strings,
+    which would reject an unrelated profile update with a confusing 422.
+    """
+    import re
+
+    m = re.fullmatch(r"(\d{1,2}):(\d{2})", (value or "").strip())
+    if not m:
+        return None
+    return int(m.group(1)) * 60 + int(m.group(2))
+
+
 @router.patch("/me", response_model=MeResponse)
 async def update_me(
     body: MeUpdate,
@@ -311,10 +326,22 @@ async def update_me(
                 "working_days must be comma-separated ISO weekday numbers (1=Mon … 7=Sun)",
             )
         user.working_days = ",".join(sorted(set(parts), key=int))
+    new_start = user.working_hours_start
+    new_end = user.working_hours_end
     if body.working_hours_start is not None:
-        user.working_hours_start = _parse_hhmm(body.working_hours_start, "working_hours_start")
+        new_start = _parse_hhmm(body.working_hours_start, "working_hours_start")
     if body.working_hours_end is not None:
-        user.working_hours_end = _parse_hhmm(body.working_hours_end, "working_hours_end")
+        new_end = _parse_hhmm(body.working_hours_end, "working_hours_end")
+    if new_start is not None and new_end is not None:
+        start_min = _hhmm_minutes(new_start)
+        end_min = _hhmm_minutes(new_end)
+        if start_min is not None and end_min is not None and start_min >= end_min:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "working_hours_start must be before working_hours_end",
+            )
+    user.working_hours_start = new_start
+    user.working_hours_end = new_end
     if body.min_meeting_notice_minutes is not None:
         if body.min_meeting_notice_minutes < 0 or body.min_meeting_notice_minutes > 10080:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "min_meeting_notice_minutes must be 0–10080")

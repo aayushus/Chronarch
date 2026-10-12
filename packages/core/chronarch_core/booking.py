@@ -93,6 +93,9 @@ class HoldStore:
             except Exception:
                 pass
         now = time.monotonic()
+        expired_keys = [k for k, (_, exp) in self._memory.items() if exp <= now]
+        for k in expired_keys:
+            self._memory.pop(k, None)
         held = self._memory.get(key)
         if held is not None and held[1] > now:
             return None
@@ -152,9 +155,14 @@ async def open_slots(
     try:
         sh, sm = (host.working_hours_start or "09:00").split(":")
         eh, em = (host.working_hours_end or "17:00").split(":")
-        hours = (int(sh) * 60 + int(sm), int(eh) * 60 + int(em))
+        start_min = int(sh) * 60 + int(sm)
+        end_min = int(eh) * 60 + int(em)
+        if start_min >= end_min:
+            # Inverted or zero-length range: degraded or impossible hours mean no open slots
+            return []
+        hours = (start_min, end_min)
     except (ValueError, AttributeError):
-        hours = None
+        hours = (9 * 60, 17 * 60)
     try:
         host_tz = ZoneInfo(host.home_timezone or "UTC")
     except Exception:
@@ -329,17 +337,17 @@ async def cancel_booking(session: AsyncSession, booking: Booking) -> Booking:
     if booking.status == BookingStatus.CANCELLED:
         return booking
     if booking.event_id:
+        event_id = booking.event_id
+        booking.event_id = None
+        await session.flush()
         link = await session.get(BookingLink, booking.link_id)
         host = await session.get(User, link.owner_user_id) if link else None
         if host is not None:
             try:
                 await ai_tools.delete_event(
-                    session, host_context(host), event_id=booking.event_id, is_owner=True)
+                    session, host_context(host), event_id=event_id, is_owner=True)
             except ValueError:
                 pass  # event already gone — still mark cancelled
-        # Preserve booking history after the provider event is removed and
-        # avoid leaving a dangling FK in databases without SET NULL support.
-        booking.event_id = None
     booking.status = BookingStatus.CANCELLED
     await session.flush()
     return booking

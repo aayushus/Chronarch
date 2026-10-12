@@ -56,7 +56,10 @@ async def refresh_contacts_for_account(session: AsyncSession, account_id: str) -
             select(UnifiedEvent).where(UnifiedEvent.provider_account_id == account_id)
         )).scalars()
     )
-    seen = 0
+
+    # First collect all candidate sightings from the events
+    sightings: list[tuple[str, str | None]] = []
+    all_emails: set[str] = set()
     for event in events:
         try:
             people = list(event.attendees or [])
@@ -69,38 +72,70 @@ async def refresh_contacts_for_account(session: AsyncSession, account_id: str) -
                 if not email or "@" not in email or email == self_email:
                     continue
                 name = _clean_name(person.get("name"))
-                contact = (
-                    await session.execute(select(Contact).where(
-                        Contact.email == email,
-                        Contact.owner_user_id == account.owner_user_id,
-                    ))
-                ).scalar_one_or_none()
-                if contact is None and account.owner_user_id is not None:
-                    # A pre-ownership row may be safely claimed when its
-                    # provenance is now observed on this owner's account.
-                    contact = (await session.execute(select(Contact).where(
-                        Contact.email == email, Contact.owner_user_id.is_(None)
-                    ))).scalar_one_or_none()
-                    if contact is not None:
-                        contact.owner_user_id = account.owner_user_id
-                now = _now()
-                if contact is None:
-                    session.add(Contact(
-                        email=email, display_name=name or None,
-                        owner_user_id=account.owner_user_id,
-                        first_seen_at=now, last_seen_at=now, event_count=1,
-                    ))
-                elif contact.deleted_at is not None:
-                    # Soft-deleted stays deleted: never resurrect, never count.
-                    continue
-                else:
-                    contact.last_seen_at = now
-                    contact.event_count = (contact.event_count or 0) + 1
-                    if not contact.display_name and name and not contact.name_locked:
-                        contact.display_name = name
-                seen += 1
+                sightings.append((email, name))
+                all_emails.add(email)
         except Exception:
             continue
+
+    if not sightings:
+        return {"contacts": 0}
+
+    # Batch fetch existing contacts for all gathered emails in a single/bounded query
+    conditions = [Contact.email.in_(all_emails)]
+    if account.owner_user_id is not None:
+        conditions.append(
+            or_(
+                Contact.owner_user_id == account.owner_user_id,
+                Contact.owner_user_id.is_(None),
+            )
+        )
+    existing_contacts = list(
+        (await session.execute(
+            select(Contact).where(*conditions)
+        )).scalars()
+    )
+
+    # Organize existing contacts by email for O(1) in-memory resolution
+    contacts_by_email: dict[str, Contact] = {}
+    unowned_by_email: dict[str, Contact] = {}
+    for c in existing_contacts:
+        if c.owner_user_id == account.owner_user_id:
+            contacts_by_email[c.email] = c
+        elif c.owner_user_id is None:
+            unowned_by_email[c.email] = c
+
+    seen = 0
+    now = _now()
+    for email, name in sightings:
+        contact = contacts_by_email.get(email)
+        if contact is None and account.owner_user_id is not None:
+            contact = unowned_by_email.get(email)
+            if contact is not None:
+                contact.owner_user_id = account.owner_user_id
+                contacts_by_email[email] = contact
+                unowned_by_email.pop(email, None)
+
+        if contact is None:
+            new_contact = Contact(
+                email=email,
+                display_name=name or None,
+                owner_user_id=account.owner_user_id,
+                first_seen_at=now,
+                last_seen_at=now,
+                event_count=1,
+            )
+            session.add(new_contact)
+            contacts_by_email[email] = new_contact
+        elif contact.deleted_at is not None:
+            # Soft-deleted stays deleted: never resurrect, never count.
+            continue
+        else:
+            contact.last_seen_at = now
+            contact.event_count = (contact.event_count or 0) + 1
+            if not contact.display_name and name and not contact.name_locked:
+                contact.display_name = name
+        seen += 1
+
     await session.flush()
     return {"contacts": seen}
 
@@ -157,7 +192,7 @@ async def resolve_contact(session: AsyncSession, query: str, owner_user_id: str 
     if len(hits) == 1:
         return {"status": "found", "contact": hits[0]}
     hits.sort(key=lambda c: (-(c.event_count or 0), c.display_name or c.email))
-    return {"status": "ambiguous", "candidates": hits}
+    return {"status": "ambiguous", "candidates": hits[:10]}
 
 
 async def search_contacts(session: AsyncSession, query: str, limit: int = 10, owner_user_id: str | None = None) -> list[Contact]:
@@ -184,6 +219,8 @@ async def known_people_for_prompt(session: AsyncSession, limit: int = 50) -> lis
 
 
 def _validate_email(email: str) -> str:
+    if "\r" in email or "\n" in email:
+        raise ValueError("email must not contain line breaks")
     cleaned = _clean_email(email)
     if "@" not in cleaned or "." not in cleaned.split("@")[-1]:
         raise ValueError(f"'{email}' is not a valid email address.")
@@ -250,7 +287,7 @@ async def update_contact(
     contact = await session.get(Contact, contact_id)
     if contact is None or contact.deleted_at is not None:
         return None
-    if owner_user_id is not None and contact.owner_user_id not in (owner_user_id, None):
+    if owner_user_id is not None and contact.owner_user_id != owner_user_id:
         return None
     allowed = {"display_name", "email", "phone", "company", "job_title"}
     unknown = set(fields) - allowed

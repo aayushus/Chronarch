@@ -71,3 +71,8 @@ app.include_router(public_booking_router.router)
 app.include_router(kiosk_router.router)
 app.include_router(public_kiosk_router.router)
 
+# Warm OpenAPI schema at module load time so all endpoint models/schemas
+# are built with standard datetime types before any test freezes time.
+app.openapi()
+
+

@@ -210,18 +210,53 @@ def _rule_lines(recurrence) -> list[str]:
     return lines
 
 
+def _first_in_window(rule, window_start: datetime, window_end: datetime,
+                     limit: int) -> list[datetime]:
+    """At most `limit` rule occurrences inside the window, without expanding it.
+
+    `rrule.between()` does not stream — dateutil builds and returns the *full*
+    list of matches in the window before the caller sees anything. Wrapping it
+    in `for ... break` (or passing its `count=` argument, which 2.9 ignores)
+    therefore still walks every occurrence: a `FREQ=SECONDLY` series over a
+    year materializes ~31M datetimes to return the handful the caller asked
+    for. `xafter(count=...)` is a generator that stops once it has enough, so
+    work is proportional to the limit rather than to the window.
+    """
+    try:
+        max_items = min(int(limit), MAX_OCCURRENCES)
+    except (TypeError, ValueError):
+        max_items = MAX_OCCURRENCES
+    if max_items <= 0:
+        return []
+    try:
+        results: list[datetime] = []
+        for dt in rule.xafter(window_start, count=max_items, inc=True):
+            if dt > window_end:
+                break
+            results.append(dt)
+            if len(results) >= max_items:
+                break
+        return results
+    except AttributeError:
+        # Rule object without xafter (older dateutil, or a test double).
+        try:
+            return list(rule.between(window_start, window_end, inc=True))[:max_items]
+        except (ValueError, TypeError, OverflowError):
+            return []
+    except (ValueError, TypeError, OverflowError):
+        return []
+
+
 def _expand_rrule_lines(lines: list[str], dtstart: datetime,
-                        window_start: datetime, window_end: datetime) -> list[datetime]:
+                        window_start: datetime, window_end: datetime,
+                        limit: int = MAX_OCCURRENCES) -> list[datetime]:
     from dateutil.rrule import rrulestr
 
     try:
         rule = rrulestr("\n".join(lines), dtstart=dtstart, forceset=True)
     except (ValueError, TypeError):
         return []
-    try:
-        return list(rule.between(window_start, window_end, inc=True))[:MAX_OCCURRENCES]
-    except (ValueError, TypeError, OverflowError):
-        return []
+    return _first_in_window(rule, window_start, window_end, limit)
 
 
 def _microsoft_rrule(pattern: dict, range_: dict, dtstart: datetime):
@@ -329,15 +364,12 @@ def occurrences(event, window_start: datetime, window_end: datetime,
     starts: list[datetime] = []
     lines = _rule_lines(recurrence)
     if lines:
-        starts = _expand_rrule_lines(lines, dtstart, ws, we)
+        starts = _expand_rrule_lines(lines, dtstart, ws, we, limit=limit)
     elif isinstance(recurrence, dict) and isinstance(recurrence.get("type"), dict):
         graph = recurrence["type"]
         rule = _microsoft_rrule(graph.get("pattern") or {}, graph.get("range") or {}, dtstart)
         if rule is not None:
-            try:
-                starts = list(rule.between(ws, we, inc=True))[:MAX_OCCURRENCES]
-            except (ValueError, TypeError, OverflowError):
-                starts = []
+            starts = _first_in_window(rule, ws, we, limit)
     out = []
     # Instance exceptions recorded by scoped edits: {"<iso start>":
     # {"deleted": true} | {"start": iso, "end": iso}}.

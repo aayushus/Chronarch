@@ -6,6 +6,9 @@ Mirrors packages/core/tests/conftest.py so the API suite is self-contained
 
 import os
 
+# Prevent Python 3.14 + freezegun metaclass conflict on pydantic.v1
+import pydantic.v1.types  # noqa: F401
+
 # The API config refuses to import without a JWT secret; tests never sign
 # tokens, so allow the documented throwaway-dev value before importing app
 # modules. Set before any app.* import below.

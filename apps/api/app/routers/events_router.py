@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -127,11 +127,13 @@ async def _resolve_owner_and_grant(session: AsyncSession, user: User, calendar_i
 async def list_events(
     window_start: datetime,
     window_end: datetime,
-    calendar_ids: list[str] | None = None,
+    calendar_ids: list[str] | None = Query(None),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
     ctx = build_auth_context(user, actor_type_for(user))
+    if not isinstance(calendar_ids, (list, tuple, set)):
+        calendar_ids = None
     owner_ids = await get_owned_calendar_ids(session, user)
     grants = (
         await get_delegation_grants(session, user.id)
@@ -174,7 +176,7 @@ async def check_conflicts(
     window_start: datetime,
     window_end: datetime,
     exclude_event_id: str | None = None,
-    calendar_ids: list[str] | None = None,
+    calendar_ids: list[str] | None = Query(None),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):

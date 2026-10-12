@@ -214,6 +214,21 @@ async def test_update_locks_name_and_rejects_email_clash(session):
     assert await _contacts.update_contact(session, "missing", display_name="X") is None
 
 
+async def test_update_contact_rejects_unowned_row_when_owner_specified(session):
+    # COV-003: If a contact row has owner_user_id=None (e.g. legacy or unowned row),
+    # a user calling update_contact with their owner_user_id must NOT be able to modify it.
+    contact = await _contacts.create_contact(session, email="unowned@x.com")
+    assert contact.owner_user_id is None
+    # User 1 tries to update this unowned row
+    updated = await _contacts.update_contact(
+        session, contact.id, owner_user_id="user-123", display_name="Hacked Name"
+    )
+    assert updated is None
+    # Verify contact was not modified
+    await session.refresh(contact)
+    assert contact.display_name != "Hacked Name"
+
+
 async def test_delete_suppresses_resurrection_and_restore_works(session):
     account, calendar = await _account(session)
     await _event(session, account, calendar, [{"email": "gone@x.com", "name": "Gone"}])
