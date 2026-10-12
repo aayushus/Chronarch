@@ -356,3 +356,63 @@ async def test_public_hold_endpoint_survives_legacy_inverted_hours(session):
             session=session,
         )
     assert exc.value.status_code == 409, "an unbookable slot is a 409, never a 500"
+
+
+async def test_booking_link_availability_calendar_ids(session):
+    """When availability_calendar_ids is specified, only events in those calendars
+    conflict with slot availability.
+    """
+    from chronarch_core.models.event import UnifiedEvent
+
+    user, cal_dest = await _host(session, email="multi-cal@x.com")
+    # Add a second calendar under the same user
+    cal_work = Calendar(
+        id="c-work", account_id=cal_dest.account_id, provider_calendar_id="p-work",
+        name="Work", blocks_availability=True, visible=True,
+    )
+    # Add a third calendar under the same user
+    cal_personal = Calendar(
+        id="c-personal", account_id=cal_dest.account_id, provider_calendar_id="p-personal",
+        name="Personal", blocks_availability=True, visible=True,
+    )
+    session.add_all([cal_work, cal_personal])
+    await session.flush()
+
+    day = _next_weekday(2, timezone.utc)
+    slot_time = day + timedelta(hours=10)
+
+    # Put a busy event on cal_personal at 10:00
+    ev = UnifiedEvent(
+        id="ev-personal-busy",
+        calendar_id=cal_personal.id,
+        provider_account_id=cal_personal.account_id,
+        provider_event_id="pe-personal-busy",
+        title="Dentist",
+        start=slot_time,
+        end=slot_time + timedelta(minutes=30),
+    )
+    session.add(ev)
+    await session.flush()
+
+    # Link A: checks availability only against cal_work (cal_personal is ignored)
+    link_work = await _link(
+        session, user, cal_dest, slug="check-work-only",
+        availability_calendar_ids=[cal_work.id],
+    )
+    row_work = await _row(session, link_work)
+    slots_work = await _booking.open_slots(
+        session, row_work, slot_time, slot_time + timedelta(hours=1)
+    )
+    assert any(s["start"] == slot_time for s in slots_work), "slot should be open because cal_personal is not checked"
+
+    # Link B: checks availability against cal_work and cal_personal
+    link_both = await _link(
+        session, user, cal_dest, slug="check-both",
+        availability_calendar_ids=[cal_work.id, cal_personal.id],
+    )
+    row_both = await _row(session, link_both)
+    slots_both = await _booking.open_slots(
+        session, row_both, slot_time, slot_time + timedelta(hours=1)
+    )
+    assert not any(s["start"] == slot_time for s in slots_both), "slot should be blocked by event in cal_personal"
+

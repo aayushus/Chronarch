@@ -6,7 +6,7 @@ enumerable IDs anywhere. Slot double-booking is serialized by holds (Redis
 SET NX, memory fallback) plus a conflict re-check at confirm time.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
@@ -96,14 +96,17 @@ async def hold_slot(
     if start.tzinfo is None:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                             "slot_start must carry a UTC offset.")
-    # Only hold genuinely open slots — never a past, taken, or out-of-window time.
+    start = start.astimezone(timezone.utc).replace(second=0, microsecond=0)
+
+    # Only hold genuinely open slots — probe the slot start
     probe_end = start + timedelta(minutes=link.duration_minutes * 2)
-    if not any(s["start"] == start for s in await _booking.open_slots(
-            session, link, start, probe_end)):
+    slots = await _booking.open_slots(session, link, start, probe_end)
+    if not any(s["start"].astimezone(timezone.utc).replace(second=0, microsecond=0) == start for s in slots):
         raise HTTPException(status.HTTP_409_CONFLICT, "That time is no longer open.")
+
     token = await _holds().acquire(link.id, start)
     if token is None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Someone just took that time — pick another.")
+        raise HTTPException(status.HTTP_409_CONFLICT, "That time is no longer open.")
     return {"hold_token": token, "slot_start": start, "expires_in_seconds": 300}
 
 

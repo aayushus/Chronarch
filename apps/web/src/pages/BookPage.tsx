@@ -99,6 +99,23 @@ export default function BookPage() {
   const [done, setDone] = useState<{ status: string; start: string; booker_token: string } | null>(null);
   const isMobile = useIsMobile();
 
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    try {
+      return localStorage.getItem("chronarch_theme") === "dark" ? "dark" : "light";
+    } catch {
+      return "light";
+    }
+  });
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem("chronarch_theme", theme);
+    } catch {}
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+
   const browserTz = useMemo(() => {
     try {
       return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -264,7 +281,33 @@ export default function BookPage() {
   const canGoPrevMonth = monthCursor > new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg-app)", display: "flex", justifyContent: "center", padding: isMobile ? "32px 16px" : "48px 20px" }}>
+    <div style={{ minHeight: "100vh", background: "var(--bg-app)", display: "flex", flexDirection: "column", alignItems: "center", padding: isMobile ? "24px 16px 40px" : "36px 20px 60px" }}>
+      <div style={{ width: isMobile ? 640 : 1020, maxWidth: "100%", display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <button
+          onClick={toggleTheme}
+          className="hoverable"
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          title={theme === "dark" ? "Light mode" : "Dark mode"}
+          style={{
+            background: "var(--bg-panel)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-full, 9999px)",
+            color: "var(--text-secondary)",
+            padding: "7px 13px",
+            fontSize: "var(--text-sm)",
+            fontWeight: 500,
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 7,
+            transition: "all var(--transition-fast)",
+          }}
+        >
+          <Icon name={theme === "dark" ? "sun" : "moon"} size={15} />
+          <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+        </button>
+      </div>
+
       <div style={{ width: isMobile ? 640 : 1020, maxWidth: "100%" }}>
         {loading ? (
           <div style={{ color: "var(--text-tertiary)", fontSize: "var(--text-md)", textAlign: "center", paddingTop: 60 }}>Loading…</div>

@@ -174,16 +174,27 @@ async def open_slots(
     except ValueError:
         working_days = {1, 2, 3, 4, 5}
 
+    all_host_calendars = await host_calendar_ids(session, host.id)
+    if link.availability_calendar_ids:
+        # Respect user selection, but ensure calendars belong to the host
+        configured_ids = set(link.availability_calendar_ids)
+        owner_calendar_ids = configured_ids & all_host_calendars
+        if not owner_calendar_ids:
+            # Fallback if configuration IDs were deleted/inaccessible
+            owner_calendar_ids = all_host_calendars
+    else:
+        owner_calendar_ids = all_host_calendars
+
     slots = await ai_tools.find_free_slots(
         session, host_context(host),
         window_start=start, window_end=end,
         duration=timedelta(minutes=link.duration_minutes),
-        # No calendar filter: every host-owned blocking calendar must block,
-        # not just the destination.
+        calendar_ids=list(owner_calendar_ids) if owner_calendar_ids else None,
+        # Filtered by availability_calendar_ids or default to all host blocking calendars
         working_hours=hours, working_days=working_days,
         buffer_before=buffer_before, buffer_after=buffer_after,
         min_notice=timedelta(minutes=link.min_notice_minutes), now=now,
-        owner_calendar_ids=await host_calendar_ids(session, host.id),
+        owner_calendar_ids=owner_calendar_ids,
     )
     return [{"start": s["start"], "end": s["end"]} for s in slots[:max_results]]
 

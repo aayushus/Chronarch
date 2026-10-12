@@ -57,6 +57,8 @@ export default function BookingSettings() {
   const [bookings, setBookings] = useState<Record<string, BookingEntry[]>>({});
   const [copied, setCopied] = useState(false);
 
+  const [editingLink, setEditingLink] = useState<BookingLink | null>(null);
+
   const canManage = user?.role === "admin" || (user?.permissions ?? []).includes("booking.manage");
 
   function load() {
@@ -132,6 +134,8 @@ export default function BookingSettings() {
     return <div style={{ padding: "32px 0", color: "var(--text-tertiary)", fontSize: "var(--text-md)" }}>Loading booking links…</div>;
   }
 
+  const ownedAccountIds = new Set(accounts.filter((a) => a.owner_user_id === user?.id).map((a) => a.id));
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
@@ -170,6 +174,8 @@ export default function BookingSettings() {
             const expanded = expandedId === link.id;
             const rows = bookings[link.id] ?? [];
             const pending = link.booking_counts?.pending ?? 0;
+            const destCal = calendars.find((c) => c.id === link.calendar_id);
+            const availCount = link.availability_calendar_ids?.length ?? 1;
             return (
               <section key={link.id} style={{ background: "var(--bg-raised)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)", overflow: "hidden" }}>
                 <div style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 12 }}>
@@ -184,6 +190,8 @@ export default function BookingSettings() {
                     </div>
                     <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: 2 }}>
                       /book/{link.slug} · {link.duration_minutes} min{link.approval_required ? " · approves each booking" : ""}
+                      {destCal ? ` · destination: ${destCal.name}` : ""}
+                      {availCount > 1 ? ` · checks ${availCount} calendars` : ""}
                     </div>
                   </div>
                   <button onClick={() => copyLink(link.slug)} className="hoverable" title="Copy public link" style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", color: "var(--text-primary)", padding: "6px 12px", fontSize: "var(--text-sm)", cursor: "pointer", whiteSpace: "nowrap" }}>
@@ -191,6 +199,10 @@ export default function BookingSettings() {
                   </button>
                   {canManage && (
                     <>
+                      <button onClick={() => setEditingLink(link)} className="hoverable" aria-label={`Edit ${link.title}`} title="Edit link settings & calendars" style={{ background: "none", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", color: "var(--text-secondary)", cursor: "pointer", padding: "6px 10px", fontSize: "var(--text-sm)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <Icon name="pencil" size={14} />
+                        <span>Edit</span>
+                      </button>
                       <button onClick={() => toggleActive(link)} className="hoverable" aria-label={link.active ? `Pause ${link.title}` : `Resume ${link.title}`} title={link.active ? "Pause link" : "Resume link"} style={{ background: link.active ? "rgba(48, 209, 88, 0.12)" : "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", color: link.active ? "var(--success)" : "var(--text-secondary)", padding: "6px 12px", fontSize: "var(--text-sm)", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
                         {link.active ? "Live" : "Paused"}
                       </button>
@@ -248,13 +260,28 @@ export default function BookingSettings() {
       {showWizard && (
         <LinkWizard
           calendars={calendars}
-          ownedAccountIds={new Set(accounts.filter((a) => a.owner_user_id === user?.id).map((a) => a.id))}
+          ownedAccountIds={ownedAccountIds}
           accountsLoaded={accounts.length > 0}
           onClose={() => setShowWizard(false)}
           onCreated={() => {
             setShowWizard(false);
             toast("Booking link is live — copy it and share.");
             load();
+          }}
+        />
+      )}
+
+      {editingLink && (
+        <EditLinkModal
+          link={editingLink}
+          calendars={calendars}
+          ownedAccountIds={ownedAccountIds}
+          accountsLoaded={accounts.length > 0}
+          onClose={() => setEditingLink(null)}
+          onSaved={(updated) => {
+            setLinks((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+            setEditingLink(null);
+            toast(`Updated “${updated.title}”.`);
           }}
         />
       )}
@@ -273,6 +300,7 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
   const [duration, setDuration] = useState(30);
   const [customDuration, setCustomDuration] = useState("");
   const [calendarId, setCalendarId] = useState("");
+  const [availabilityCalendarIds, setAvailabilityCalendarIds] = useState<string[]>(() => calendars.map((c) => c.id));
   const [notice, setNotice] = useState(1440);
   const [bufferBefore, setBufferBefore] = useState(0);
   const [bufferAfter, setBufferAfter] = useState(0);
@@ -292,6 +320,12 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calendars, accountsLoaded]);
+
+  useEffect(() => {
+    if (availabilityCalendarIds.length === 0 && calendars.length > 0) {
+      setAvailabilityCalendarIds(calendars.map((c) => c.id));
+    }
+  }, [calendars]);
 
   useEffect(() => {
     const value = slug.trim().toLowerCase();
@@ -320,6 +354,12 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
     });
   }
 
+  function toggleAvailability(id: string) {
+    setAvailabilityCalendarIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
   async function handleCreate() {
     setSaving(true);
     setError(null);
@@ -330,6 +370,7 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
         slug: slug.trim().toLowerCase(),
         duration_minutes: duration,
         calendar_id: calendarId,
+        availability_calendar_ids: availabilityCalendarIds.length > 0 ? availabilityCalendarIds : [calendarId],
         buffer_before_minutes: bufferBefore,
         buffer_after_minutes: bufferAfter,
         min_notice_minutes: notice,
@@ -354,7 +395,7 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card mount-rise" onClick={(e) => e.stopPropagation()} style={{ width: 520, maxWidth: "94vw", padding: 26 }}>
+      <div className="modal-card mount-rise" onClick={(e) => e.stopPropagation()} style={{ width: 560, maxWidth: "94vw", padding: 26, maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
           <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, margin: 0 }}>New booking link</h3>
           <button onClick={onClose} className="hoverable" aria-label="Close" style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", padding: "2px 6px", display: "inline-flex" }}>
@@ -410,34 +451,97 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
         )}
 
         {step === 1 && (
-          <div>
-            <p style={{ fontSize: "var(--text-md)", color: "var(--text-secondary)", margin: "0 0 12px", lineHeight: 1.5 }}>
-              Bookings land on this calendar with the booker invited.
-            </p>
-            {writable.length === 0 ? (
-              <div>
-                <p style={{ fontSize: "var(--text-sm)", color: "var(--warning)", margin: "0 0 6px" }}>
-                  {accountsLoaded
-                    ? "No calendars you own yet — connect your Google or Microsoft account in Settings → Accounts first. Booking links must land on your own calendar."
-                    : "Loading your calendars…"}
-                </p>
-                {showUnownedNote && (
-                  <p style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", margin: 0 }}>
-                    Other calendars exist in this workspace, but booking links can only use calendars under your own connected account.
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <div>
+              <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 700, marginBottom: 4 }}>
+                1. Destination Calendar
+              </label>
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", margin: "0 0 10px", lineHeight: 1.4 }}>
+                Where confirmed bookings land with the booker invited.
+              </p>
+              {writable.length === 0 ? (
+                <div>
+                  <p style={{ fontSize: "var(--text-sm)", color: "var(--warning)", margin: "0 0 6px" }}>
+                    {accountsLoaded
+                      ? "No calendars you own yet — connect your Google or Microsoft account in Settings → Accounts first. Booking links must land on your own calendar."
+                      : "Loading your calendars…"}
                   </p>
+                  {showUnownedNote && (
+                    <p style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", margin: 0 }}>
+                      Other calendars exist in this workspace, but booking links can only use calendars under your own connected account.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {writable.map((c) => (
+                    <button key={c.id} onClick={() => { setCalendarId(c.id); if (!availabilityCalendarIds.includes(c.id)) { setAvailabilityCalendarIds((prev) => [...prev, c.id]); } }} className="hoverable" style={{ display: "flex", alignItems: "center", gap: 10, textAlign: "left", background: calendarId === c.id ? "rgba(10, 132, 255, 0.1)" : "var(--bg-raised)", border: `1px solid ${calendarId === c.id ? "var(--accent)" : "var(--border-subtle)"}`, borderRadius: "var(--radius-md)", padding: "9px 12px", cursor: "pointer", color: "var(--text-primary)" }}>
+                      <span style={{ width: 10, height: 10, borderRadius: "50%", background: c.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: "var(--text-md)", fontWeight: 600, flex: 1 }}>{c.name}</span>
+                      <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>{c.account_label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <label style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>
+                  2. Check Availability Across
+                </label>
+                {calendars.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (availabilityCalendarIds.length === calendars.length) {
+                        setAvailabilityCalendarIds(calendarId ? [calendarId] : []);
+                      } else {
+                        setAvailabilityCalendarIds(calendars.map((c) => c.id));
+                      }
+                    }}
+                    className="hoverable"
+                    style={{ background: "none", border: "none", color: "var(--accent)", fontSize: "var(--text-xs)", cursor: "pointer", padding: "2px 4px" }}
+                  >
+                    {availabilityCalendarIds.length === calendars.length ? "Deselect other" : "Select all"}
+                  </button>
                 )}
               </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {writable.map((c) => (
-                  <button key={c.id} onClick={() => setCalendarId(c.id)} className="hoverable" style={{ display: "flex", alignItems: "center", gap: 10, textAlign: "left", background: calendarId === c.id ? "rgba(10, 132, 255, 0.1)" : "var(--bg-raised)", border: `1px solid ${calendarId === c.id ? "var(--accent)" : "var(--border-subtle)"}`, borderRadius: "var(--radius-md)", padding: "10px 14px", cursor: "pointer", color: "var(--text-primary)" }}>
-                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: c.color, flexShrink: 0 }} />
-                    <span style={{ fontSize: "var(--text-md)", fontWeight: 600 }}>{c.name}</span>
-                    <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>{c.account_label}</span>
-                  </button>
-                ))}
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", margin: "0 0 10px", lineHeight: 1.4 }}>
+                Block out booking slots if there are conflicting events on any of these calendars.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {calendars.map((c) => {
+                  const isChecked = availabilityCalendarIds.includes(c.id);
+                  return (
+                    <label
+                      key={c.id}
+                      className="hoverable"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        background: isChecked ? "rgba(10, 132, 255, 0.06)" : "var(--bg-raised)",
+                        border: `1px solid ${isChecked ? "rgba(10, 132, 255, 0.3)" : "var(--border-subtle)"}`,
+                        borderRadius: "var(--radius-md)",
+                        padding: "8px 12px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleAvailability(c.id)}
+                        style={{ cursor: "pointer" }}
+                      />
+                      <span style={{ width: 10, height: 10, borderRadius: "50%", background: c.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: "var(--text-md)", fontWeight: 500, flex: 1, color: "var(--text-primary)" }}>{c.name}</span>
+                      <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>{c.account_label}</span>
+                    </label>
+                  );
+                })}
               </div>
-            )}
+            </div>
           </div>
         )}
 
@@ -514,6 +618,220 @@ function LinkWizard({ calendars, ownedAccountIds, accountsLoaded, onClose, onCre
             </button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function EditLinkModal({
+  link,
+  calendars,
+  ownedAccountIds,
+  accountsLoaded,
+  onClose,
+  onSaved,
+}: {
+  link: BookingLink;
+  calendars: AdminCalendar[];
+  ownedAccountIds: Set<string>;
+  accountsLoaded: boolean;
+  onClose: () => void;
+  onSaved: (link: BookingLink) => void;
+}) {
+  const [title, setTitle] = useState(link.title);
+  const [description, setDescription] = useState(link.description ?? "");
+  const [calendarId, setCalendarId] = useState(link.calendar_id);
+  const [availabilityCalendarIds, setAvailabilityCalendarIds] = useState<string[]>(
+    () => link.availability_calendar_ids ?? calendars.map((c) => c.id)
+  );
+  const [notice, setNotice] = useState(link.min_notice_minutes);
+  const [bufferBefore, setBufferBefore] = useState(link.buffer_before_minutes);
+  const [bufferAfter, setBufferAfter] = useState(link.buffer_after_minutes);
+  const [ahead, setAhead] = useState(link.max_days_ahead);
+  const [approval, setApproval] = useState(link.approval_required);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const writable = ownedWritableCalendars(calendars, ownedAccountIds);
+
+  function toggleAvailability(id: string) {
+    setAvailabilityCalendarIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await adminUpdateBookingLink(link.id, {
+        title: title.trim(),
+        description: description.trim() || null,
+        calendar_id: calendarId,
+        availability_calendar_ids: availabilityCalendarIds.length > 0 ? availabilityCalendarIds : [calendarId],
+        buffer_before_minutes: bufferBefore,
+        buffer_after_minutes: bufferAfter,
+        min_notice_minutes: notice,
+        max_days_ahead: ahead,
+        approval_required: approval,
+      });
+      onSaved(updated);
+    } catch (e) {
+      setError(friendlyError(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-card mount-rise" onClick={(e) => e.stopPropagation()} style={{ width: 560, maxWidth: "94vw", padding: 26, maxHeight: "90vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, margin: 0 }}>Edit booking link</h3>
+          <button onClick={onClose} className="hoverable" aria-label="Close" style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", padding: "2px 6px", display: "inline-flex" }}>
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label htmlFor="edit-title" style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>Title</label>
+            <input id="edit-title" value={title} onChange={(e) => setTitle(e.target.value)} className="input-standard" style={{ width: "100%", fontSize: "var(--text-md)" }} />
+          </div>
+
+          <div>
+            <label htmlFor="edit-desc" style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>Description</label>
+            <input id="edit-desc" value={description} onChange={(e) => setDescription(e.target.value)} className="input-standard" style={{ width: "100%", fontSize: "var(--text-md)" }} />
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 700, marginBottom: 4 }}>
+              Destination Calendar
+            </label>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", margin: "0 0 8px" }}>
+              Where bookings land on your schedule.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {writable.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setCalendarId(c.id)}
+                  className="hoverable"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    textAlign: "left",
+                    background: calendarId === c.id ? "rgba(10, 132, 255, 0.1)" : "var(--bg-raised)",
+                    border: `1px solid ${calendarId === c.id ? "var(--accent)" : "var(--border-subtle)"}`,
+                    borderRadius: "var(--radius-md)",
+                    padding: "9px 12px",
+                    cursor: "pointer",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: c.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: "var(--text-md)", fontWeight: 600, flex: 1 }}>{c.name}</span>
+                  <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>{c.account_label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <label style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>
+                Check Availability Across
+              </label>
+              {calendars.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (availabilityCalendarIds.length === calendars.length) {
+                      setAvailabilityCalendarIds(calendarId ? [calendarId] : []);
+                    } else {
+                      setAvailabilityCalendarIds(calendars.map((c) => c.id));
+                    }
+                  }}
+                  className="hoverable"
+                  style={{ background: "none", border: "none", color: "var(--accent)", fontSize: "var(--text-xs)", cursor: "pointer", padding: "2px 4px" }}
+                >
+                  {availabilityCalendarIds.length === calendars.length ? "Deselect other" : "Select all"}
+                </button>
+              )}
+            </div>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", margin: "0 0 10px" }}>
+              Block slots that conflict with any of these calendars.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {calendars.map((c) => {
+                const isChecked = availabilityCalendarIds.includes(c.id);
+                return (
+                  <label
+                    key={c.id}
+                    className="hoverable"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      background: isChecked ? "rgba(10, 132, 255, 0.06)" : "var(--bg-raised)",
+                      border: `1px solid ${isChecked ? "rgba(10, 132, 255, 0.3)" : "var(--border-subtle)"}`,
+                      borderRadius: "var(--radius-md)",
+                      padding: "8px 12px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleAvailability(c.id)}
+                      style={{ cursor: "pointer" }}
+                    />
+                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: c.color, flexShrink: 0 }} />
+                    <span style={{ fontSize: "var(--text-md)", fontWeight: 500, flex: 1, color: "var(--text-primary)" }}>{c.name}</span>
+                    <span style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>{c.account_label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <NumberField label="Notice needed (hours)" value={Math.round(notice / 60)} onChange={(v) => setNotice(Math.max(0, v * 60))} hint="Min hours advance notice" />
+            <NumberField label="Bookable ahead (days)" value={ahead} onChange={(v) => setAhead(Math.max(1, Math.min(90, v)))} hint="Max days into future" />
+            <NumberField label="Buffer before (min)" value={bufferBefore} onChange={(v) => setBufferBefore(Math.max(0, v))} hint="Quiet time before" />
+            <NumberField label="Buffer after (min)" value={bufferAfter} onChange={(v) => setBufferAfter(Math.max(0, v))} hint="Quiet time after" />
+          </div>
+
+          <div>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: "var(--text-md)" }}>
+              <input type="checkbox" checked={approval} onChange={(e) => setApproval(e.target.checked)} />
+              <span>Require approval for new bookings</span>
+            </label>
+          </div>
+        </div>
+
+        {error && (
+          <div style={{ color: "var(--danger)", fontSize: "var(--text-sm)", background: "rgba(255, 69, 58, 0.1)", padding: "8px 12px", borderRadius: "var(--radius-sm)", marginTop: 14 }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
+          <button type="button" onClick={onClose} className="btn-secondary hoverable">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={saving || !title.trim() || !calendarId}
+            className="btn-primary hoverable"
+            style={{ padding: "8px 20px" }}
+          >
+            {saving ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
       </div>
     </div>
   );

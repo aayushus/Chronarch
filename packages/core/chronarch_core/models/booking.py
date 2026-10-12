@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, ForeignKey, Enum as SAEnum, DateTime, Boolean, Integer
+from sqlalchemy import String, ForeignKey, Enum as SAEnum, DateTime, Boolean, Integer, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin, new_uuid, utcnow
@@ -54,6 +54,7 @@ class BookingLink(Base, TimestampMixin):
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
     calendar_id: Mapped[str] = mapped_column(String, ForeignKey("calendars.id"), nullable=False)
+    availability_calendar_ids: Mapped[Optional[list[str]]] = mapped_column(JSON, nullable=True)
 
     buffer_before_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     buffer_after_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

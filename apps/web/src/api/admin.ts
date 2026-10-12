@@ -418,6 +418,7 @@ export interface BookingLink {
   min_notice_minutes: number;
   max_days_ahead: number;
   approval_required: boolean;
+  availability_calendar_ids?: string[] | null;
   active: boolean;
   url_path: string;
   booking_counts: { pending?: number; upcoming?: number };
@@ -450,6 +451,7 @@ export function adminCreateBookingLink(body: {
   slug?: string | null;
   duration_minutes: number;
   calendar_id: string;
+  availability_calendar_ids?: string[] | null;
   buffer_before_minutes?: number;
   buffer_after_minutes?: number;
   min_notice_minutes?: number;

@@ -25,6 +25,7 @@ def _out(link: BookingLink, counts: dict | None = None) -> dict:
         "id": link.id, "slug": link.slug, "title": link.title,
         "description": link.description, "duration_minutes": link.duration_minutes,
         "calendar_id": link.calendar_id,
+        "availability_calendar_ids": link.availability_calendar_ids,
         "buffer_before_minutes": link.buffer_before_minutes,
         "buffer_after_minutes": link.buffer_after_minutes,
         "min_notice_minutes": link.min_notice_minutes,
@@ -61,6 +62,7 @@ class BookingLinkCreate(BaseModel):
     slug: str | None = None
     duration_minutes: int = 30
     calendar_id: str
+    availability_calendar_ids: list[str] | None = None
     buffer_before_minutes: int = 0
     buffer_after_minutes: int = 0
     min_notice_minutes: int = 1440
@@ -74,6 +76,7 @@ class BookingLinkUpdate(BaseModel):
     slug: str | None = None
     duration_minutes: int | None = None
     calendar_id: str | None = None
+    availability_calendar_ids: list[str] | None = None
     buffer_before_minutes: int | None = None
     buffer_after_minutes: int | None = None
     min_notice_minutes: int | None = None
@@ -149,6 +152,7 @@ async def create_link(
         owner_user_id=user.id, slug=slug, title=body.title.strip() or "Untitled link",
         description=(body.description or "").strip() or None,
         duration_minutes=body.duration_minutes, calendar_id=body.calendar_id,
+        availability_calendar_ids=body.availability_calendar_ids,
         buffer_before_minutes=max(0, body.buffer_before_minutes),
         buffer_after_minutes=max(0, body.buffer_after_minutes),
         min_notice_minutes=max(0, body.min_notice_minutes),
