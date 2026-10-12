@@ -143,6 +143,15 @@ export default function CopilotDrawer({
     executePrompt(input);
   }
 
+  function handleClose() {
+    if (draft && draft.trim().length > 0) {
+      if (!window.confirm("You have an unapplied Copilot draft. Closing the assistant will dismiss it. Continue?")) {
+        return;
+      }
+    }
+    onClose();
+  }
+
   const dateHeading = viewedDate.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -226,7 +235,7 @@ export default function CopilotDrawer({
             </button>
           )}
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="icon-btn hoverable"
             title="Close Copilot"
             aria-label="Close Copilot"
@@ -384,7 +393,30 @@ export default function CopilotDrawer({
                 </span>
               </div>
             ))}
-            {draft && <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.45 }}>{draft}</div>}
+            {draft && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+                <span
+                  style={{
+                    alignSelf: "flex-start",
+                    fontSize: "var(--text-xs)",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    color: "var(--warning)",
+                    background: "rgba(255, 159, 10, 0.12)",
+                    border: "1px solid rgba(255, 159, 10, 0.3)",
+                    padding: "2px 8px",
+                    borderRadius: "var(--radius-sm)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                  }}
+                >
+                  <Icon name="sparkles" size={10} /> Copilot Draft • Unapplied
+                </span>
+                <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.45 }}>{draft}</div>
+              </div>
+            )}
           </div>
         )}
 

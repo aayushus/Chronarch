@@ -279,6 +279,8 @@ export default function BookPage() {
               <MobileWeekView
                 meta={meta}
                 tz={tz}
+                setTz={setTz}
+                tzOptions={tzOptions}
                 days={weekDays}
                 byDay={byDay}
                 pickedDay={pickedDay}
@@ -353,8 +355,10 @@ function MobileWeekView(props: {
   name: string; setName: (v: string) => void; email: string; setEmail: (v: string) => void;
   note: string; setNote: (v: string) => void; confirming: boolean; confirm: (e: React.FormEvent) => void;
   done: { status: string; start: string; booker_token: string } | null;
+  setTz: (v: string) => void;
+  tzOptions: string[];
 }) {
-  const { meta, tz, days, byDay, pickedDay, setPickedDay, weekOffset, setWeekOffset } = props;
+  const { meta, tz, setTz, tzOptions, days, byDay, pickedDay, setPickedDay, weekOffset, setWeekOffset } = props;
   return (
     <>
       <div style={{ marginBottom: 24 }}>
@@ -378,6 +382,30 @@ function MobileWeekView(props: {
               {days[0].toLocaleDateString(undefined, { month: "short", day: "numeric" })} – {days[6].toLocaleDateString(undefined, { month: "short", day: "numeric" })}
             </span>
             <button onClick={() => setWeekOffset((v) => v + 1)} className="hoverable" style={{ background: "var(--bg-raised)", border: "1px solid var(--border)", borderRadius: "var(--control-radius)", color: "var(--text-primary)", padding: "10px 18px", fontSize: "var(--text-md)", fontWeight: 600, cursor: "pointer" }}>Next →</button>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 12, padding: "6px 12px", background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--control-radius)" }}>
+            <span style={{ color: "var(--accent)", display: "inline-flex" }}>
+              <Icon name="globe" size={13} />
+            </span>
+            <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>Times shown in:</span>
+            <select
+              className="select"
+              value={tz}
+              onChange={(e) => setTz(e.target.value)}
+              aria-label="Mobile Timezone"
+              style={{
+                backgroundColor: "transparent",
+                border: "none",
+                color: "var(--text-primary)",
+                fontSize: "var(--text-sm)",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              {tzOptions.map((z) => (
+                <option key={z} value={z} style={{ color: "#000" }}>{z}</option>
+              ))}
+            </select>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {days.map((d) => {
@@ -469,18 +497,44 @@ function DesktopMonthView(props: {
         {meta.approval_required && (
           <div style={{ fontSize: "var(--text-sm)", color: "var(--warning)" }}>Needs host approval</div>
         )}
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-md)", color: "var(--text-primary)", marginTop: 4 }}>
-          <span style={{ color: "var(--text-tertiary)", display: "inline-flex" }}>
-            <Icon name="globe" size={15} />
-          </span>
-          <select className="select" value={tz} onChange={(e) => setTz(e.target.value)} aria-label="Timezone"
-            style={{ backgroundColor: "transparent", border: "none", color: "var(--text-primary)",
-                     fontSize: "var(--text-md)", maxWidth: 170 }}>
-            {tzOptions.map((z) => (
-              <option key={z} value={z} style={{ color: "#000" }}>{z}</option>
-            ))}
-          </select>
-        </label>
+        <div style={{
+          marginTop: 6,
+          padding: "8px 10px",
+          borderRadius: "var(--control-radius)",
+          background: "var(--bg-raised)",
+          border: "1px solid var(--border-subtle)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+        }}>
+          <div style={{ fontSize: "var(--text-xs)", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-tertiary)", fontWeight: 600 }}>
+            Timezone
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-md)", color: "var(--text-primary)", cursor: "pointer" }}>
+            <span style={{ color: "var(--accent)", display: "inline-flex" }}>
+              <Icon name="globe" size={15} />
+            </span>
+            <select
+              className="select"
+              value={tz}
+              onChange={(e) => setTz(e.target.value)}
+              aria-label="Booking Timezone"
+              style={{
+                backgroundColor: "transparent",
+                border: "none",
+                color: "var(--text-primary)",
+                fontSize: "var(--text-md)",
+                fontWeight: 600,
+                width: "100%",
+                cursor: "pointer",
+              }}
+            >
+              {tzOptions.map((z) => (
+                <option key={z} value={z} style={{ color: "#000" }}>{z}</option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
       {/* Middle: month calendar */}

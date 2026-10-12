@@ -1407,6 +1407,74 @@ function ConnectAccountWizardModal({
             <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
               <div>
                 <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>
+                  Quick Presets
+                </label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCaldavUrl("https://caldav.icloud.com");
+                      if (!caldavLabel) setCaldavLabel("iCloud Calendar");
+                    }}
+                    className="hoverable"
+                    style={{
+                      background: "var(--bg-raised)",
+                      border: "1px solid var(--border)",
+                      color: "var(--text-primary)",
+                      borderRadius: "var(--radius-sm)",
+                      padding: "6px 12px",
+                      fontSize: "var(--text-xs)",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                     Apple iCloud
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCaldavUrl("https://caldav.fastmail.com/dav/calendars/user/");
+                      if (!caldavLabel) setCaldavLabel("Fastmail Calendar");
+                    }}
+                    className="hoverable"
+                    style={{
+                      background: "var(--bg-raised)",
+                      border: "1px solid var(--border)",
+                      color: "var(--text-primary)",
+                      borderRadius: "var(--radius-sm)",
+                      padding: "6px 12px",
+                      fontSize: "var(--text-xs)",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Fastmail
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCaldavUrl("https://cloud.example.com/remote.php/dav/principals/users/");
+                      if (!caldavLabel) setCaldavLabel("Nextcloud Calendar");
+                    }}
+                    className="hoverable"
+                    style={{
+                      background: "var(--bg-raised)",
+                      border: "1px solid var(--border)",
+                      color: "var(--text-primary)",
+                      borderRadius: "var(--radius-sm)",
+                      padding: "6px 12px",
+                      fontSize: "var(--text-xs)",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Nextcloud
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: 6 }}>
                   CalDAV Server URL
                 </label>
                 <input
