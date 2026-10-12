@@ -35,7 +35,7 @@ interface KioskEvent {
   calendar_color: string;
 }
 
-type ViewMode = "week" | "agenda";
+type ViewMode = "day" | "week" | "agenda";
 const VIEW_MODE_KEY = "chronarch:kiosk:viewMode";
 const IDLE_RELOAD_MS = 60 * 60_000;
 
@@ -87,6 +87,7 @@ export default function KioskPage() {
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [weekOffset, setWeekOffset] = useState(0);
+  const [dayOffset, setDayOffset] = useState(0);
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [hideCancelled, setHideCancelled] = useState(false);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
@@ -96,7 +97,9 @@ export default function KioskPage() {
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     try {
-      return localStorage.getItem(VIEW_MODE_KEY) === "agenda" ? "agenda" : "week";
+      const stored = localStorage.getItem(VIEW_MODE_KEY);
+      if (stored === "day" || stored === "agenda" || stored === "week") return stored;
+      return "week";
     } catch {
       return "week";
     }
@@ -151,11 +154,23 @@ export default function KioskPage() {
     };
   }, [meta?.screensaver_timeout_seconds]);
 
+  // When in Day mode, active day is anchored to today + dayOffset.
+  const activeDay = useMemo(
+    () => addDays(new Date(), dayOffset),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dayOffset, now.getDate()],
+  );
+
   const weekStart = useMemo(
-    () => addDays(startOfWeekSunday(new Date()), weekOffset * 7),
+    () => {
+      if (viewMode === "day") {
+        return startOfWeekSunday(activeDay);
+      }
+      return addDays(startOfWeekSunday(new Date()), weekOffset * 7);
+    },
     // Re-anchor when the day rolls over.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [weekOffset, now.getDate()],
+    [viewMode, activeDay, weekOffset, now.getDate()],
   );
 
   const load = useCallback(async () => {
@@ -350,8 +365,20 @@ export default function KioskPage() {
   }
 
   const countdowns = pickCountdowns(visibleEvents, now);
-  const rangeLabel = `${weekDays[0].toLocaleDateString(undefined, { month: "long", day: "numeric" })} – ${weekDays[6].toLocaleDateString(undefined, { month: "long", day: "numeric" })}`;
+  const rangeLabel = viewMode === "day"
+    ? activeDay.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })
+    : `${weekDays[0].toLocaleDateString(undefined, { month: "long", day: "numeric" })} – ${weekDays[6].toLocaleDateString(undefined, { month: "long", day: "numeric" })}`;
   const freshness = lastLoadedAt ? `Updated ${Math.max(0, Math.round((Date.now() - lastLoadedAt.getTime()) / 60000))}m ago` : "Updating…";
+
+  const getModeBtnStyle = (mode: ViewMode) => ({
+    border: "none",
+    background: viewMode === mode ? (darkMode ? "#f3f4f6" : "#1c1c1e") : (darkMode ? "#2b313a" : "#fff"),
+    color: viewMode === mode ? (darkMode ? "#111827" : "#fff") : (darkMode ? "#e5e7eb" : "#1c1c1e"),
+    padding: "10px 16px",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+  });
 
   return (
     <div className={`kiosk-live ${darkMode ? "kiosk-live-dark" : ""}`} style={{ height: "100vh", background: PAGE, color: INK, padding: "14px", display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
@@ -374,39 +401,78 @@ export default function KioskPage() {
             <div className="kiosk-live-range">{rangeLabel}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
-            <div style={{ display: "flex", border: "1px solid #e3e1da", borderRadius: 6, overflow: "hidden" }}>
+            <div style={{ display: "flex", border: darkMode ? "1px solid #374151" : "1px solid #e3e1da", borderRadius: 6, overflow: "hidden" }}>
+              <button
+                onClick={() => setViewModeAndPersist("day")}
+                aria-pressed={viewMode === "day"}
+                style={getModeBtnStyle("day")}
+              >
+                Day
+              </button>
               <button
                 onClick={() => setViewModeAndPersist("week")}
                 aria-pressed={viewMode === "week"}
-                style={{ border: "none", background: viewMode === "week" ? INK : (darkMode ? "#2b313a" : "#fff"), color: viewMode === "week" ? "#fff" : INK, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                style={getModeBtnStyle("week")}
               >
                 Week
               </button>
               <button
                 onClick={() => setViewModeAndPersist("agenda")}
                 aria-pressed={viewMode === "agenda"}
-                style={{ border: "none", background: viewMode === "agenda" ? INK : (darkMode ? "#2b313a" : "#fff"), color: viewMode === "agenda" ? "#fff" : INK, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                style={getModeBtnStyle("agenda")}
               >
                 Agenda
               </button>
             </div>
-            <button onClick={() => setFilterOpen((v) => !v)} style={{ border: "1px solid var(--wall-line)", background: darkMode ? "#2b313a" : "#fff", borderRadius: 6, padding: "10px 16px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>
+            <button onClick={() => setFilterOpen((v) => !v)} style={{ border: darkMode ? "1px solid #374151" : "1px solid var(--wall-line)", background: darkMode ? "#2b313a" : "#fff", borderRadius: 6, padding: "10px 16px", fontSize: 13, fontWeight: 600, color: darkMode ? "#e5e7eb" : INK, cursor: "pointer" }}>
               ⊘ Filter{hiddenIds.size > 0 ? ` (${calendars.length - hiddenIds.size}/${calendars.length})` : ""}
             </button>
             <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: MUTED, whiteSpace: "nowrap", cursor: "pointer" }}>
               <input type="checkbox" checked={hideCancelled} onChange={(event) => setHideCancelled(event.target.checked)} style={{ accentColor: "#6f73e8" }} />
               Hide cancelled
             </label>
-            <button onClick={() => setWeekOffset((v) => v - 1)} aria-label="Previous week" style={{ border: "none", background: "transparent", fontSize: 20, color: MUTED, cursor: "pointer", padding: "10px 14px" }}>‹</button>
-            <button onClick={() => setWeekOffset(0)} style={{ border: "none", background: "transparent", fontSize: 14, fontWeight: 700, color: INK, cursor: "pointer", padding: "10px 14px" }}>Today</button>
-            <button onClick={() => setWeekOffset((v) => v + 1)} aria-label="Next week" style={{ border: "none", background: "transparent", fontSize: 20, color: MUTED, cursor: "pointer", padding: "10px 14px" }}>›</button>
-            <button onClick={() => setDarkMode((v) => !v)} style={{ border: "1px solid var(--wall-line)", background: darkMode ? "#2b313a" : "#fff", borderRadius: 6, padding: "10px 12px", fontSize: 13, fontWeight: 600, color: INK, cursor: "pointer" }}>{darkMode ? "Light mode" : "Dark mode"}</button>
+            <button
+              onClick={() => {
+                if (viewMode === "day") {
+                  setDayOffset((d) => d - 1);
+                } else {
+                  setWeekOffset((w) => w - 1);
+                }
+              }}
+              aria-label={viewMode === "day" ? "Previous day" : "Previous week"}
+              style={{ border: "none", background: "transparent", fontSize: 20, color: MUTED, cursor: "pointer", padding: "10px 14px" }}
+            >
+              ‹
+            </button>
+            <button
+              onClick={() => {
+                setDayOffset(0);
+                setWeekOffset(0);
+              }}
+              style={{ border: "none", background: "transparent", fontSize: 14, fontWeight: 700, color: darkMode ? "#f3f4f6" : INK, cursor: "pointer", padding: "10px 14px" }}
+            >
+              Today
+            </button>
+            <button
+              onClick={() => {
+                if (viewMode === "day") {
+                  setDayOffset((d) => d + 1);
+                } else {
+                  setWeekOffset((w) => w + 1);
+                }
+              }}
+              aria-label={viewMode === "day" ? "Next day" : "Next week"}
+              style={{ border: "none", background: "transparent", fontSize: 20, color: MUTED, cursor: "pointer", padding: "10px 14px" }}
+            >
+              ›
+            </button>
+            <button onClick={() => setDarkMode((v) => !v)} style={{ border: darkMode ? "1px solid #374151" : "1px solid var(--wall-line)", background: darkMode ? "#2b313a" : "#fff", borderRadius: 6, padding: "10px 12px", fontSize: 13, fontWeight: 600, color: darkMode ? "#e5e7eb" : INK, cursor: "pointer" }}>{darkMode ? "Light mode" : "Dark mode"}</button>
             {filterOpen && (
-              <div style={{ position: "absolute", top: 36, right: 70, background: darkMode ? "#20262e" : "#fff", border: "1px solid var(--wall-line)", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 8, zIndex: 10, minWidth: 200 }}>
+              <div style={{ position: "absolute", top: 36, right: 70, background: darkMode ? "#20262e" : "#fff", border: darkMode ? "1px solid #374151" : "1px solid var(--wall-line)", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 8, zIndex: 10, minWidth: 200 }}>
                 {calendars.map((c) => {
                   const hidden = hiddenIds.has(c.id);
                   return (
-                    <button key={c.id} onClick={() => toggleHidden(c.id)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "none", border: "none", borderRadius: 8, padding: "7px 10px", cursor: "pointer", fontSize: 13, color: hidden ? FAINT : INK }}>
+                    <button key={c.id} onClick={() => toggleHidden(c.id)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "none", border: "none", borderRadius: 8, padding: "7px 10px", cursor: "pointer", fontSize: 13, color: hidden ? FAINT : (darkMode ? "#e5e7eb" : INK) }}>
                       <span style={{ width: 10, height: 10, borderRadius: "50%", background: hidden ? "#d8d8dc" : c.color, flexShrink: 0 }} />
                       <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
                       <span style={{ color: hidden ? FAINT : MUTED }}>{hidden ? "hidden" : "shown"}</span>
@@ -430,7 +496,51 @@ export default function KioskPage() {
           </div>
         )}
 
-        {viewMode === "week" ? (
+        {viewMode === "day" ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, flex: 1, minHeight: 0, overflowY: "auto" }}>
+            {(() => {
+              const dayKey = localKey(activeDay);
+              const items = byDay.get(dayKey) ?? [];
+              const isToday = dayKey === localKey(now);
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", borderBottom: darkMode ? "1px solid #374151" : "1px solid var(--wall-line)", paddingBottom: 10, flexShrink: 0 }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}>
+                      <span>{activeDay.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</span>
+                      {isToday && (
+                        <span style={{ fontSize: 12, fontWeight: 700, background: "#ff453a", color: "#fff", padding: "2px 8px", borderRadius: 12 }}>
+                          Today
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 14, color: MUTED }}>
+                      {items.length === 0 ? "No events scheduled" : `${items.length} event${items.length === 1 ? "" : "s"}${overlapGroups(items).filter((g) => g.length > 1).length ? ` · ${overlapGroups(items).filter((g) => g.length > 1).length} concurrent` : ""}`}
+                    </div>
+                  </div>
+
+                  {items.length === 0 ? (
+                    <div style={{ fontSize: 15, color: MUTED, textAlign: "center", padding: "48px 0" }}>
+                      Nothing scheduled for this day. Enjoy your free time!
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+                      {overlapGroups(items).map((group, index) => group.length > 1 ? (
+                        <div key={`day-parallel-${dayKey}-${index}`} style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(group.length, 2)}, minmax(0, 1fr))`, gap: 10 }}>
+                          <div style={{ gridColumn: "1 / -1", color: MUTED, fontSize: 12, fontWeight: 700 }}>Concurrent at {fmtTime(group[0].start)} · {group.length} events</div>
+                          {group.map((event) => renderEventCard(event, true))}
+                        </div>
+                      ) : (
+                        <div key={group[0].id}>
+                          {renderEventCard(group[0], true)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        ) : viewMode === "week" ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 10, flex: 1, minHeight: 0 }}>
             {weekDays.map((day) => {
               const dayKey = localKey(day);
