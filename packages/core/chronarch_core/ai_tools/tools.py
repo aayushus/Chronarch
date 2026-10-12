@@ -272,10 +272,7 @@ async def get_events(
                 UnifiedEvent.start < window_end,
                 UnifiedEvent.end > window_start,
             ),
-            and_(
-                UnifiedEvent.recurrence.isnot(None),
-                UnifiedEvent.recurrence != "null",
-            ),
+            UnifiedEvent.recurrence.is_not(None),
         ),
     )
     events = list((await session.execute(stmt)).scalars())
