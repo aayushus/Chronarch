@@ -29,6 +29,7 @@ import Icon from "../components/Icon";
 import MiniMonth from "../components/MiniMonth";
 import Palette, { PaletteAction } from "../components/Palette";
 import QuickCreateModal, { CreateDraft } from "../components/QuickCreateModal";
+import KeyboardShortcutsModal from "../components/KeyboardShortcutsModal";
 import { addDays, startOfDay, startOfMonth, startOfWeek } from "../lib/dates";
 import { dayStats, formatMinutes } from "../lib/focus";
 import { pickCountdowns } from "../lib/kiosk";
@@ -124,6 +125,7 @@ export default function CalendarPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function toggleCopilotDock() {
@@ -326,9 +328,21 @@ export default function CalendarPage() {
           : e
       )
     );
+    const movingEvent = events.find((e) => e.id === eventId);
     try {
       await moveEvent(eventId, newStart.toISOString(), newEnd.toISOString(), allDay);
       invalidateEventsCache();
+      if (movingEvent) {
+        const prevStart = new Date(movingEvent.start);
+        const prevEnd = new Date(movingEvent.end);
+        const prevAllDay = movingEvent.all_day;
+        toast(`Rescheduled “${movingEvent.title}”`, {
+          actionLabel: "Undo",
+          onAction: async () => {
+            await commitMove(eventId, prevStart, prevEnd, prevAllDay);
+          },
+        });
+      }
     } catch (e) {
       setEvents(previous);
       setSelectedEvent(prevSelected);
@@ -533,6 +547,11 @@ export default function CalendarPage() {
         setPaletteOpen((v) => !v);
         return;
       }
+      if (((e.metaKey || e.ctrlKey) && e.key === "/") || (e.key === "?" && !isTypingTarget(e.target))) {
+        e.preventDefault();
+        setShortcutsOpen((v) => !v);
+        return;
+      }
       if ((e.target as HTMLElement)?.closest?.(".palette-card")) return;
       if (e.key !== "Escape" && isTypingTarget(e.target)) return;
       if (e.key === "/" && !isTypingTarget(e.target)) {
@@ -567,6 +586,7 @@ export default function CalendarPage() {
         case ".":
           shift(1);
           break;
+        case "c":
         case "n": {
           const s = new Date(viewedDate);
           s.setHours(9, 0, 0, 0);
@@ -577,6 +597,7 @@ export default function CalendarPage() {
           setMenu(null);
           setMoveTarget(null);
           setPaletteOpen(false);
+          setShortcutsOpen(false);
           setSelectedEvent(null);
           break;
       }
@@ -794,7 +815,7 @@ export default function CalendarPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search events (/)..."
+              placeholder="Filter visible events (/)..."
               aria-label="Filter events"
               style={{
                 width: "100%",
@@ -836,7 +857,7 @@ export default function CalendarPage() {
             onClick={() => setPaletteOpen(true)}
             className="hoverable"
             aria-label="Open command palette"
-            title="Command palette (⌘K)"
+            title="Commands & search (⌘K)"
             style={{
               width: 200, height: 32, boxSizing: "border-box",
               display: "flex", alignItems: "center", gap: 8,
@@ -847,7 +868,7 @@ export default function CalendarPage() {
           >
             <Icon name="search" size={13} />
             <span style={{ flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              Jump to…
+              Commands (⌘K)…
             </span>
             <kbd>⌘K</kbd>
           </button>
@@ -893,6 +914,22 @@ export default function CalendarPage() {
               <Icon name="calendar" size={14} />
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => setShortcutsOpen(true)}
+            title="Keyboard shortcuts (?)"
+            aria-label="Keyboard shortcuts"
+            style={{
+              height: 32, boxSizing: "border-box", width: 32,
+              background: "var(--bg-raised)", border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-sm)", color: "var(--text-secondary)",
+              cursor: "pointer", flexShrink: 0,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <Icon name="help" size={14} />
+          </button>
 
           <Link
             to="/settings"
@@ -1284,6 +1321,7 @@ export default function CalendarPage() {
         />
       )}
 
+      <KeyboardShortcutsModal isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <Palette open={paletteOpen} actions={paletteActions} onClose={() => setPaletteOpen(false)} />
     </div>
   );

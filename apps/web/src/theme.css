@@ -267,6 +267,23 @@ button:has(> svg:only-child) {
 
 .resize-handle {
   cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.resize-handle::after {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.45);
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out;
+}
+.event-block:hover .resize-handle::after,
+.resize-handle:hover::after {
+  opacity: 1;
 }
 
 /* Quiet ambient motion for the kiosk sleep screen. */

@@ -11,6 +11,7 @@ export default function KioskPairPage() {
   const [pairingId, setPairingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [requesting, setRequesting] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function requestCode() {
@@ -82,10 +83,65 @@ export default function KioskPairPage() {
             <div style={{ fontSize: 13, color: "var(--wall-muted)", marginBottom: 8 }}>
               Enter this code in Settings → Kiosk → Pair with code{name.trim() ? ` for “${name.trim()}”` : ""}
             </div>
-            <div style={{ fontSize: 64, fontWeight: 800, letterSpacing: "0.12em", color: "var(--wall-ink)" }}>
-              {code.slice(0, 3)} {code.slice(3)}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, margin: "16px 0" }}>
+              <div
+                style={{
+                  fontSize: 60,
+                  fontWeight: 800,
+                  letterSpacing: "0.14em",
+                  color: "var(--wall-ink)",
+                  fontVariantNumeric: "tabular-nums",
+                  fontFamily: "var(--font-mono, monospace)",
+                }}
+              >
+                {code.slice(0, 3)} {code.slice(3)}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(code);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className="hoverable"
+                title="Copy pairing code"
+                style={{
+                  background: copied ? "rgba(48, 209, 88, 0.15)" : "var(--wall-well)",
+                  border: `1px solid ${copied ? "var(--success)" : "var(--wall-line)"}`,
+                  color: copied ? "var(--success)" : "var(--wall-ink)",
+                  borderRadius: 10,
+                  padding: "8px 12px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {copied ? (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
             </div>
-            <div style={{ fontSize: 12, color: "var(--wall-faint)", marginTop: 12 }}>Waiting for approval…</div>
+            <div style={{ fontSize: 13, color: "var(--wall-faint)", marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <span className="kiosk-pulse-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--wall-muted)", display: "inline-block", opacity: 0.7 }} />
+              <span>Waiting for approval…</span>
+            </div>
           </>
         )}
       </div>

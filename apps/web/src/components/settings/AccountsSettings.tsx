@@ -1384,9 +1384,15 @@ function ConnectAccountWizardModal({
                   padding: "10px 12px",
                   borderRadius: "var(--radius-sm)",
                   marginBottom: 16,
+                  lineHeight: 1.5,
                 }}
               >
-                {caldavError}
+                <div>{caldavError}</div>
+                {(caldavUrl.includes("icloud.com") || caldavUrl.includes("fastmail.com") || caldavError.toLowerCase().includes("401") || caldavError.toLowerCase().includes("unauthorized") || caldavError.toLowerCase().includes("auth")) && (
+                  <div style={{ marginTop: 6, fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>
+                    💡 <strong>Tip:</strong> Apple iCloud and Fastmail require an <strong>App-Specific Password</strong> rather than your regular account password. Generate one in your Apple ID or Fastmail account settings.
+                  </div>
+                )}
               </div>
             )}
             {caldavTestOk && (

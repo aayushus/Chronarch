@@ -53,12 +53,54 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
+
+  // Auto-advance endTime by +30 min if startTime >= endTime
+  function handleStartTimeChange(newStart: string) {
+    setStartTime(newStart);
+    if (!newStart) return;
+    const [sH, sM] = newStart.split(":").map(Number);
+    if (isNaN(sH) || isNaN(sM)) return;
+    const startMins = sH * 60 + sM;
+    
+    let needsAdvance = false;
+    if (endTime) {
+      const [eH, eM] = endTime.split(":").map(Number);
+      if (!isNaN(eH) && !isNaN(eM)) {
+        const endMins = eH * 60 + eM;
+        if (startMins >= endMins) {
+          needsAdvance = true;
+        }
+      }
+    } else {
+      needsAdvance = true;
+    }
+
+    if (needsAdvance) {
+      const advanced = (startMins + 30) % (24 * 60);
+      const advH = String(Math.floor(advanced / 60)).padStart(2, "0");
+      const advM = String(advanced % 60).padStart(2, "0");
+      setEndTime(`${advH}:${advM}`);
+    }
+  }
+
+  function handleCancelOrClose() {
+    const isDirty = title.trim().length > 0 || attendees.length > 0 || repeat !== "";
+    if (isDirty && !window.confirm("Discard unsaved event draft?")) {
+      return;
+    }
+    onClose();
+  }
+
   useEffect(() => {
     titleRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleCancelOrClose();
+      }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [title, attendees, repeat, onClose]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -92,7 +134,7 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="presentation">
+    <div className="modal-backdrop" onClick={handleCancelOrClose} role="presentation">
       <form
         className="modal-card mount-rise"
         role="dialog"
@@ -130,8 +172,8 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
         <input className="input-standard input-native" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         {!allDay && (
           <div style={{ display: "flex", gap: 8 }}>
-            <input className="input-standard input-native" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}  style={{ flex: 1 }} />
-            <input className="input-standard input-native" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)}  style={{ flex: 1 }} />
+            <input className="input-standard input-native" type="time" value={startTime} onChange={(e) => handleStartTimeChange(e.target.value)}  style={{ flex: 1 }} />
+            <input className="input-standard input-native" type="time" min={startTime} value={endTime} onChange={(e) => setEndTime(e.target.value)}  style={{ flex: 1 }} />
           </div>
         )}
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-md)", color: "var(--text-secondary)", cursor: "pointer" }}>
@@ -150,7 +192,7 @@ export default function QuickCreateModal({ calendars, initialStart, initialEnd, 
         </label>
         <AttendeePicker value={attendees} onChange={setAttendees} label="Attendees" />
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <button type="button" onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>
+          <button type="button" onClick={handleCancelOrClose} className="btn-secondary" style={{ flex: 1 }}>
             Cancel
           </button>
           <button type="submit" disabled={writable.length === 0 || saving} className="btn-primary" style={{ flex: 1 }}>

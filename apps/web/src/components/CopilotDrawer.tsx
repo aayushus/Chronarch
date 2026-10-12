@@ -310,6 +310,68 @@ export default function CopilotDrawer({
           gap: 12,
         }}
       >
+        {messages.length === 0 && !loading && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "32px 12px",
+              textAlign: "center",
+              gap: 12,
+            }}
+          >
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: "50%",
+                background: "rgba(255, 159, 10, 0.12)",
+                color: "var(--warning)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="sparkles" size={22} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: "var(--text-md)", color: "var(--text-primary)" }}>
+                How can I help with your schedule?
+              </div>
+              <div style={{ fontSize: "var(--text-sm)", color: "var(--text-tertiary)", marginTop: 4, maxWidth: 280 }}>
+                Ask me to summarize events, detect conflicts, or organize your day.
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", maxWidth: 300, marginTop: 8 }}>
+              {QUICK_ACTIONS.map((action) => (
+                <button
+                  key={`empty-${action.id}`}
+                  onClick={() => executePrompt(action.prompt)}
+                  className="hoverable"
+                  style={{
+                    background: "var(--bg-raised)",
+                    border: "1px solid var(--border-subtle)",
+                    borderRadius: "var(--radius-md)",
+                    padding: "8px 12px",
+                    textAlign: "left",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: "var(--text-sm)",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  <Icon name={action.icon} size={14} style={{ color: "var(--text-tertiary)", flexShrink: 0 }} />
+                  <span style={{ fontWeight: 500 }}>{action.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {messages.map((m, idx) => (
           <div
             key={idx}
