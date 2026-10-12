@@ -100,9 +100,30 @@ export function isCancelledEvent(event: Pick<EventSummary, "title">): boolean {
   return /^\s*(?:canceled|cancelled)\s*:/i.test(event.title);
 }
 
+/** Detects if an event has a video conference (Zoom, Meet, Teams, etc.). Pure. */
+export function detectMeetingKind(title?: string, meta?: string): { isVideoCall: boolean; kind?: "meet" | "zoom" | "teams" | "call" } {
+  const combined = `${title || ""} ${meta || ""}`.toLowerCase();
+  if (combined.includes("meet.google.com") || combined.includes("google meet")) {
+    return { isVideoCall: true, kind: "meet" };
+  }
+  if (combined.includes("zoom.us") || combined.includes("zoom")) {
+    return { isVideoCall: true, kind: "zoom" };
+  }
+  if (combined.includes("teams.microsoft.com") || combined.includes("teams")) {
+    return { isVideoCall: true, kind: "teams" };
+  }
+  if (combined.includes("webex") || combined.includes("video call") || combined.includes("virtual meeting")) {
+    return { isVideoCall: true, kind: "call" };
+  }
+  return { isVideoCall: false };
+}
+
 /** Standard timed-event card (month cells, agenda rows). */
 export function EventCard({ color, title, meta, attendees = [], selected, compact, providerBadge, cancelled, onOpen, onMenu }: EventCardProps) {
   const { shown, extra } = avatarStack(attendees);
+  const metaText = typeof meta === "string" ? meta : undefined;
+  const meetingInfo = detectMeetingKind(title, metaText);
+
   return (
     <div
       onClick={(e) => {
@@ -131,23 +152,45 @@ export function EventCard({ color, title, meta, attendees = [], selected, compac
         opacity: cancelled ? 0.82 : 1,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        {providerBadge && (
-          <span
-            style={{
-              fontSize: "var(--text-2xs)",
-              fontWeight: 700,
-              padding: "1px 5px",
-              borderRadius: "var(--radius-sm)",
-              background: "rgba(255, 255, 255, 0.2)",
-              color: contrastText(color),
-              lineHeight: 1,
-              marginBottom: 4,
-            }}
-          >
-            {providerBadge}
-          </span>
-        )}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, marginBottom: 2 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+          {providerBadge && (
+            <span
+              style={{
+                fontSize: "var(--text-2xs)",
+                fontWeight: 700,
+                padding: "1px 5px",
+                borderRadius: "var(--radius-sm)",
+                background: "rgba(255, 255, 255, 0.2)",
+                color: contrastText(color),
+                lineHeight: 1,
+              }}
+            >
+              {providerBadge}
+            </span>
+          )}
+          {meetingInfo.isVideoCall && (
+            <span
+              title={`Virtual meeting (${meetingInfo.kind?.toUpperCase() || "CALL"})`}
+              aria-label={`Virtual meeting (${meetingInfo.kind || "call"})`}
+              style={{
+                fontSize: "var(--text-2xs)",
+                fontWeight: 700,
+                padding: "1px 5px",
+                borderRadius: "var(--radius-sm)",
+                background: "rgba(0, 0, 0, 0.22)",
+                color: contrastText(color),
+                lineHeight: 1,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 3,
+              }}
+            >
+              <Icon name="video" size={10} />
+              {meetingInfo.kind ? meetingInfo.kind.toUpperCase() : "CALL"}
+            </span>
+          )}
+        </div>
       </div>
       <div
         title={title}

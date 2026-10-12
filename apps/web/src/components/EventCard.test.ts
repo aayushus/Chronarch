@@ -1,7 +1,7 @@
 /** EventCard helper tests. */
 import { describe, expect, it } from "vitest";
 
-import { allDayInk, avatarColor, avatarStack } from "./EventCard";
+import { allDayInk, avatarColor, avatarStack, detectMeetingKind } from "./EventCard";
 
 describe("avatarStack", () => {
   it("initializes from names, caps at max, counts overflow", () => {
@@ -33,3 +33,29 @@ describe("allDayInk", () => {
     expect(allDayInk("light")).toBe("var(--card-ink)");
   });
 });
+
+describe("detectMeetingKind", () => {
+  it("detects Google Meet links and labels", () => {
+    const { isVideoCall, kind } = detectMeetingKind("1:1 Sync", "meet.google.com/abc-def-ghi");
+    expect(isVideoCall).toBe(true);
+    expect(kind).toBe("meet");
+  });
+
+  it("detects Zoom meetings", () => {
+    const { isVideoCall, kind } = detectMeetingKind("Quarterly Planning (Zoom)");
+    expect(isVideoCall).toBe(true);
+    expect(kind).toBe("zoom");
+  });
+
+  it("detects Teams meetings", () => {
+    const { isVideoCall, kind } = detectMeetingKind("Sprint Demo", "https://teams.microsoft.com/l/meetup-join");
+    expect(isVideoCall).toBe(true);
+    expect(kind).toBe("teams");
+  });
+
+  it("returns false for regular in-person events", () => {
+    const { isVideoCall } = detectMeetingKind("Coffee with Sarah", "Room 402");
+    expect(isVideoCall).toBe(false);
+  });
+});
+

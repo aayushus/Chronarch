@@ -10,7 +10,10 @@ interface Props {
   onRefreshEvents?: () => void;
   viewedDate?: Date;
   viewMode?: string;
+  isDocked?: boolean;
+  onToggleDock?: () => void;
 }
+
 
 const QUICK_ACTIONS: { id: string; icon: IconName; label: string; prompt: string }[] = [
   {
@@ -45,6 +48,8 @@ export default function CopilotDrawer({
   onRefreshEvents,
   viewedDate = new Date(),
   viewMode = "day",
+  isDocked = false,
+  onToggleDock,
 }: Props) {
   const [messages, setMessages] = useState<CopilotMessage[]>([
     {
@@ -147,18 +152,19 @@ export default function CopilotDrawer({
     <aside
       className="vibrancy drawer-enter"
       style={{
-        position: "fixed",
+        position: isDocked ? "relative" : "fixed",
         right: 0,
         top: 0,
         bottom: 0,
         width: 400,
         maxWidth: "95vw",
+        height: isDocked ? "100%" : undefined,
         background: "var(--bg-panel)",
         borderLeft: "1px solid var(--border-subtle)",
         display: "flex",
         flexDirection: "column",
-        zIndex: 100,
-        boxShadow: "-8px 0 32px rgba(0, 0, 0, 0.35)",
+        zIndex: isDocked ? 1 : 100,
+        boxShadow: isDocked ? "none" : "-8px 0 32px rgba(0, 0, 0, 0.35)",
       }}
     >
       {/* Header */}
@@ -196,25 +202,51 @@ export default function CopilotDrawer({
           </div>
         </div>
 
-        <button
-          onClick={onClose}
-          className="icon-btn hoverable"
-          style={{
-            background: "transparent",
-            border: "none",
-            color: "var(--text-secondary)",
-            cursor: "pointer",
-            fontSize: "var(--text-lg)",
-            width: 28,
-            height: 28,
-            borderRadius: "var(--radius-sm)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Icon name="x" size={14} />
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {onToggleDock && (
+            <button
+              onClick={onToggleDock}
+              className="icon-btn hoverable"
+              title={isDocked ? "Undock / Float Copilot" : "Dock Copilot into sidebar"}
+              aria-label={isDocked ? "Undock Copilot" : "Dock Copilot"}
+              style={{
+                background: isDocked ? "var(--bg-subtle)" : "transparent",
+                border: "none",
+                color: isDocked ? "var(--text-primary)" : "var(--text-secondary)",
+                cursor: "pointer",
+                width: 28,
+                height: 28,
+                borderRadius: "var(--radius-sm)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name={isDocked ? "sidebar" : "maximize"} size={14} />
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="icon-btn hoverable"
+            title="Close Copilot"
+            aria-label="Close Copilot"
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+              fontSize: "var(--text-lg)",
+              width: 28,
+              height: 28,
+              borderRadius: "var(--radius-sm)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Icon name="x" size={14} />
+          </button>
+        </div>
       </div>
 
       {/* Quick Action Prompt Chips */}

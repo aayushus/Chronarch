@@ -114,8 +114,29 @@ export default function CalendarPage() {
   const [showIcsModal, setShowIcsModal] = useState(false);
   const [droppedIcsContent, setDroppedIcsContent] = useState<string | undefined>(undefined);
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [copilotDocked, setCopilotDocked] = useState(() => {
+    try {
+      return localStorage.getItem("chronarch_copilot_docked") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function toggleCopilotDock() {
+    setCopilotDocked((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("chronarch_copilot_docked", next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
   // Action failures (create/move/delete/undo) are transient: the user can
   // simply retry, so the banner clears itself. Load and auth failures stay
   // until dismissed. One timer, reset on every new message.
@@ -226,7 +247,18 @@ export default function CalendarPage() {
     }
     return [...groups.entries()];
   }, [calendars]);
-  const visibleEvents = events.filter((e) => !hiddenCalendarIds.has(e.calendar_id) && (!hideCancelled || !isCancelledEvent(e)));
+  const visibleEvents = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return events.filter((e) => {
+      if (hiddenCalendarIds.has(e.calendar_id)) return false;
+      if (hideCancelled && isCancelledEvent(e)) return false;
+      if (!q) return true;
+      const titleMatch = e.title?.toLowerCase().includes(q);
+      const locMatch = e.location?.toLowerCase().includes(q);
+      const descMatch = e.description?.toLowerCase().includes(q);
+      return Boolean(titleMatch || locMatch || descMatch);
+    });
+  }, [events, hiddenCalendarIds, hideCancelled, searchQuery]);
   const writableCalendars = useMemo(
     () => calendars.filter((c) => c.can_create ?? c.writable),
     [calendars]
@@ -503,7 +535,11 @@ export default function CalendarPage() {
       }
       if ((e.target as HTMLElement)?.closest?.(".palette-card")) return;
       if (e.key !== "Escape" && isTypingTarget(e.target)) return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "/" && !isTypingTarget(e.target)) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
       switch (e.key.toLowerCase()) {
         case "t":
           setViewedDate(new Date());
@@ -740,6 +776,61 @@ export default function CalendarPage() {
             <Icon name="plus" size={14} />
             <span>New Event</span>
           </button>
+
+          {/* Live search input with '/' hotkey indicator */}
+          <div style={{ position: "relative", width: 220, display: "flex", alignItems: "center" }}>
+            <Icon
+              name="search"
+              size={13}
+              style={{
+                position: "absolute",
+                left: 10,
+                color: "var(--text-tertiary)",
+                pointerEvents: "none",
+              }}
+            />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search events (/)..."
+              aria-label="Filter events"
+              style={{
+                width: "100%",
+                height: 32,
+                boxSizing: "border-box",
+                padding: "0 28px 0 30px",
+                borderRadius: "var(--radius-sm)",
+                border: "1px solid var(--border-subtle)",
+                background: "var(--bg-raised)",
+                color: "var(--text-primary)",
+                fontSize: "var(--text-sm)",
+                outline: "none",
+              }}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear event search"
+                title="Clear search"
+                style={{
+                  position: "absolute",
+                  right: 6,
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--text-tertiary)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 4,
+                }}
+              >
+                <Icon name="x" size={12} />
+              </button>
+            )}
+          </div>
 
           <button
             onClick={() => setPaletteOpen(true)}
@@ -1050,6 +1141,19 @@ export default function CalendarPage() {
           </aside>
         )}
 
+        {copilotOpen && copilotDocked && (
+          <CopilotDrawer
+            isOpen={true}
+            isDocked={true}
+            onToggleDock={toggleCopilotDock}
+            onClose={() => setCopilotOpen(false)}
+            viewedDate={viewedDate}
+            viewMode={viewMode}
+            onRefreshEvents={refreshEvents}
+          />
+        )}
+      </div>
+
       {/* Floating copilot chat button, bottom-right. */}
       <button
         onClick={() => setCopilotOpen(true)}
@@ -1076,7 +1180,6 @@ export default function CalendarPage() {
       >
         <Icon name="sparkles" size={22} />
       </button>
-      </div>
 
       <EventDetailPanel
         event={selectedEvent}
@@ -1167,15 +1270,19 @@ export default function CalendarPage() {
         />
       )}
 
-      <CopilotDrawer
-        isOpen={copilotOpen}
-        onClose={() => setCopilotOpen(false)}
-        viewedDate={viewedDate}
-        viewMode={viewMode}
-        onRefreshEvents={() => {
-          refreshEvents();
-        }}
-      />
+      {!copilotDocked && (
+        <CopilotDrawer
+          isOpen={copilotOpen}
+          isDocked={false}
+          onToggleDock={toggleCopilotDock}
+          onClose={() => setCopilotOpen(false)}
+          viewedDate={viewedDate}
+          viewMode={viewMode}
+          onRefreshEvents={() => {
+            refreshEvents();
+          }}
+        />
+      )}
 
       <Palette open={paletteOpen} actions={paletteActions} onClose={() => setPaletteOpen(false)} />
     </div>
