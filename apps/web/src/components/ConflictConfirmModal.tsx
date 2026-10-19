@@ -71,18 +71,18 @@ export default function ConflictConfirmModal({
           ))}
         </div>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
-          <button type="button" onClick={onBack} className="btn-secondary" style={{ flex: 1, whiteSpace: "nowrap" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "flex-end" }}>
+          <button type="button" onClick={onBack} className="btn-secondary" style={{ minWidth: 80, whiteSpace: "nowrap" }}>
             Back
           </button>
-          <button type="button" onClick={onDiscard} className="btn-secondary" style={{ flex: 1, whiteSpace: "nowrap" }}>
+          <button type="button" onClick={onDiscard} className="btn-secondary" style={{ minWidth: 80, whiteSpace: "nowrap" }}>
             Discard
           </button>
           <button
             type="button"
             onClick={onConfirm}
             className="btn-primary"
-            style={{ flex: 1.2, minWidth: 0, whiteSpace: "nowrap", background: "var(--warning)", color: "var(--text-on-warning)" }}
+            style={{ minWidth: 100, whiteSpace: "nowrap", background: "var(--warning)", color: "var(--text-on-warning)" }}
           >
             {confirmLabel}
           </button>

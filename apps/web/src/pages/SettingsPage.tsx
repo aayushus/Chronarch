@@ -210,6 +210,29 @@ export default function SettingsPage() {
       </aside>
 
       <main className="settings-main" style={{ flex: 1, overflowY: "auto", padding: "32px 48px", minWidth: 0 }}>
+        {/* Breadcrumb Navigation (IA-01) */}
+        {(() => {
+          const currentItem = items.find((it) => it.key === section);
+          const currentGroup = groupSections(items).find((g) => g.items.some((it) => it.key === section));
+          return (
+            <div style={{ maxWidth: 880, margin: "0 auto 16px auto", display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-sm)", color: "var(--text-tertiary)" }}>
+              <span>Settings</span>
+              {currentGroup?.header && (
+                <>
+                  <span>/</span>
+                  <span>{currentGroup.header}</span>
+                </>
+              )}
+              {currentItem && (
+                <>
+                  <span>/</span>
+                  <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{currentItem.label}</span>
+                </>
+              )}
+            </div>
+          );
+        })()}
+
         <div key={section} className="view-enter" style={{ maxWidth: 880, margin: "0 auto" }}>
           {filtered.length === 0 ? (
             <div style={{ fontSize: "var(--text-md)", color: "var(--text-tertiary)", padding: "32px 0", textAlign: "center" }}>

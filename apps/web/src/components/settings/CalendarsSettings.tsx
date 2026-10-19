@@ -14,16 +14,16 @@ interface SettingItem {
 
 const DISPLAY_SETTINGS: SettingItem[] = [
   { key: "visible", label: "Visible in UI", desc: "Display in sidebar and calendar views" },
-  { key: "blocks_availability", label: "Blocks Availability", desc: "Events block owner free/busy slots" },
-  { key: "is_default", label: "Default Calendar", desc: "Selected by default for new events" },
-  { key: "privacy_mask", label: "Privacy Mask", desc: "Mask event details to external viewers" },
+  { key: "blocks_availability", label: "Blocks Availability", desc: "Events block owner free/busy slots during meeting scheduling" },
+  { key: "is_default", label: "Default Calendar", desc: "Selected by default for new events and quick booking" },
+  { key: "privacy_mask", label: "Privacy Mask", desc: "Mask event title & details to external viewers (shows only Busy)" },
 ];
 
 const ACCESS_SETTINGS: SettingItem[] = [
-  { key: "ea_can_view", label: "Delegate Can View", desc: "Shared delegates can view this calendar" },
-  { key: "ea_can_edit", label: "Delegate Can Edit", desc: "Shared delegates can schedule on this calendar" },
-  { key: "ai_can_read", label: "AI Copilot Read", desc: "Built-in AI and MCP tools can read events" },
-  { key: "ai_can_write", label: "AI Copilot Write", desc: "Built-in AI and MCP tools can create/edit" },
+  { key: "ea_can_view", label: "Delegate Can View", desc: "Authorized delegates can inspect events on this calendar" },
+  { key: "ea_can_edit", label: "Delegate Can Edit", desc: "Authorized delegates can create, edit, or delete events" },
+  { key: "ai_can_read", label: "AI Copilot Read", desc: "Built-in AI copilot and MCP tools can read events for queries" },
+  { key: "ai_can_write", label: "AI Copilot Write", desc: "Built-in AI copilot and MCP tools can schedule or reschedule" },
 ];
 
 export default function CalendarsSettings() {

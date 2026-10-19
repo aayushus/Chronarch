@@ -28,9 +28,16 @@ interface GrantFieldDef {
   desc: string;
 }
 
-const GRANT_GROUPS: { title: string; fields: GrantFieldDef[] }[] = [
+interface GrantGroupDef {
+  title: string;
+  tooltip: string;
+  fields: GrantFieldDef[];
+}
+
+const GRANT_GROUPS: GrantGroupDef[] = [
   {
     title: "Visibility",
+    tooltip: "Control how much detail the delegate can see on your calendar (e.g., masking titles or descriptions).",
     fields: [
       { key: "can_view_availability", label: "Free/busy", desc: "Busy times without titles or details" },
       { key: "can_view_titles", label: "Event titles", desc: "Subjects and meeting names" },
@@ -39,6 +46,7 @@ const GRANT_GROUPS: { title: string; fields: GrantFieldDef[] }[] = [
   },
   {
     title: "Scheduling",
+    tooltip: "Permissions for the delegate to create, modify, reschedule, or cancel calendar entries on your behalf.",
     fields: [
       { key: "can_create", label: "Create events", desc: "Schedule directly on the calendar" },
       { key: "can_edit", label: "Edit events", desc: "Change descriptions and details" },
@@ -48,6 +56,7 @@ const GRANT_GROUPS: { title: string; fields: GrantFieldDef[] }[] = [
   },
   {
     title: "Collaboration",
+    tooltip: "Collaboration grants allowing attendee management, RSVP responses on behalf of owner, and ICS import.",
     fields: [
       { key: "can_manage_attendees", label: "Attendees", desc: "Add or remove invite participants" },
       { key: "can_respond_to_invitations", label: "RSVP", desc: "Accept, decline, or tentatively accept for the owner" },
@@ -417,8 +426,8 @@ export default function DelegatesSettings() {
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 14 }}>
                                   {GRANT_GROUPS.map((group) => (
                                     <div key={group.title}>
-                                      <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
-                                        {group.title}
+                                      <div title={group.tooltip} style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, cursor: "help" }}>
+                                        {group.title} <span style={{ textTransform: "none", fontSize: "0.85em", opacity: 0.7 }}>ℹ️</span>
                                       </div>
                                       {group.fields.map(({ key, label, desc }) => (
                                         <label

@@ -238,6 +238,7 @@ export default function CalendarPage() {
     };
   }, [rangeStart.getTime(), rangeEnd.getTime()]);
 
+  const [selectedFilterCalendarId, setSelectedFilterCalendarId] = useState<string | null>(null);
   const calendarById = useMemo(() => Object.fromEntries(calendars.map((c) => [c.id, c])), [calendars]);
   const calendarGroups = useMemo(() => {
     const groups = new Map<string, { label: string; calendars: CalendarSummary[] }>();
@@ -253,6 +254,7 @@ export default function CalendarPage() {
     const q = searchQuery.trim().toLowerCase();
     return events.filter((e) => {
       if (hiddenCalendarIds.has(e.calendar_id)) return false;
+      if (selectedFilterCalendarId && e.calendar_id !== selectedFilterCalendarId) return false;
       if (hideCancelled && isCancelledEvent(e)) return false;
       if (!q) return true;
       const titleMatch = e.title?.toLowerCase().includes(q);
@@ -260,7 +262,7 @@ export default function CalendarPage() {
       const descMatch = e.description?.toLowerCase().includes(q);
       return Boolean(titleMatch || locMatch || descMatch);
     });
-  }, [events, hiddenCalendarIds, hideCancelled, searchQuery]);
+  }, [events, hiddenCalendarIds, selectedFilterCalendarId, hideCancelled, searchQuery]);
   const writableCalendars = useMemo(
     () => calendars.filter((c) => c.can_create ?? c.writable),
     [calendars]
@@ -737,28 +739,45 @@ export default function CalendarPage() {
           <div style={{ height: 32, boxSizing: "border-box", display: "inline-flex", alignItems: "center", background: "var(--wash-deep)", borderRadius: "var(--radius-lg)", padding: 3, border: "1px solid var(--border-subtle)" }}>
             {(["day", "week", "month", "agenda", "year"] as CalendarViewMode[]).map((mode) => {
               const active = viewMode === mode;
+              const shortcut = mode.charAt(0).toUpperCase();
               return (
                 <button
                   key={mode}
                   onClick={() => setViewMode(mode)}
                   className="hoverable"
-                  title={`Switch to ${mode} view (${mode.charAt(0).toUpperCase()})`}
+                  title={`Switch to ${mode} view (${shortcut})`}
                   style={{
                     border: "none",
                     background: active ? "var(--bg-raised)" : "transparent",
                     boxShadow: active ? "var(--shadow-lift)" : "none",
                     height: 26,
-                    padding: "0 14px",
+                    padding: "0 10px",
                     fontSize: "var(--text-sm)",
                     fontWeight: active ? 700 : 500,
                     borderRadius: "var(--radius-sm)",
                     color: active ? "var(--text-primary)" : "var(--text-secondary)",
                     cursor: "pointer",
                     whiteSpace: "nowrap",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
                     transition: "all var(--transition-fast)",
                   }}
                 >
-                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                  <span>{mode.charAt(0).toUpperCase() + mode.slice(1)}</span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      opacity: active ? 0.8 : 0.45,
+                      padding: "1px 4px",
+                      borderRadius: 3,
+                      background: active ? "var(--wash-deep)" : "rgba(128, 128, 128, 0.15)",
+                      lineHeight: 1,
+                    }}
+                  >
+                    {shortcut}
+                  </span>
                 </button>
               );
             })}
@@ -798,58 +817,91 @@ export default function CalendarPage() {
             <span>New Event</span>
           </button>
 
-          {/* Live search input with '/' hotkey indicator */}
-          <div style={{ position: "relative", width: 220, display: "flex", alignItems: "center" }}>
-            <Icon
-              name="search"
-              size={13}
-              style={{
-                position: "absolute",
-                left: 10,
-                color: "var(--text-tertiary)",
-                pointerEvents: "none",
-              }}
-            />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter visible events (/)..."
-              aria-label="Filter events"
-              style={{
-                width: "100%",
-                height: 32,
-                boxSizing: "border-box",
-                padding: "0 28px 0 30px",
-                borderRadius: "var(--radius-sm)",
-                border: "1px solid var(--border-subtle)",
-                background: "var(--bg-raised)",
-                color: "var(--text-primary)",
-                fontSize: "var(--text-sm)",
-                outline: "none",
-              }}
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                aria-label="Clear event search"
-                title="Clear search"
+          {/* Live search input with '/' hotkey indicator and calendar facet filter pills */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ position: "relative", width: 200, display: "flex", alignItems: "center" }}>
+              <Icon
+                name="search"
+                size={13}
                 style={{
                   position: "absolute",
-                  right: 6,
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
+                  left: 10,
                   color: "var(--text-tertiary)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: 4,
+                  pointerEvents: "none",
+                }}
+              />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filter events (/)..."
+                aria-label="Filter events"
+                style={{
+                  width: "100%",
+                  height: 32,
+                  boxSizing: "border-box",
+                  padding: "0 28px 0 30px",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--border-subtle)",
+                  background: "var(--bg-raised)",
+                  color: "var(--text-primary)",
+                  fontSize: "var(--text-sm)",
+                  outline: "none",
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  aria-label="Clear event search"
+                  title="Clear search"
+                  style={{
+                    position: "absolute",
+                    right: 6,
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--text-tertiary)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 4,
+                  }}
+                >
+                  <Icon name="x" size={12} />
+                </button>
+              )}
+            </div>
+
+            {/* Calendar filter facet pill / dropdown */}
+            {calendars.length > 1 && (
+              <select
+                value={selectedFilterCalendarId ?? ""}
+                onChange={(e) => setSelectedFilterCalendarId(e.target.value || null)}
+                aria-label="Filter by calendar"
+                title="Filter events by calendar"
+                style={{
+                  height: 32,
+                  boxSizing: "border-box",
+                  padding: "0 8px",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--border-subtle)",
+                  background: selectedFilterCalendarId ? "var(--wash-deep)" : "var(--bg-raised)",
+                  color: selectedFilterCalendarId ? "var(--text-primary)" : "var(--text-secondary)",
+                  fontSize: "var(--text-sm)",
+                  fontWeight: selectedFilterCalendarId ? 600 : 400,
+                  cursor: "pointer",
+                  outline: "none",
+                  maxWidth: 130,
                 }}
               >
-                <Icon name="x" size={12} />
-              </button>
+                <option value="">All calendars</option>
+                {calendars.map((cal) => (
+                  <option key={cal.id} value={cal.id}>
+                    {cal.name}
+                  </option>
+                ))}
+              </select>
             )}
           </div>
 
@@ -1004,6 +1056,62 @@ export default function CalendarPage() {
             <ErrorBanner onDismiss={() => showError(null)} margin="0 0 10px">
               {error}
             </ErrorBanner>
+          )}
+
+          {/* Context-aware empty state guidance: when all calendars are hidden */}
+          {calendars.length > 0 && calendars.every((c) => hiddenCalendarIds.has(c.id)) && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                background: "var(--wash-deep)",
+                border: "1px dashed var(--border-subtle)",
+                borderRadius: "var(--radius-lg)",
+                padding: "10px 16px",
+                marginBottom: 10,
+                fontSize: "var(--text-sm)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              <Icon name="calendar" size={16} style={{ color: "var(--accent)" }} />
+              <span style={{ flex: 1 }}>All calendars are currently hidden from view.</span>
+              <button
+                onClick={() => setHiddenCalendarIds(new Set())}
+                className="btn-secondary hoverable"
+                style={{ padding: "4px 10px", fontSize: "var(--text-sm)", cursor: "pointer" }}
+              >
+                Show all calendars
+              </button>
+            </div>
+          )}
+
+          {/* Context-aware empty state guidance: when 0 calendars exist */}
+          {calendars.length === 0 && !eventsLoading && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                background: "var(--wash-deep)",
+                border: "1px dashed var(--border-subtle)",
+                borderRadius: "var(--radius-lg)",
+                padding: "10px 16px",
+                marginBottom: 10,
+                fontSize: "var(--text-sm)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              <Icon name="calendar" size={16} style={{ color: "var(--accent)" }} />
+              <span style={{ flex: 1 }}>No active calendars found for your account.</span>
+              <Link
+                to="/settings?section=calendars"
+                className="btn-primary hoverable"
+                style={{ textDecoration: "none", padding: "4px 10px", fontSize: "var(--text-sm)" }}
+              >
+                Manage Calendars
+              </Link>
+            </div>
           )}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, minWidth: 0, background: "var(--bg-raised)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
             <div style={{ height: 2, background: eventsLoading ? "var(--accent)" : "transparent", transition: "background var(--transition-fast)", flexShrink: 0 }} />

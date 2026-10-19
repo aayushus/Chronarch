@@ -61,6 +61,7 @@ export default function CopilotDrawer({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
   // Live reasoning trace for the in-flight turn.
   const [steps, setSteps] = useState<{ text: string; summary?: string; done: boolean }[]>([]);
   const [status, setStatus] = useState<string | null>(null);
@@ -121,15 +122,18 @@ export default function CopilotDrawer({
             const content = e.content || runDraft;
             const trace = runSteps.map((s) => ({ text: s.text, summary: s.summary }));
             setMessages([...nextMessages, { role: "assistant", content, trace }]);
+            setLastFailedPrompt(null);
             if (onRefreshEvents) onRefreshEvents();
           } else if (e.type === "error") {
             // Server sends an already-friendly message — show it verbatim.
             setError(e.message);
+            setLastFailedPrompt(promptText);
           }
         }
       );
     } catch (err) {
       setError(friendlyError(err));
+      setLastFailedPrompt(promptText);
     } finally {
       setLoading(false);
       setSteps([]);
@@ -493,10 +497,29 @@ export default function CopilotDrawer({
               border: "1px solid rgba(255, 69, 58, 0.3)",
               display: "flex",
               flexDirection: "column",
-              gap: 6,
+              gap: 8,
             }}
           >
-            <div>{error}</div>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+              <div>{error}</div>
+              {lastFailedPrompt && (
+                <button
+                  type="button"
+                  onClick={() => executePrompt(lastFailedPrompt)}
+                  className="btn-secondary hoverable"
+                  style={{
+                    padding: "4px 10px",
+                    fontSize: "var(--text-xs)",
+                    flexShrink: 0,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  <Icon name="refresh" size={12} /> Retry
+                </button>
+              )}
+            </div>
             {(error.toLowerCase().includes("key") ||
               error.toLowerCase().includes("model") ||
               error.toLowerCase().includes("litellm") ||
