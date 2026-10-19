@@ -30,8 +30,13 @@ from .routers import (
     webhooks_router,
 )
 
+from fastapi.middleware.gzip import GZipMiddleware
+
 validate_runtime_config()
 app = FastAPI(title="Chronarch API", version="0.1.0")
+
+# Compress HTTP response payloads >= 1000 bytes (e.g. event list arrays, audit logs)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Wildcard origins cannot be combined with credentials (browsers reject
 # `Access-Control-Allow-Origin: *` when `Access-Control-Allow-Credentials`

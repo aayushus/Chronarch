@@ -76,8 +76,13 @@ async def link_slots(
     if end <= start:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                             "date_to must be after date_from.")
-    slots = await _booking.open_slots(session, link, start, end)
-    return {"slots": [{"start": s["start"], "end": s["end"]} for s in slots]}
+    slots = await _booking.open_slots(session, link, start, end, max_results=500)
+    holds = _holds()
+    open_unheld = []
+    for s in slots:
+        if not await holds.is_held(link.id, s["start"]):
+            open_unheld.append({"start": s["start"], "end": s["end"]})
+    return {"slots": open_unheld}
 
 
 class HoldRequest(BaseModel):

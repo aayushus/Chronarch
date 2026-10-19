@@ -6,14 +6,16 @@ import "./theme.css";
 import { AuthProvider, useAuth } from "./api/auth";
 import { AppearanceProvider } from "./appearance";
 import { ToastProvider } from "./components/Toast";
-import LoginPage from "./pages/LoginPage";
 import CalendarPage from "./pages/CalendarPage";
-import SettingsPage from "./pages/SettingsPage";
-import StartPage from "./pages/StartPage";
-import BookPage from "./pages/BookPage";
-import CancelBookingPage from "./pages/CancelBookingPage";
-import KioskPage from "./pages/KioskPage";
-import KioskPairPage from "./pages/KioskPairPage";
+
+// Route-level code-splitting: lazy-load sub-surfaces to slash initial bundle size
+const LoginPage = React.lazy(() => import("./pages/LoginPage"));
+const SettingsPage = React.lazy(() => import("./pages/SettingsPage"));
+const StartPage = React.lazy(() => import("./pages/StartPage"));
+const BookPage = React.lazy(() => import("./pages/BookPage"));
+const CancelBookingPage = React.lazy(() => import("./pages/CancelBookingPage"));
+const KioskPage = React.lazy(() => import("./pages/KioskPage"));
+const KioskPairPage = React.lazy(() => import("./pages/KioskPairPage"));
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -38,41 +40,61 @@ function App() {
       <AppearanceProvider>
         <ToastProvider>
           <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          {/* First-run wizard — skippable, delegates never enter. */}
-          <Route
-            path="/start"
-            element={
-              <RequireAuth>
-                <StartPage />
-              </RequireAuth>
-            }
-          />
-          {/* Public booking surface — no auth shell by design. */}
-          <Route path="/book/:slug" element={<BookPage />} />
-          <Route path="/book/cancel/:token" element={<CancelBookingPage />} />
-          {/* Wall display — token capability, no auth shell by design. */}
-          <Route path="/kiosk/pair" element={<KioskPairPage />} />
-          <Route path="/kiosk/:token" element={<KioskPage />} />
-          {/* Main calendar command center. */}
-          <Route
-            path="/"
-            element={
-              <RequireAuth>
-                <CalendarPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <RequireAdmin>
-                <SettingsPage />
-              </RequireAdmin>
-            }
-          />
-        </Routes>
+            <React.Suspense
+              fallback={
+                <div
+                  tabIndex={-1}
+                  aria-label="Loading page"
+                  role="status"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100vh",
+                    fontFamily: "system-ui, -apple-system, sans-serif",
+                    color: "var(--text-muted, #64748b)",
+                  }}
+                >
+                  <span>Loading...</span>
+                </div>
+              }
+            >
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                {/* First-run wizard — skippable, delegates never enter. */}
+                <Route
+                  path="/start"
+                  element={
+                    <RequireAuth>
+                      <StartPage />
+                    </RequireAuth>
+                  }
+                />
+                {/* Public booking surface — no auth shell by design. */}
+                <Route path="/book/:slug" element={<BookPage />} />
+                <Route path="/book/cancel/:token" element={<CancelBookingPage />} />
+                {/* Wall display — token capability, no auth shell by design. */}
+                <Route path="/kiosk/pair" element={<KioskPairPage />} />
+                <Route path="/kiosk/:token" element={<KioskPage />} />
+                {/* Main calendar command center. */}
+                <Route
+                  path="/"
+                  element={
+                    <RequireAuth>
+                      <CalendarPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <RequireAdmin>
+                      <SettingsPage />
+                    </RequireAdmin>
+                  }
+                />
+              </Routes>
+            </React.Suspense>
           </BrowserRouter>
         </ToastProvider>
       </AppearanceProvider>

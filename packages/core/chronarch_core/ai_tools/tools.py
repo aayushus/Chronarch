@@ -394,6 +394,8 @@ async def get_conflicts(
     calendar_ids: list[str] | None = None,
     owner_calendar_ids: set[str] | None = None,
     grants_by_calendar: dict | None = None,
+    buffer_before: timedelta = timedelta(0),
+    buffer_after: timedelta = timedelta(0),
 ) -> list[dict]:
     """Conflict check for the UI warning flow (BRD §25): which blocking
     events overlap [window_start, window_end).
@@ -420,9 +422,17 @@ async def get_conflicts(
     if not blocking_ids:
         return []
 
-    events = await _availability_events(session, blocking_ids, window_start, window_end)
-    probed = _availability_probes(events, blocking_ids, window_start, window_end)
-    hits = _find_conflicts(window_start, window_end, probed, blocking_ids, exclude_event_id=exclude_event_id)
+    # Expand query window by buffer so buffer-adjacent events are loaded
+    query_start = window_start - buffer_before
+    query_end = window_end + buffer_after
+    events = await _availability_events(session, blocking_ids, query_start, query_end)
+    probed = _availability_probes(events, blocking_ids, query_start, query_end)
+    hits = _find_conflicts(
+        window_start, window_end, probed, blocking_ids,
+        exclude_event_id=exclude_event_id,
+        buffer_before=buffer_before,
+        buffer_after=buffer_after,
+    )
 
     out = []
     for hit in hits:

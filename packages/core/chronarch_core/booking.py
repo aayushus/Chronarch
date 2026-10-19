@@ -75,11 +75,24 @@ class HoldStore:
 
     _memory: dict[str, tuple[str, float]] = {}
 
+    _RELEASE_LUA = """
+if redis.call("get", KEYS[1]) == ARGV[1] then
+    return redis.call("del", KEYS[1])
+else
+    return 0
+end
+"""
+
     def __init__(self, redis_client=None):
         self._redis = redis_client
 
     def _key(self, link_id: str, slot_start: datetime) -> str:
-        return f"bookhold:{link_id}:{slot_start.isoformat()}"
+        if slot_start.tzinfo is None:
+            utc_dt = slot_start.replace(tzinfo=timezone.utc)
+        else:
+            utc_dt = slot_start.astimezone(timezone.utc)
+        iso = utc_dt.replace(second=0, microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return f"bookhold:{link_id}:{iso}"
 
     async def acquire(self, link_id: str, slot_start: datetime) -> str | None:
         """Take a hold on a slot. Returns the hold token, or None when held."""
@@ -102,6 +115,18 @@ class HoldStore:
         self._memory[key] = (token, now + HOLD_TTL_SECONDS)
         return token
 
+    async def is_held(self, link_id: str, slot_start: datetime) -> bool:
+        """Check if a slot currently has an active, unexpired hold."""
+        key = self._key(link_id, slot_start)
+        if self._redis is not None:
+            try:
+                return bool(await self._redis.exists(key))
+            except Exception:
+                pass
+        now = time.monotonic()
+        held = self._memory.get(key)
+        return held is not None and held[1] > now
+
     async def verify(self, link_id: str, slot_start: datetime, token: str) -> bool:
         key = self._key(link_id, slot_start)
         if self._redis is not None:
@@ -113,15 +138,15 @@ class HoldStore:
         return held is not None and held[0] == token and held[1] > time.monotonic()
 
     async def release(self, link_id: str, slot_start: datetime, token: str) -> None:
-        if not await self.verify(link_id, slot_start, token):
-            return
         key = self._key(link_id, slot_start)
         if self._redis is not None:
             try:
-                await self._redis.delete(key)
+                await self._redis.eval(self._RELEASE_LUA, 1, key, token)
             except Exception:
                 pass
-        self._memory.pop(key, None)
+        held = self._memory.get(key)
+        if held is not None and held[0] == token:
+            self._memory.pop(key, None)
 
 
 async def open_slots(
@@ -129,7 +154,7 @@ async def open_slots(
     link: BookingLink,
     range_start: datetime,
     range_end: datetime,
-    max_results: int = 20,
+    max_results: int = 500,
 ) -> list[dict]:
     """Bookable slot starts for a link in [range_start, range_end).
 
@@ -196,6 +221,35 @@ async def open_slots(
         min_notice=timedelta(minutes=link.min_notice_minutes), now=now,
         owner_calendar_ids=owner_calendar_ids,
     )
+
+    # Filter out slots that conflict with any existing PENDING bookings for this host
+    pending_stmt = (
+        select(Booking)
+        .join(BookingLink, Booking.link_id == BookingLink.id)
+        .where(
+            BookingLink.owner_user_id == host.id,
+            Booking.status == BookingStatus.PENDING,
+            Booking.start < end,
+            Booking.end > start,
+        )
+    )
+    pending_bookings = list((await session.execute(pending_stmt)).scalars())
+    if pending_bookings:
+        filtered_slots = []
+        for s in slots:
+            slot_s = s["start"]
+            slot_e = s["end"]
+            clash = False
+            for pb in pending_bookings:
+                pb_s = _as_aware(pb.start)
+                pb_e = _as_aware(pb.end)
+                if (pb_s - buffer_after) < slot_e and (pb_e + buffer_before) > slot_s:
+                    clash = True
+                    break
+            if not clash:
+                filtered_slots.append(s)
+        slots = filtered_slots
+
     return [{"start": s["start"], "end": s["end"]} for s in slots[:max_results]]
 
 
@@ -271,6 +325,9 @@ async def confirm_booking(
     # since (holds fail open when Redis is down).
     from . import ai_tools
 
+    buffer_before = timedelta(minutes=max(0, link.buffer_before_minutes))
+    buffer_after = timedelta(minutes=max(0, link.buffer_after_minutes))
+
     host_ctx_owner_ids: set[str] = set()
     _accounts = list((await session.execute(
         select(Account.id).where(Account.owner_user_id == host.id))).scalars())
@@ -279,8 +336,24 @@ async def confirm_booking(
             select(Calendar.id).where(Calendar.account_id.in_(_accounts)))).scalars())
     clashes = await ai_tools.get_conflicts(
         session, host_context(host), window_start=start, window_end=end,
-        owner_calendar_ids=host_ctx_owner_ids)
+        owner_calendar_ids=host_ctx_owner_ids,
+        buffer_before=buffer_before, buffer_after=buffer_after)
     if clashes:
+        raise ValueError("That slot was just taken — pick another.")
+
+    # Check for clashes against pending bookings on the host's booking links
+    pending_clash_stmt = (
+        select(Booking)
+        .join(BookingLink, Booking.link_id == BookingLink.id)
+        .where(
+            BookingLink.owner_user_id == host.id,
+            Booking.status == BookingStatus.PENDING,
+            (Booking.start - buffer_after) < end,
+            (Booking.end + buffer_before) > start,
+        )
+    )
+    pending_clash = (await session.execute(pending_clash_stmt)).scalars().first()
+    if pending_clash:
         raise ValueError("That slot was just taken — pick another.")
 
     booking = Booking(
@@ -317,12 +390,31 @@ async def approve_booking(session: AsyncSession, booking: Booking) -> Booking:
     booking_end = _as_aware(booking.end)
     if booking_start < _now() + timedelta(minutes=link.min_notice_minutes):
         raise ValueError("This booking slot is no longer available.")
+    buffer_before = timedelta(minutes=max(0, link.buffer_before_minutes))
+    buffer_after = timedelta(minutes=max(0, link.buffer_after_minutes))
     owner_ids = await host_calendar_ids(session, host.id)
     if await ai_tools.get_conflicts(
         session, host_context(host), window_start=booking_start, window_end=booking_end,
         owner_calendar_ids=owner_ids,
+        buffer_before=buffer_before, buffer_after=buffer_after,
     ):
         raise ValueError("This booking slot is no longer available because it conflicts with another event.")
+
+    # Check for conflicts against other pending bookings
+    other_pending_stmt = (
+        select(Booking)
+        .join(BookingLink, Booking.link_id == BookingLink.id)
+        .where(
+            BookingLink.owner_user_id == host.id,
+            Booking.status == BookingStatus.PENDING,
+            Booking.id != booking.id,
+            (Booking.start - buffer_after) < booking_end,
+            (Booking.end + buffer_before) > booking_start,
+        )
+    )
+    if (await session.execute(other_pending_stmt)).scalars().first():
+        raise ValueError("This booking slot is no longer available because it conflicts with another pending booking.")
+
     event = await _book_event(session, link, host, booking.booker_name,
                               booking.booker_email, booking.note,
                               booking_start, booking_end)

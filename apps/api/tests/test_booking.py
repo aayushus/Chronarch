@@ -416,3 +416,109 @@ async def test_booking_link_availability_calendar_ids(session):
     )
     assert not any(s["start"] == slot_time for s in slots_both), "slot should be blocked by event in cal_personal"
 
+
+async def test_pending_booking_blocks_availability_and_prevents_double_booking(session):
+    """Pending bookings (awaiting host approval) must block open slots and prevent
+    another user from booking that same slot or overlapping buffered window.
+    """
+    user, calendar = await _host(session, email="host-pending@x.com")
+    link = await _link(session, user, calendar, slug="pending-block", approval_required=True)
+    row = await _row(session, link)
+
+    day = _next_weekday(2, timezone.utc)
+    slot1 = day + timedelta(hours=14)
+
+    # User 1 holds and confirms slot1 -> status is PENDING
+    held1 = await pub.hold_slot("pending-block", HoldRequest(slot_start=slot1), session=session)
+    conf1 = await pub.confirm_slot(
+        "pending-block",
+        ConfirmRequest(hold_token=held1["hold_token"], slot_start=slot1, name="Guest 1", email="guest1@x.com"),
+        session=session,
+    )
+    assert conf1["status"] == "pending"
+
+    # User 2 checks open slots: slot1 must NOT be in open_slots
+    slots = await _booking.open_slots(session, row, slot1 - timedelta(hours=1), slot1 + timedelta(hours=2))
+    assert not any(s["start"] == slot1 for s in slots), "pending booking must block availability in open_slots"
+
+    # If User 2 tries to hold slot1 directly, hold_slot must fail with 409
+    with pytest.raises(HTTPException) as exc:
+        await pub.hold_slot("pending-block", HoldRequest(slot_start=slot1), session=session)
+    assert exc.value.status_code == 409
+
+
+async def test_buffer_enforcement_in_confirm_and_approve(session):
+    """Buffers before and after configured on the link must be enforced on confirmation
+    even if an event ended right before the requested slot start.
+    """
+    from chronarch_core.models.event import UnifiedEvent
+
+    user, calendar = await _host(session, email="host-buffer@x.com")
+    calendar.blocks_availability = True
+    session.add(calendar)
+    await session.flush()
+    # Link with 15-minute buffer before
+    link = await _link(session, user, calendar, slug="buf-link", buffer_before_minutes=15)
+    row = await _row(session, link)
+
+    day = _next_weekday(2, timezone.utc)
+    meeting_end = day + timedelta(hours=14, minutes=0)
+    meeting_start = meeting_end - timedelta(minutes=30)
+
+    # An existing calendar event from 13:30 to 14:00
+    ev = UnifiedEvent(
+        id="ev-buf-test",
+        calendar_id=calendar.id,
+        provider_account_id=calendar.account_id,
+        provider_event_id="pe-buf-test",
+        title="Prior Call",
+        start=meeting_start,
+        end=meeting_end,
+    )
+    session.add(ev)
+    await session.flush()
+
+    # Slot at 14:00 has buffer conflict because 14:00 - 15m buffer overlaps with prior call
+    slot_at_14 = meeting_end
+    slots = await _booking.open_slots(session, row, meeting_start, meeting_end + timedelta(hours=2))
+    assert not any(s["start"] == slot_at_14 for s in slots)
+
+    # If a rogue client acquires a hold and attempts to confirm 14:00 directly, confirm_booking raises ValueError
+    hold_token = await _booking.HoldStore().acquire(row.id, slot_at_14)
+    with pytest.raises(ValueError, match="That slot was just taken"):
+        await _booking.confirm_booking(
+            session, row, slot_at_14, name="Rogue Guest", email="rogue@x.com"
+        )
+
+
+async def test_active_holds_filtered_from_get_slots(session):
+    """When a hold is active on a slot, GET /{slug}/slots must not include that slot."""
+    user, calendar = await _host(session, email="host-holds@x.com")
+    link = await _link(session, user, calendar, slug="filter-holds")
+    row = await _row(session, link)
+
+    day = _next_weekday(2, timezone.utc)
+    slot = day + timedelta(hours=11)
+
+    # Pre-check: slot is open
+    res_before = await pub.link_slots(
+        "filter-holds",
+        date_from=day.isoformat(),
+        date_to=(day + timedelta(days=1)).isoformat(),
+        session=session,
+    )
+    assert any(s["start"] == slot for s in res_before["slots"])
+
+    # Hold the slot
+    held = await pub.hold_slot("filter-holds", HoldRequest(slot_start=slot), session=session)
+    assert "hold_token" in held
+
+    # Post-check: slot is now filtered out from GET slots
+    res_after = await pub.link_slots(
+        "filter-holds",
+        date_from=day.isoformat(),
+        date_to=(day + timedelta(days=1)).isoformat(),
+        session=session,
+    )
+    assert not any(s["start"] == slot for s in res_after["slots"]), "held slot must be filtered out"
+

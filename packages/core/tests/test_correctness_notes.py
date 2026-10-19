@@ -153,8 +153,9 @@ def test_working_hours_full_day_end_at_24():
         working_hours=(0, 24),
     )
 
-    assert len(slots) == 1
+    assert len(slots) == 8
     assert slots[0].start == gap_start
+    assert slots[-1].end == gap_end
 
 
 def test_working_hours_yields_one_slot_per_day_across_dst():
@@ -164,11 +165,16 @@ def test_working_hours_yields_one_slot_per_day_across_dst():
 
     slots = find_free_slots(
         gap_start, gap_end, timedelta(minutes=60), [], {"c"},
-        working_hours=(9, 17), max_results=10,
+        working_hours=(9, 17), max_results=30,
     )
 
-    assert [s.start.date().isoformat() for s in slots] == ["2026-03-07", "2026-03-08", "2026-03-09"]
-    assert all(s.start.hour == 9 and s.start.minute == 0 for s in slots)
+    # 3 days * 8 1-hour slots per day = 24 slots across DST transition
+    assert len(slots) == 24
+    dates = {s.start.date().isoformat() for s in slots}
+    assert dates == {"2026-03-07", "2026-03-08", "2026-03-09"}
+    # Starts tile 9..16:00 each day
+    assert slots[0].start.hour == 9 and slots[0].start.minute == 0
+    assert slots[7].start.hour == 16 and slots[7].start.minute == 0
 
 
 # --- non-owner executive + MCP owner-gating -----------------------------------

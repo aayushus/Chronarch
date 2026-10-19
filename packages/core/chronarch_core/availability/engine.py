@@ -72,13 +72,20 @@ def find_conflicts(
     events: list,
     blocking_calendar_ids: set[str],
     exclude_event_id: str | None = None,
+    buffer_before: timedelta = timedelta(0),
+    buffer_after: timedelta = timedelta(0),
 ) -> list[BusyInterval]:
-    """Return busy intervals that overlap the proposed [start, end) window."""
+    """Return busy intervals that overlap the proposed [start, end) window,
+    optionally expanding busy intervals by buffer_before/buffer_after.
+    """
     intervals = compute_busy_intervals(events, blocking_calendar_ids)
+    # If buffers are specified, pad busy intervals: [s - buffer_before, e + buffer_after)
     return [
         iv
         for iv in intervals
-        if iv.event_id != exclude_event_id and iv.start < proposed_end and iv.end > proposed_start
+        if iv.event_id != exclude_event_id
+        and (iv.start - buffer_after) < proposed_end
+        and (iv.end + buffer_before) > proposed_start
     ]
 
 
@@ -107,11 +114,14 @@ def find_free_slots(
     busy = merge_intervals(compute_busy_intervals(events, blocking_calendar_ids))
 
     # Apply buffer by padding each busy interval.
+    # To protect prospective slots with buffer_before and buffer_after:
+    # A preceding busy interval cannot end within buffer_before of a slot start -> busy end expands by buffer_before.
+    # A succeeding busy interval cannot start within buffer_after of a slot end -> busy start expands backward by buffer_after.
     before = buffer_before if buffer_before is not None else buffer
     after = buffer_after if buffer_after is not None else buffer
     if before.total_seconds() > 0 or after.total_seconds() > 0:
         busy = merge_intervals(
-            [BusyInterval(s - before, e + after, "", "") for s, e in busy]
+            [BusyInterval(s - after, e + before, "", "") for s, e in busy]
         )
 
     earliest = window_start
@@ -170,10 +180,11 @@ def _slice_by_working_hours(
                 if end_hour == 24
                 else day_cursor.replace(hour=end_hour, minute=end_minute, second=0, microsecond=0)
             )
-            slot_start = max(day_cursor, day_start)
-            slot_end = min(gap_end, day_end)
-            if slot_end - slot_start >= duration:
-                results.append(FreeSlot(slot_start, slot_start + duration))
+            slot_cursor = max(day_cursor, day_start)
+            window_end = min(gap_end, day_end)
+            while slot_cursor + duration <= window_end:
+                results.append(FreeSlot(slot_cursor, slot_cursor + duration))
+                slot_cursor += duration
             day_cursor = (day_cursor + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         return results
 
@@ -199,10 +210,12 @@ def _slice_by_working_hours(
             day_end = datetime.combine(day + one_day, _time(0, 0), tzinfo=tz)
         else:
             day_end = datetime.combine(day, _time(end_hour, end_minute), tzinfo=tz)
-        slot_start = max(gap_start, day_start)
-        slot_end = min(gap_end, day_end)
-        if slot_end - slot_start >= duration:
-            results.append(FreeSlot(slot_start, slot_start + duration))
+        window_start = max(gap_start, day_start)
+        window_end = min(gap_end, day_end)
+        slot_cursor = window_start
+        while slot_cursor + duration <= window_end:
+            results.append(FreeSlot(slot_cursor, slot_cursor + duration))
+            slot_cursor += duration
         day += one_day
 
     return results
